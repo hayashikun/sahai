@@ -1,5 +1,53 @@
-import { type Status, Task, type Task as TaskType } from "shared/schemas";
-import { apiPost, apiPut } from "./client";
+import {
+  Repository,
+  RepositoryArray,
+  type Repository as RepositoryType,
+  type Status,
+  Task,
+  type Task as TaskType,
+} from "shared/schemas";
+import { apiDelete, apiPost, apiPut, fetcher } from "./client";
+
+// Repository CRUD operations
+
+export async function getRepositories(): Promise<RepositoryType[]> {
+  const data = await fetcher("/repositories");
+  return RepositoryArray.parse(data);
+}
+
+export async function getRepository(
+  repositoryId: string,
+): Promise<RepositoryType> {
+  const data = await fetcher(`/repositories/${repositoryId}`);
+  return Repository.parse(data);
+}
+
+export interface CreateRepositoryInput {
+  name: string;
+  path: string;
+  defaultBranch?: string;
+}
+
+export async function createRepository(
+  input: CreateRepositoryInput,
+): Promise<RepositoryType> {
+  const data = await apiPost("/repositories", input);
+  return Repository.parse(data);
+}
+
+export async function updateRepository(
+  repositoryId: string,
+  updates: { name?: string; path?: string; defaultBranch?: string },
+): Promise<RepositoryType> {
+  const data = await apiPut(`/repositories/${repositoryId}`, updates);
+  return Repository.parse(data);
+}
+
+export async function deleteRepository(repositoryId: string): Promise<void> {
+  await apiDelete(`/repositories/${repositoryId}`);
+}
+
+// Task operations for repositories
 
 export interface CreateTaskInput {
   title: string;

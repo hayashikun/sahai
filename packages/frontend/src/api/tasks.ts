@@ -5,7 +5,7 @@ import {
   Task,
   type Task as TaskType,
 } from "shared/schemas";
-import { apiPost, fetcher } from "./client";
+import { apiDelete, apiPost, fetcher } from "./client";
 
 export async function getTask(taskId: string): Promise<TaskType> {
   const data = await fetcher(`/tasks/${taskId}`);
@@ -60,6 +60,10 @@ export async function recreateTask(
 export async function getTaskDiff(taskId: string): Promise<string> {
   const data = (await fetcher(`/tasks/${taskId}/diff`)) as { diff: string };
   return data.diff;
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  await apiDelete(`/tasks/${taskId}`);
 }
 
 // SSE stream URL for logs
