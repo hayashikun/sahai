@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components";
-import { Home, ProjectDetail, ProjectList } from "./pages";
+import { Home, ProjectDetail, ProjectList, RepositoryDetail } from "./pages";
 
 export function App() {
   return (
@@ -22,6 +22,14 @@ export function App() {
             element={
               <Suspense fallback={<div>Loading...</div>}>
                 <ProjectDetail />
+              </Suspense>
+            }
+          />
+          <Route
+            path="repositories/:repositoryId"
+            element={
+              <Suspense fallback={<div>Loading...</div>}>
+                <RepositoryDetail />
               </Suspense>
             }
           />
