@@ -13,10 +13,13 @@ export function useProjects() {
 }
 
 export function useProject(id: string) {
-  const { data } = useSWR(`/projects/${id}`, fetcher, {
+  const { data, mutate } = useSWR(`/projects/${id}`, fetcher, {
     suspense: true,
   });
-  return Project.parse(data);
+  return {
+    project: Project.parse(data),
+    mutate,
+  };
 }
 
 export function useProjectRepositories(projectId: string) {
