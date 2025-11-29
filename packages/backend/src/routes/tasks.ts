@@ -5,7 +5,7 @@ import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
 import type { Executor } from "../executors/interface";
-import { createBranch, deleteBranch } from "../services/git";
+import { createBranch, deleteBranch, getDiff } from "../services/git";
 import { createWorktree, deleteWorktree } from "../services/worktree";
 
 // In-memory store for active executors
@@ -199,6 +199,38 @@ taskById.get("/:id/logs", async (c) => {
     .orderBy(desc(executionLogs.createdAt));
 
   return c.json(logs);
+});
+
+// GET /v1/tasks/:id/diff - Get diff from base branch
+taskById.get("/:id/diff", async (c) => {
+  const id = c.req.param("id");
+
+  // Get task
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+
+  const task = taskResult[0];
+
+  // Get repository info
+  const repoResult = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, task.repositoryId));
+
+  if (repoResult.length === 0) {
+    return c.json({ error: "Repository not found" }, 404);
+  }
+
+  const repo = repoResult[0];
+
+  try {
+    const diff = await getDiff(repo.path, task.baseBranch, task.branchName);
+    return c.json({ diff });
+  } catch (error) {
+    return c.json({ error: `Failed to get diff: ${error}` }, 500);
+  }
 });
 
 // GET /v1/tasks/:id/logs/stream - Stream execution logs via SSE
