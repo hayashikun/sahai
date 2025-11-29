@@ -8,8 +8,8 @@ export const Status = {
 export type Status = (typeof Status)[keyof typeof Status];
 
 export const Executor = {
-  CLAUDE_CODE: "CLAUDE_CODE",
-  CODEX: "CODEX",
+  ClaudeCode: "ClaudeCode",
+  Codex: "Codex",
 } as const;
 
 export type Executor = (typeof Executor)[keyof typeof Executor];
