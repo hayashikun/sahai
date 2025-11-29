@@ -1,3 +1,14 @@
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle,
+  GitBranch,
+  Loader2,
+  Pause,
+  Play,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ExecutionLog, Status, Task } from "shared/schemas";
@@ -10,19 +21,35 @@ import {
   startTask,
 } from "../api";
 import { DiffView } from "../components";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { Textarea } from "../components/ui/textarea";
 import { useTaskWithRealtimeLogs } from "../hooks";
+import { cn } from "../lib/utils";
 
 export function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
 
   if (!taskId) {
-    return <div>Task ID is required</div>;
+    return (
+      <div className="text-center py-10 text-gray-500">Task ID is required</div>
+    );
   }
 
   return <TaskDetailContent taskId={taskId} />;
 }
-
-type TabType = "logs" | "diff";
 
 function TaskDetailContent({ taskId }: { taskId: string }) {
   const { task, mutateTask, logs, connected, error } =
@@ -31,14 +58,12 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState("");
   const [showResumeForm, setShowResumeForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>("logs");
   const [diff, setDiff] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffError, setDiffError] = useState<string | null>(null);
 
-  // Load diff when switching to diff tab or when task status changes
   useEffect(() => {
-    if (activeTab === "diff" && task.status !== "TODO") {
+    if (task.status !== "TODO") {
       setDiffLoading(true);
       setDiffError(null);
       getTaskDiff(taskId)
@@ -48,7 +73,7 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
         })
         .finally(() => setDiffLoading(false));
     }
-  }, [activeTab, taskId, task.status]);
+  }, [taskId, task.status]);
 
   const handleAction = async (
     action: () => Promise<Task>,
@@ -78,23 +103,20 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   };
 
   return (
-    <div>
-      <Link to={`/repositories/${task.repositoryId}`}>
-        &larr; Back to Tasks
-      </Link>
+    <div className="space-y-6">
+      <div>
+        <Button variant="ghost" size="sm" asChild className="mb-4">
+          <Link to={`/repositories/${task.repositoryId}`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Tasks
+          </Link>
+        </Button>
 
-      <TaskInfo task={task} />
+        <TaskInfo task={task} />
+      </div>
 
       {actionError && (
-        <div
-          style={{
-            color: "red",
-            padding: "8px",
-            margin: "16px 0",
-            border: "1px solid red",
-            borderRadius: "4px",
-          }}
-        >
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
           {actionError}
         </div>
       )}
@@ -119,99 +141,94 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
         onResumeMessageChange={setResumeMessage}
       />
 
-      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {activeTab === "logs" && (
-        <ExecutionLogs logs={logs} connected={connected} error={error} />
-      )}
-
-      {activeTab === "diff" && (
-        <DiffSection
-          task={task}
-          diff={diff}
-          loading={diffLoading}
-          error={diffError}
-        />
-      )}
+      <Tabs defaultValue="logs">
+        <TabsList>
+          <TabsTrigger value="logs">Execution Logs</TabsTrigger>
+          <TabsTrigger value="diff">Diff View</TabsTrigger>
+        </TabsList>
+        <TabsContent value="logs">
+          <ExecutionLogs logs={logs} connected={connected} error={error} />
+        </TabsContent>
+        <TabsContent value="diff">
+          <DiffSection
+            task={task}
+            diff={diff}
+            loading={diffLoading}
+            error={diffError}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
 function TaskInfo({ task }: { task: Task }) {
-  const statusColors: Record<Status, string> = {
-    TODO: "#6b7280",
-    InProgress: "#3b82f6",
-    InReview: "#f59e0b",
-    Done: "#10b981",
+  const statusVariant: Record<
+    Status,
+    "default" | "secondary" | "warning" | "success"
+  > = {
+    TODO: "secondary",
+    InProgress: "default",
+    InReview: "warning",
+    Done: "success",
   };
 
   return (
-    <section
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: "8px",
-        padding: "16px",
-        marginTop: "16px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <h2 style={{ margin: 0 }}>{task.title}</h2>
-        <span
-          style={{
-            backgroundColor: statusColors[task.status],
-            color: "white",
-            padding: "4px 12px",
-            borderRadius: "16px",
-            fontSize: "14px",
-            fontWeight: "bold",
-          }}
-        >
-          {task.status}
-        </span>
-      </div>
-
-      {task.description && (
-        <p style={{ color: "#4b5563", marginTop: "8px" }}>{task.description}</p>
-      )}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "16px",
-          marginTop: "16px",
-          fontSize: "14px",
-        }}
-      >
-        <InfoItem label="Executor" value={task.executor} />
-        <InfoItem label="Branch" value={task.branchName} />
-        <InfoItem label="Base Branch" value={task.baseBranch} />
-        {task.worktreePath && (
-          <InfoItem label="Worktree" value={task.worktreePath} />
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <CardTitle className="text-2xl">{task.title}</CardTitle>
+          <Badge variant={statusVariant[task.status]}>{task.status}</Badge>
+        </div>
+        {task.description && (
+          <p className="text-gray-500">{task.description}</p>
         )}
-        <InfoItem label="Created" value={formatDate(task.createdAt)} />
-        {task.startedAt && (
-          <InfoItem label="Started" value={formatDate(task.startedAt)} />
-        )}
-        {task.completedAt && (
-          <InfoItem label="Completed" value={formatDate(task.completedAt)} />
-        )}
-      </div>
-    </section>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <InfoItem label="Executor" value={task.executor} />
+          <InfoItem
+            label="Branch"
+            value={task.branchName}
+            icon={<GitBranch className="h-4 w-4" />}
+          />
+          <InfoItem label="Base Branch" value={task.baseBranch} />
+          {task.worktreePath && (
+            <InfoItem label="Worktree" value={task.worktreePath} />
+          )}
+          <InfoItem
+            label="Created"
+            value={formatDate(task.createdAt)}
+            icon={<Calendar className="h-4 w-4" />}
+          />
+          {task.startedAt && (
+            <InfoItem label="Started" value={formatDate(task.startedAt)} />
+          )}
+          {task.completedAt && (
+            <InfoItem label="Completed" value={formatDate(task.completedAt)} />
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+function InfoItem({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}) {
   return (
-    <div>
-      <span style={{ color: "#6b7280" }}>{label}: </span>
-      <span style={{ fontWeight: 500 }}>{value}</span>
+    <div className="space-y-1">
+      <p className="text-gray-500 text-xs">{label}</p>
+      <p className="font-medium flex items-center gap-1">
+        {icon}
+        <span className="truncate">{value}</span>
+      </p>
     </div>
   );
 }
@@ -245,141 +262,87 @@ function TaskActions({
   onCancelResume,
   onResumeMessageChange,
 }: TaskActionsProps) {
-  const buttonStyle = {
-    padding: "8px 16px",
-    borderRadius: "4px",
-    border: "none",
-    cursor: loading ? "not-allowed" : "pointer",
-    fontWeight: 500,
-    marginRight: "8px",
-  };
-
-  const primaryButton = {
-    ...buttonStyle,
-    backgroundColor: "#3b82f6",
-    color: "white",
-  };
-
-  const secondaryButton = {
-    ...buttonStyle,
-    backgroundColor: "#e5e7eb",
-    color: "#374151",
-  };
-
-  const successButton = {
-    ...buttonStyle,
-    backgroundColor: "#10b981",
-    color: "white",
-  };
-
-  const dangerButton = {
-    ...buttonStyle,
-    backgroundColor: "#ef4444",
-    color: "white",
-  };
-
   return (
-    <section style={{ marginTop: "24px" }}>
-      <h3>Actions</h3>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-        {task.status === "TODO" && (
-          <button
-            type="button"
-            style={primaryButton}
-            onClick={onStart}
-            disabled={loading}
-          >
-            Start Task
-          </button>
-        )}
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Actions</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {task.status === "TODO" && (
+            <Button onClick={onStart} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="mr-2 h-4 w-4" />
+              )}
+              Start Task
+            </Button>
+          )}
 
-        {task.status === "InProgress" && (
-          <>
-            <button
-              type="button"
-              style={secondaryButton}
-              onClick={onPause}
-              disabled={loading}
-            >
-              Pause
-            </button>
-            <button
-              type="button"
-              style={successButton}
-              onClick={onComplete}
-              disabled={loading}
-            >
-              Mark Complete
-            </button>
-          </>
-        )}
+          {task.status === "InProgress" && (
+            <>
+              <Button variant="secondary" onClick={onPause} disabled={loading}>
+                <Pause className="mr-2 h-4 w-4" />
+                Pause
+              </Button>
+              <Button
+                variant="default"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={onComplete}
+                disabled={loading}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Mark Complete
+              </Button>
+            </>
+          )}
 
-        {(task.status === "InProgress" || task.status === "InReview") &&
-          (!showResumeForm ? (
-            <button
-              type="button"
-              style={primaryButton}
-              onClick={onShowResumeForm}
-              disabled={loading}
-            >
-              Resume with Message
-            </button>
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                marginTop: "8px",
-                padding: "12px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "4px",
-              }}
-            >
-              <textarea
-                value={resumeMessage}
-                onChange={(e) => onResumeMessageChange(e.target.value)}
-                placeholder="Enter additional instructions (optional)..."
-                style={{
-                  width: "100%",
-                  minHeight: "80px",
-                  padding: "8px",
-                  borderRadius: "4px",
-                  border: "1px solid #d1d5db",
-                  marginBottom: "8px",
-                }}
-              />
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  type="button"
-                  style={primaryButton}
-                  onClick={onResume}
-                  disabled={loading}
-                >
-                  Resume
-                </button>
-                <button
-                  type="button"
-                  style={secondaryButton}
-                  onClick={onCancelResume}
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-              </div>
+          {(task.status === "InProgress" || task.status === "InReview") &&
+            !showResumeForm && (
+              <Button
+                variant="outline"
+                onClick={onShowResumeForm}
+                disabled={loading}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Resume with Message
+              </Button>
+            )}
+
+          {task.status === "InReview" && (
+            <Button variant="destructive" onClick={onFinish} disabled={loading}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Finish (Delete Branch)
+            </Button>
+          )}
+        </div>
+
+        {showResumeForm && (
+          <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+            <Textarea
+              value={resumeMessage}
+              onChange={(e) => onResumeMessageChange(e.target.value)}
+              placeholder="Enter additional instructions (optional)..."
+              rows={3}
+            />
+            <div className="flex gap-2">
+              <Button onClick={onResume} disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Resume
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onCancelResume}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
             </div>
-          ))}
-
-        {task.status === "InReview" && (
-          <button
-            type="button"
-            style={dangerButton}
-            onClick={onFinish}
-            disabled={loading}
-          >
-            Finish (Delete Branch)
-          </button>
+          </div>
         )}
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -390,166 +353,66 @@ interface ExecutionLogsProps {
 }
 
 function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
-  const logTypeColors: Record<string, string> = {
-    stdout: "#1f2937",
-    stderr: "#dc2626",
-    system: "#6b7280",
-  };
-
-  const logTypeBgColors: Record<string, string> = {
-    stdout: "#f9fafb",
-    stderr: "#fef2f2",
-    system: "#f3f4f6",
-  };
-
   return (
-    <section style={{ marginTop: "24px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "12px",
-        }}
-      >
-        <h3 style={{ margin: 0 }}>Execution Logs</h3>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              backgroundColor: connected ? "#10b981" : "#ef4444",
-            }}
-          />
-          <span style={{ fontSize: "12px", color: "#6b7280" }}>
-            {connected ? "Live" : "Disconnected"}
-          </span>
-        </div>
-      </div>
-
-      {error && (
-        <div
-          style={{
-            color: "#f59e0b",
-            fontSize: "12px",
-            marginBottom: "8px",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div
-        style={{
-          border: "1px solid #e5e7eb",
-          borderRadius: "8px",
-          maxHeight: "500px",
-          overflow: "auto",
-        }}
-      >
-        {logs.length === 0 ? (
-          <div
-            style={{
-              padding: "24px",
-              textAlign: "center",
-              color: "#6b7280",
-            }}
-          >
-            No logs yet. Start the task to see execution logs.
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">Execution Logs</CardTitle>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                connected ? "bg-green-500" : "bg-red-500",
+              )}
+            />
+            <span className="text-xs text-gray-500">
+              {connected ? "Live" : "Disconnected"}
+            </span>
           </div>
-        ) : (
-          logs.map((log) => (
-            <div
-              key={log.id}
-              style={{
-                padding: "8px 12px",
-                borderBottom: "1px solid #e5e7eb",
-                backgroundColor: logTypeBgColors[log.logType] ?? "#f9fafb",
-                fontFamily: "monospace",
-                fontSize: "13px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: "4px",
-                }}
-              >
-                <span
-                  style={{
-                    color: logTypeColors[log.logType] ?? "#1f2937",
-                    fontWeight: 600,
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {log.logType}
-                </span>
-                <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                  {formatTime(log.createdAt)}
-                </span>
-              </div>
-              <pre
-                style={{
-                  margin: 0,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  color: logTypeColors[log.logType] ?? "#1f2937",
-                }}
-              >
-                {log.content}
-              </pre>
+        </div>
+        {error && <p className="text-xs text-yellow-600">{error}</p>}
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-lg border border-gray-200 max-h-[500px] overflow-auto">
+          {logs.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              No logs yet. Start the task to see execution logs.
             </div>
-          ))
-        )}
-      </div>
-    </section>
-  );
-}
-
-interface TabNavigationProps {
-  activeTab: TabType;
-  onTabChange: (tab: TabType) => void;
-}
-
-function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
-  const tabStyle = (isActive: boolean) => ({
-    padding: "8px 16px",
-    border: "none",
-    borderBottom: isActive ? "2px solid #3b82f6" : "2px solid transparent",
-    backgroundColor: "transparent",
-    color: isActive ? "#3b82f6" : "#6b7280",
-    fontWeight: isActive ? 600 : 400,
-    cursor: "pointer",
-    fontSize: "14px",
-  });
-
-  return (
-    <div
-      style={{
-        marginTop: "24px",
-        borderBottom: "1px solid #e5e7eb",
-        display: "flex",
-        gap: "8px",
-      }}
-    >
-      <button
-        type="button"
-        style={tabStyle(activeTab === "logs")}
-        onClick={() => onTabChange("logs")}
-      >
-        Execution Logs
-      </button>
-      <button
-        type="button"
-        style={tabStyle(activeTab === "diff")}
-        onClick={() => onTabChange("diff")}
-      >
-        Diff View
-      </button>
-    </div>
+          ) : (
+            logs.map((log) => (
+              <div
+                key={log.id}
+                className={cn(
+                  "px-3 py-2 border-b border-gray-100 last:border-b-0 font-mono text-xs",
+                  log.logType === "stdout" && "bg-white",
+                  log.logType === "stderr" && "bg-red-50",
+                  log.logType === "system" && "bg-gray-50",
+                )}
+              >
+                <div className="flex justify-between mb-1">
+                  <span
+                    className={cn(
+                      "font-semibold uppercase text-[10px]",
+                      log.logType === "stdout" && "text-gray-900",
+                      log.logType === "stderr" && "text-red-600",
+                      log.logType === "system" && "text-gray-500",
+                    )}
+                  >
+                    {log.logType}
+                  </span>
+                  <span className="text-gray-500 text-[10px]">
+                    {formatTime(log.createdAt)}
+                  </span>
+                </div>
+                <pre className="whitespace-pre-wrap break-words">
+                  {log.content}
+                </pre>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -563,61 +426,38 @@ interface DiffSectionProps {
 function DiffSection({ task, diff, loading, error }: DiffSectionProps) {
   if (task.status === "TODO") {
     return (
-      <section style={{ marginTop: "16px" }}>
-        <div
-          style={{
-            padding: "24px",
-            textAlign: "center",
-            color: "#6b7280",
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-          }}
-        >
+      <Card>
+        <CardContent className="py-10 text-center text-gray-500">
           Start the task to see the diff
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     );
   }
 
   if (loading) {
     return (
-      <section style={{ marginTop: "16px" }}>
-        <div
-          style={{
-            padding: "24px",
-            textAlign: "center",
-            color: "#6b7280",
-          }}
-        >
+      <Card>
+        <CardContent className="py-10 text-center text-gray-500">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
           Loading diff...
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <section style={{ marginTop: "16px" }}>
-        <div
-          style={{
-            padding: "16px",
-            color: "#dc2626",
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fecaca",
-            borderRadius: "8px",
-          }}
-        >
-          Error loading diff: {error}
-        </div>
-      </section>
+      <Card>
+        <CardContent className="py-6">
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+            Error loading diff: {error}
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
-  return (
-    <section style={{ marginTop: "16px" }}>
-      <DiffView diff={diff ?? ""} />
-    </section>
-  );
+  return <DiffView diff={diff ?? ""} />;
 }
 
 function formatDate(date: Date): string {

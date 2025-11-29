@@ -1,6 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import type { ReactNode } from "react";
 import type { Status } from "shared/schemas";
+import { cn } from "../lib/utils";
 
 interface DroppableColumnProps {
   status: Status;
@@ -21,31 +22,25 @@ export function DroppableColumn({
     id: status,
   });
 
-  const getBackgroundColor = () => {
-    if (!isActive) return "#f5f5f5";
-    if (isOver && isValidDrop) return "#d4edda";
-    if (isOver && !isValidDrop) return "#f8d7da";
-    if (isValidDrop) return "#e8f5e9";
-    return "#f5f5f5";
-  };
-
   return (
     <div
       ref={setNodeRef}
-      style={{
-        backgroundColor: getBackgroundColor(),
-        borderRadius: "4px",
-        padding: "8px",
-        minHeight: "200px",
-        transition: "background-color 0.2s ease",
-        border:
-          isOver && isValidDrop
-            ? "2px dashed #28a745"
-            : "2px solid transparent",
-      }}
+      className={cn(
+        "rounded-lg p-3 min-h-[200px] transition-colors border-2",
+        !isActive && "bg-gray-100/50 border-transparent",
+        isActive && !isValidDrop && "bg-gray-100/50 border-transparent",
+        isActive && isValidDrop && !isOver && "bg-green-50 border-transparent",
+        isActive &&
+          isValidDrop &&
+          isOver &&
+          "bg-green-100 border-dashed border-green-500",
+        isActive && !isValidDrop && isOver && "bg-red-50 border-transparent",
+      )}
     >
-      <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>{label}</h4>
-      {children}
+      <h4 className="text-sm font-semibold text-center mb-3 text-gray-500">
+        {label}
+      </h4>
+      <div className="space-y-2">{children}</div>
     </div>
   );
 }

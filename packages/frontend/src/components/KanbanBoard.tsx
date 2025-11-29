@@ -89,13 +89,7 @@ export function KanbanBoard({ tasks, onTaskUpdate }: KanbanBoardProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "16px",
-        }}
-      >
+      <div className="grid grid-cols-4 gap-4">
         {COLUMNS.map((column) => (
           <DroppableColumn
             key={column.status}

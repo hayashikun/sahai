@@ -1,7 +1,10 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { GitBranch } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Task } from "shared/schemas";
+import { cn } from "../lib/utils";
+import { Card, CardContent } from "./ui/card";
 
 interface TaskCardProps {
   task: Task;
@@ -10,36 +13,33 @@ interface TaskCardProps {
 
 export function TaskCard({ task, isDragging }: TaskCardProps) {
   return (
-    <div
-      style={{
-        border: "1px solid #ccc",
-        borderRadius: "4px",
-        padding: "8px",
-        marginBottom: "8px",
-        backgroundColor: "#fff",
-        opacity: isDragging ? 0.8 : 1,
-        boxShadow: isDragging ? "0 4px 8px rgba(0,0,0,0.2)" : "none",
-      }}
+    <Card
+      className={cn("transition-shadow", isDragging && "opacity-80 shadow-lg")}
     >
-      <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+      <CardContent className="p-3">
         <Link
           to={`/tasks/${task.id}`}
-          style={{ color: "inherit", textDecoration: "none" }}
+          className="font-medium text-sm hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
           {task.title}
         </Link>
-      </div>
-      {task.description && (
-        <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
-          {task.description}
+        {task.description && (
+          <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+            {task.description}
+          </p>
+        )}
+        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+          <span className="bg-gray-100 px-1.5 py-0.5 rounded">
+            {task.executor}
+          </span>
+          <span className="flex items-center gap-1">
+            <GitBranch className="h-3 w-3" />
+            {task.branchName}
+          </span>
         </div>
-      )}
-      <div style={{ fontSize: "11px", color: "#888" }}>
-        <span>{task.executor}</span>
-        <span style={{ marginLeft: "8px" }}>{task.branchName}</span>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -53,14 +53,17 @@ export function DraggableTaskCard({ task }: DraggableTaskCardProps) {
       id: task.id,
     });
 
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-    cursor: "grab",
-  };
-
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.5 : 1,
+        cursor: "grab",
+      }}
+      {...listeners}
+      {...attributes}
+    >
       <TaskCard task={task} />
     </div>
   );
