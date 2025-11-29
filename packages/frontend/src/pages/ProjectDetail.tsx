@@ -1,5 +1,26 @@
-import { ArrowLeft, Calendar, GitBranch, GitFork } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  Calendar,
+  GitBranch,
+  GitFork,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { deleteProject, updateProject } from "../api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -8,6 +29,18 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
 import { useProject, useProjectRepositories } from "../hooks";
 
 export function ProjectDetail() {
@@ -25,14 +58,59 @@ export function ProjectDetail() {
 }
 
 function ProjectDetailContent({ projectId }: { projectId: string }) {
-  const project = useProject(projectId);
+  const { project, mutate } = useProject(projectId);
   const repositories = useProjectRepositories(projectId);
+  const navigate = useNavigate();
 
-  if (!project) {
-    return (
-      <div className="text-center py-10 text-gray-500">Project not found</div>
-    );
-  }
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(project.name);
+  const [editDescription, setEditDescription] = useState(
+    project.description ?? "",
+  );
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleEdit = async () => {
+    if (!editName.trim()) return;
+
+    try {
+      setEditLoading(true);
+      setEditError(null);
+      await updateProject(projectId, {
+        name: editName.trim(),
+        description: editDescription.trim() || undefined,
+      });
+      mutate();
+      setEditOpen(false);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to update project");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      setDeleteLoading(true);
+      setDeleteError(null);
+      await deleteProject(projectId);
+      navigate("/projects");
+    } catch (e) {
+      setDeleteError(
+        e instanceof Error ? e.message : "Failed to delete project",
+      );
+      setDeleteLoading(false);
+    }
+  };
+
+  const resetEditForm = () => {
+    setEditName(project.name);
+    setEditDescription(project.description ?? "");
+    setEditError(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -52,6 +130,109 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
             {project.description && (
               <p className="text-gray-500 mt-1">{project.description}</p>
             )}
+          </div>
+          <div className="flex gap-2">
+            <Dialog
+              open={editOpen}
+              onOpenChange={(open) => {
+                setEditOpen(open);
+                if (open) resetEditForm();
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Project</DialogTitle>
+                  <DialogDescription>
+                    Update the project name and description.
+                  </DialogDescription>
+                </DialogHeader>
+                {editError && (
+                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                    {editError}
+                  </div>
+                )}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-name">Name</Label>
+                    <Input
+                      id="edit-name"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Project name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-description">Description</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Optional description"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditOpen(false)}
+                    disabled={editLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleEdit} disabled={editLoading}>
+                    {editLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Save Changes
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{project.name}"? This
+                    action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                {deleteError && (
+                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                    {deleteError}
+                  </div>
+                )}
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleteLoading}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    disabled={deleteLoading}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    {deleteLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
