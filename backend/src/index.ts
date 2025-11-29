@@ -3,6 +3,7 @@ import { runMigrations } from "./db/client";
 import projectRepositories from "./routes/project-repositories";
 import projects from "./routes/projects";
 import repositories from "./routes/repositories";
+import { repositoryTasks, taskById } from "./routes/tasks";
 
 runMigrations();
 
@@ -19,6 +20,8 @@ app.get("/v1/health", (c) => {
 app.route("/v1/projects", projects);
 app.route("/v1/projects", projectRepositories);
 app.route("/v1/repositories", repositories);
+app.route("/v1/repositories", repositoryTasks);
+app.route("/v1/tasks", taskById);
 
 export default {
   port: 3001,
