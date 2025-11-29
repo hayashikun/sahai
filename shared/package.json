@@ -1,0 +1,7 @@
+{
+  "name": "shared",
+  "private": true,
+  "type": "module",
+  "main": "./types/index.ts",
+  "types": "./types/index.ts"
+}
