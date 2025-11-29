@@ -2,6 +2,8 @@
   "name": "shared",
   "private": true,
   "type": "module",
-  "main": "./types/index.ts",
-  "types": "./types/index.ts"
+  "exports": {
+    "./types": "./types/index.ts",
+    "./api": "./api/index.ts"
+  }
 }

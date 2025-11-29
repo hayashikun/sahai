@@ -1,24 +1,11 @@
-import type { Project, Repository } from "shared/types";
+import {
+  type ProjectResponse,
+  type RepositoryResponse,
+  toProject,
+  toRepository,
+} from "shared/api";
 import useSWR from "swr";
 import { fetcher } from "../api/client";
-import type { ProjectResponse, RepositoryResponse } from "../api/projects";
-
-function toProject(response: ProjectResponse): Project {
-  return {
-    ...response,
-    description: response.description ?? undefined,
-    createdAt: new Date(response.createdAt),
-    updatedAt: new Date(response.updatedAt),
-  };
-}
-
-function toRepository(response: RepositoryResponse): Repository {
-  return {
-    ...response,
-    createdAt: new Date(response.createdAt),
-    updatedAt: new Date(response.updatedAt),
-  };
-}
 
 export function useProjects() {
   const { data, mutate } = useSWR<ProjectResponse[]>("/projects", fetcher, {
