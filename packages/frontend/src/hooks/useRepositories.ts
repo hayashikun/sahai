@@ -1,6 +1,16 @@
-import { Repository, TaskArray } from "shared/schemas";
+import { Repository, RepositoryArray, TaskArray } from "shared/schemas";
 import useSWR from "swr";
 import { fetcher } from "../api/client";
+
+export function useRepositories() {
+  const { data, mutate } = useSWR("/repositories", fetcher, {
+    suspense: true,
+  });
+  return {
+    repositories: RepositoryArray.parse(data),
+    mutate,
+  };
+}
 
 export function useRepository(id: string) {
   const { data, mutate } = useSWR(`/repositories/${id}`, fetcher, {

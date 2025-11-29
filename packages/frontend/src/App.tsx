@@ -6,6 +6,7 @@ import {
   ProjectDetail,
   ProjectList,
   RepositoryDetail,
+  RepositoryList,
   TaskDetail,
 } from "./pages";
 
@@ -28,6 +29,14 @@ export function App() {
             element={
               <Suspense fallback={<div>Loading...</div>}>
                 <ProjectDetail />
+              </Suspense>
+            }
+          />
+          <Route
+            path="repositories"
+            element={
+              <Suspense fallback={<div>Loading...</div>}>
+                <RepositoryList />
               </Suspense>
             }
           />
