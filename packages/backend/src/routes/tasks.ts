@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
@@ -135,6 +135,26 @@ taskById.delete("/:id", async (c) => {
   await db.delete(tasks).where(eq(tasks.id, id));
 
   return c.json({ message: "Task deleted" });
+});
+
+// GET /v1/tasks/:id/logs - Get execution logs for a task
+taskById.get("/:id/logs", async (c) => {
+  const id = c.req.param("id");
+
+  // Check if task exists
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+
+  // Get logs ordered by createdAt descending (newest first)
+  const logs = await db
+    .select()
+    .from(executionLogs)
+    .where(eq(executionLogs.taskId, id))
+    .orderBy(desc(executionLogs.createdAt));
+
+  return c.json(logs);
 });
 
 // POST /v1/tasks/:id/start - Create worktree, start executor
