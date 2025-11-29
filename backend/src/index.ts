@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { runMigrations } from "./db/client";
+import projectRepositories from "./routes/project-repositories";
 import projects from "./routes/projects";
 import repositories from "./routes/repositories";
 
@@ -16,6 +17,7 @@ app.get("/v1/health", (c) => {
 });
 
 app.route("/v1/projects", projects);
+app.route("/v1/projects", projectRepositories);
 app.route("/v1/repositories", repositories);
 
 export default {
