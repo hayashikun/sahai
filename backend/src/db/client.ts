@@ -1,11 +1,12 @@
+import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "./schema";
 
-const DB_PATH = resolve(import.meta.dirname, "../../data/sahai.db");
+const DB_PATH =
+  process.env.DB_PATH ?? resolve(import.meta.dirname, "../../data/sahai.db");
 const MIGRATIONS_PATH = resolve(import.meta.dirname, "../../drizzle");
 
 function ensureDbDirectory(): void {
@@ -15,7 +16,7 @@ function ensureDbDirectory(): void {
   }
 }
 
-function createConnection(): Database.Database {
+function createConnection(): Database {
   ensureDbDirectory();
   return new Database(DB_PATH);
 }
