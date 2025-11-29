@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { runMigrations } from "./db/client";
+import filesystem from "./routes/filesystem";
 import projectRepositories from "./routes/project-repositories";
 import projects from "./routes/projects";
 import repositories from "./routes/repositories";
@@ -32,6 +33,7 @@ app.route("/v1/projects", projectRepositories);
 app.route("/v1/repositories", repositories);
 app.route("/v1/repositories", repositoryTasks);
 app.route("/v1/tasks", taskById);
+app.route("/v1/filesystem", filesystem);
 
 export default {
   port: 3001,
