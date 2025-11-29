@@ -29,3 +29,6 @@ bun.lock
 
 # Temporary
 tmp/
+
+# Database
+backend/data/

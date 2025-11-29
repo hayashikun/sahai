@@ -1,59 +1,81 @@
-export const schema = `
-CREATE TABLE IF NOT EXISTS projects (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+import { index, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const repositories = sqliteTable("repositories", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  path: text("path").notNull(),
+  defaultBranch: text("default_branch").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const projectRepositories = sqliteTable(
+  "project_repositories",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    repositoryId: text("repository_id")
+      .notNull()
+      .references(() => repositories.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.repositoryId] }),
+    index("idx_project_repositories_project_id").on(table.projectId),
+    index("idx_project_repositories_repository_id").on(table.repositoryId),
+  ],
 );
 
-CREATE TABLE IF NOT EXISTS repositories (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  path TEXT NOT NULL,
-  default_branch TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+export const tasks = sqliteTable(
+  "tasks",
+  {
+    id: text("id").primaryKey(),
+    repositoryId: text("repository_id")
+      .notNull()
+      .references(() => repositories.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status", {
+      enum: ["TODO", "InProgress", "InReview", "Done"],
+    }).notNull(),
+    executor: text("executor", {
+      enum: ["ClaudeCode", "Codex"],
+    }).notNull(),
+    branchName: text("branch_name").notNull(),
+    baseBranch: text("base_branch").notNull(),
+    worktreePath: text("worktree_path"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    startedAt: text("started_at"),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    index("idx_tasks_repository_id").on(table.repositoryId),
+    index("idx_tasks_status").on(table.status),
+  ],
 );
 
-CREATE TABLE IF NOT EXISTS project_repositories (
-  project_id TEXT NOT NULL,
-  repository_id TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  PRIMARY KEY (project_id, repository_id),
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+export const executionLogs = sqliteTable(
+  "execution_logs",
+  {
+    id: text("id").primaryKey(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    logType: text("log_type", {
+      enum: ["stdout", "stderr", "system"],
+    }).notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_execution_logs_task_id").on(table.taskId)],
 );
-
-CREATE TABLE IF NOT EXISTS tasks (
-  id TEXT PRIMARY KEY,
-  repository_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT NOT NULL CHECK (status IN ('TODO', 'InProgress', 'InReview', 'Done')),
-  executor TEXT NOT NULL CHECK (executor IN ('ClaudeCode', 'Codex')),
-  branch_name TEXT NOT NULL,
-  base_branch TEXT NOT NULL,
-  worktree_path TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  started_at TEXT,
-  completed_at TEXT,
-  FOREIGN KEY (repository_id) REFERENCES repositories(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS execution_logs (
-  id TEXT PRIMARY KEY,
-  task_id TEXT NOT NULL,
-  content TEXT NOT NULL,
-  log_type TEXT NOT NULL CHECK (log_type IN ('stdout', 'stderr', 'system')),
-  created_at TEXT NOT NULL,
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_project_repositories_project_id ON project_repositories(project_id);
-CREATE INDEX IF NOT EXISTS idx_project_repositories_repository_id ON project_repositories(repository_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_repository_id ON tasks(repository_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-CREATE INDEX IF NOT EXISTS idx_execution_logs_task_id ON execution_logs(task_id);
-`;
