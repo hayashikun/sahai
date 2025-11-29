@@ -131,13 +131,6 @@ describe("getDiff", () => {
     await $`git -C ${testRepoPath} add .`.quiet();
     await $`git -C ${testRepoPath} commit -m "Add diff file"`.quiet();
 
-    // Get the default branch name
-    const defaultBranch =
-      (await $`git -C ${testRepoPath} rev-parse --abbrev-ref HEAD`.quiet().text()) ===
-      "diff-branch"
-        ? "main"
-        : "master";
-
     // Go back to main/master
     await $`git -C ${testRepoPath} checkout main || git -C ${testRepoPath} checkout master`.quiet();
 
