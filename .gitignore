@@ -15,7 +15,6 @@ build/
 npm-debug.log*
 
 # Editor
-.vscode/
 .idea/
 *.swp
 *.swo

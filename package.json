@@ -1,10 +1,19 @@
 {
   "name": "sahai",
   "private": true,
-  "workspaces": ["frontend", "backend"],
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
     "dev:backend": "bun run --filter backend dev",
     "dev:frontend": "bun run --filter frontend dev",
-    "dev": "bun run dev:backend & bun run dev:frontend"
+    "dev": "bun run dev:backend & bun run dev:frontend",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.8"
   }
 }
