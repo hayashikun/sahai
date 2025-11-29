@@ -1,6 +1,18 @@
 {
   "name": "sahai",
-  "private": true,
+  "version": "0.1.0",
+  "description": "AI Coding Agent orchestration tool with Kanban interface",
+  "type": "module",
+  "bin": {
+    "sahai": "./bin/sahai.ts"
+  },
+  "files": [
+    "bin",
+    "packages/backend/src",
+    "packages/backend/drizzle",
+    "packages/frontend/dist",
+    "packages/shared"
+  ],
   "workspaces": [
     "packages/*"
   ],
@@ -8,10 +20,36 @@
     "dev:backend": "bun run --filter backend dev",
     "dev:frontend": "bun run --filter frontend dev",
     "dev": "bun run dev:backend & bun run dev:frontend",
+    "build": "bun run build:frontend",
+    "build:frontend": "bun run --filter frontend build",
+    "start": "bun run bin/sahai.ts",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "ci": "biome ci ."
+    "ci": "biome ci .",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "ai",
+    "coding",
+    "agent",
+    "orchestration",
+    "kanban",
+    "claude",
+    "codex"
+  ],
+  "author": "hayashikun",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hayashikun/sahai.git"
+  },
+  "homepage": "https://github.com/hayashikun/sahai",
+  "bugs": {
+    "url": "https://github.com/hayashikun/sahai/issues"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8"

@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://localhost:3001/v1";
+// Use relative URL in production (when served by same server), absolute URL in development
+const API_BASE_URL = import.meta.env.DEV ? "http://localhost:3001/v1" : "/v1";
 
 export async function fetcher<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
