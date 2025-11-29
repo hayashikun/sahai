@@ -1,5 +1,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { Link } from "react-router-dom";
 import type { Task } from "shared/schemas";
 
 interface TaskCardProps {
@@ -21,7 +22,13 @@ export function TaskCard({ task, isDragging }: TaskCardProps) {
       }}
     >
       <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-        {task.title}
+        <Link
+          to={`/tasks/${task.id}`}
+          style={{ color: "inherit", textDecoration: "none" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {task.title}
+        </Link>
       </div>
       {task.description && (
         <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
