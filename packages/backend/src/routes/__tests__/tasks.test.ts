@@ -9,7 +9,7 @@ import {
 import { unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import { db, runMigrations } from "../../db/client";
-import { repositories, tasks } from "../../db/schema";
+import { executionLogs, repositories, tasks } from "../../db/schema";
 import { repositoryTasks, taskById } from "../tasks";
 
 const TEST_DB_PATH = resolve(import.meta.dirname, "../../../data/test.db");
@@ -20,6 +20,7 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  await db.delete(executionLogs);
   await db.delete(tasks);
   await db.delete(repositories);
 });
@@ -274,5 +275,313 @@ describe("DELETE /:id", () => {
   test("returns 404 for non-existent task", async () => {
     const res = await taskById.request("/non-existent", { method: "DELETE" });
     expect(res.status).toBe(404);
+  });
+});
+
+async function createExecutionLog(
+  id: string,
+  taskId: string,
+  content: string,
+  logType: "stdout" | "stderr" | "system" = "stdout",
+) {
+  const now = new Date().toISOString();
+  await db.insert(executionLogs).values({
+    id,
+    taskId,
+    content,
+    logType,
+    createdAt: now,
+  });
+}
+
+async function createTaskWithStatus(
+  id: string,
+  repositoryId: string,
+  title: string,
+  status: "TODO" | "InProgress" | "InReview" | "Done",
+  worktreePath: string | null = null,
+) {
+  const now = new Date().toISOString();
+  await db.insert(tasks).values({
+    id,
+    repositoryId,
+    title,
+    description: "Test description",
+    status,
+    executor: "ClaudeCode",
+    branchName: `feature/${id}`,
+    baseBranch: "main",
+    worktreePath,
+    createdAt: now,
+    updatedAt: now,
+    startedAt: status !== "TODO" ? now : null,
+    completedAt: status === "Done" ? now : null,
+  });
+}
+
+describe("GET /:id/logs", () => {
+  test("returns empty array when no logs exist", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTask("task-1", "repo-1", "Task 1");
+
+    const res = await taskById.request("/task-1/logs");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  test("returns logs for a task", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTask("task-1", "repo-1", "Task 1");
+    await createExecutionLog("log-1", "task-1", "Log content 1");
+    await createExecutionLog("log-2", "task-1", "Log content 2", "stderr");
+
+    const res = await taskById.request("/task-1/logs");
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as Array<{ id: string; content: string }>;
+    expect(data).toHaveLength(2);
+  });
+
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/logs");
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+});
+
+describe("POST /:id/start", () => {
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/start", {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+
+  test("returns 400 if task is not in TODO status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress");
+
+    const res = await taskById.request("/task-1/start", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task must be in TODO status to start");
+  });
+
+  test("returns 400 if task is in InReview status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InReview");
+
+    const res = await taskById.request("/task-1/start", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task must be in TODO status to start");
+  });
+
+  test("returns 400 if task is in Done status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "Done");
+
+    const res = await taskById.request("/task-1/start", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task must be in TODO status to start");
+  });
+});
+
+describe("POST /:id/pause", () => {
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/pause", {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+
+  test("returns 400 if task is not in InProgress status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "TODO");
+
+    const res = await taskById.request("/task-1/pause", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task must be in InProgress status to pause");
+  });
+
+  test("pauses a task in InProgress status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress");
+
+    const res = await taskById.request("/task-1/pause", { method: "POST" });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { status: string };
+    expect(data.status).toBe("InProgress");
+  });
+});
+
+describe("POST /:id/complete", () => {
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/complete", {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+
+  test("returns 400 if task is not in InProgress status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "TODO");
+
+    const res = await taskById.request("/task-1/complete", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task must be in InProgress status to complete");
+  });
+
+  test("completes a task in InProgress status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress");
+
+    const res = await taskById.request("/task-1/complete", { method: "POST" });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { status: string };
+    expect(data.status).toBe("InReview");
+  });
+});
+
+describe("POST /:id/resume", () => {
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/resume", {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+
+  test("returns 400 if task is in TODO status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "TODO");
+
+    const res = await taskById.request("/task-1/resume", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe(
+      "Task must be in InProgress or InReview status to resume",
+    );
+  });
+
+  test("returns 400 if task is in Done status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "Done");
+
+    const res = await taskById.request("/task-1/resume", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe(
+      "Task must be in InProgress or InReview status to resume",
+    );
+  });
+
+  test("returns 400 if task has no worktree", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress", null);
+
+    const res = await taskById.request("/task-1/resume", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task has no worktree");
+  });
+});
+
+describe("POST /:id/finish", () => {
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/finish", {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+
+  test("returns 400 if task is not in InReview status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress");
+
+    const res = await taskById.request("/task-1/finish", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task must be in InReview status to finish");
+  });
+
+  test("returns 400 if task is in TODO status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "TODO");
+
+    const res = await taskById.request("/task-1/finish", { method: "POST" });
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task must be in InReview status to finish");
+  });
+});
+
+describe("POST /:id/recreate", () => {
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/recreate", {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+
+  test("creates a new task from existing task", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Original Task", "Done");
+
+    const res = await taskById.request("/task-1/recreate", { method: "POST" });
+    expect(res.status).toBe(201);
+    const data = (await res.json()) as {
+      id: string;
+      title: string;
+      status: string;
+      branchName: string;
+    };
+    expect(data.id).not.toBe("task-1");
+    expect(data.title).toBe("Original Task");
+    expect(data.status).toBe("TODO");
+    expect(data.branchName).toBe("feature/task-1-retry");
+  });
+
+  test("creates a new task with custom properties", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Original Task", "Done");
+
+    const res = await taskById.request("/task-1/recreate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "New Title",
+        branchName: "feature/new-branch",
+      }),
+    });
+    expect(res.status).toBe(201);
+    const data = (await res.json()) as {
+      title: string;
+      branchName: string;
+    };
+    expect(data.title).toBe("New Title");
+    expect(data.branchName).toBe("feature/new-branch");
+  });
+
+  test("can recreate from any status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress");
+
+    const res = await taskById.request("/task-1/recreate", { method: "POST" });
+    expect(res.status).toBe(201);
   });
 });
