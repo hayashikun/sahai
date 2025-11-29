@@ -45,3 +45,4 @@ jobs:
       - run: bun install
 
       - run: bun run --filter backend test
+      - run: bun run --filter frontend test
