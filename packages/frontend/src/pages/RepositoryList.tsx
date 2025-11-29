@@ -1,7 +1,22 @@
-import { GitBranch, GitFork, Loader2, Plus, X } from "lucide-react";
-import { useState } from "react";
+import {
+  ChevronRight,
+  Folder,
+  GitBranch,
+  GitFork,
+  Home,
+  Loader2,
+  Plus,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { createRepository } from "../api";
+import {
+  type BrowseResult,
+  browseDirectory,
+  createRepository,
+  type DirectoryEntry,
+  getGitInfo,
+} from "../api";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -13,31 +28,78 @@ import {
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useRepositories } from "../hooks";
+import { cn } from "../lib/utils";
 
 export function RepositoryList() {
   const { repositories, mutate } = useRepositories();
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [path, setPath] = useState("");
+  const [selectedPath, setSelectedPath] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("main");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Directory browser state
+  const [browseResult, setBrowseResult] = useState<BrowseResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+
+  const loadDirectory = useCallback(async (path?: string) => {
+    try {
+      setLoading(true);
+      setBrowseError(null);
+      const result = await browseDirectory(path);
+      setBrowseResult(result);
+    } catch (e) {
+      setBrowseError(
+        e instanceof Error ? e.message : "Failed to browse directory",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load home directory on mount
+  useEffect(() => {
+    if (showForm && !browseResult) {
+      loadDirectory();
+    }
+  }, [showForm, browseResult, loadDirectory]);
+
+  const selectRepository = async (entry: DirectoryEntry) => {
+    if (!entry.isGitRepo) {
+      // Navigate into directory
+      loadDirectory(entry.path);
+      return;
+    }
+
+    // Select git repository
+    setSelectedPath(entry.path);
+    try {
+      const gitInfo = await getGitInfo(entry.path);
+      setDefaultBranch(gitInfo.defaultBranch);
+    } catch {
+      setDefaultBranch("main");
+    }
+  };
+
   const handleCreateRepository = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !path.trim()) return;
+    if (!selectedPath.trim()) return;
+
+    // Derive name from path (last directory name)
+    const name = selectedPath.split("/").filter(Boolean).pop() || "repository";
 
     try {
       setCreating(true);
       setError(null);
       await createRepository({
-        name: name.trim(),
-        path: path.trim(),
+        name,
+        path: selectedPath.trim(),
         defaultBranch: defaultBranch.trim() || "main",
       });
-      setName("");
-      setPath("");
+      setSelectedPath("");
       setDefaultBranch("main");
+      setBrowseResult(null);
       setShowForm(false);
       mutate();
     } catch (e) {
@@ -45,6 +107,14 @@ export function RepositoryList() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setSelectedPath("");
+    setDefaultBranch("main");
+    setBrowseResult(null);
+    setError(null);
   };
 
   return (
@@ -65,12 +135,8 @@ export function RepositoryList() {
       {showForm && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg">Create New Repository</CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowForm(false)}
-            >
+            <CardTitle className="text-lg">Add Repository</CardTitle>
+            <Button variant="ghost" size="icon" onClick={closeForm}>
               <X className="h-4 w-4" />
             </Button>
           </CardHeader>
@@ -80,54 +146,138 @@ export function RepositoryList() {
                 {error}
               </div>
             )}
+
             <form onSubmit={handleCreateRepository} className="space-y-4">
+              {/* Directory Browser */}
               <div className="space-y-2">
-                <Label htmlFor="repo-name">Name</Label>
-                <Input
-                  id="repo-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="my-repository"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="repo-path">Path</Label>
-                <Input
-                  id="repo-path"
-                  type="text"
-                  value={path}
-                  onChange={(e) => setPath(e.target.value)}
-                  placeholder="/path/to/repository"
-                  className="font-mono"
-                  required
-                />
+                <Label>Select Git Repository</Label>
+                <div className="border rounded-lg overflow-hidden">
+                  {/* Path breadcrumb */}
+                  {browseResult && (
+                    <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b text-sm">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1"
+                        onClick={() => loadDirectory()}
+                      >
+                        <Home className="h-4 w-4" />
+                      </Button>
+                      <span className="text-gray-400">/</span>
+                      <span className="font-mono text-xs text-gray-600 truncate">
+                        {browseResult.currentPath}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Directory listing */}
+                  <div className="max-h-64 overflow-y-auto">
+                    {loading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                      </div>
+                    ) : browseError ? (
+                      <div className="p-4 text-sm text-red-600">
+                        {browseError}
+                      </div>
+                    ) : browseResult ? (
+                      <div className="divide-y">
+                        {/* Parent directory */}
+                        {browseResult.currentPath !==
+                          browseResult.parentPath && (
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left"
+                            onClick={() =>
+                              loadDirectory(browseResult.parentPath)
+                            }
+                          >
+                            <Folder className="h-4 w-4 text-gray-400" />
+                            <span className="text-gray-500">..</span>
+                          </button>
+                        )}
+
+                        {browseResult.entries.length === 0 ? (
+                          <div className="p-4 text-sm text-gray-500 text-center">
+                            No directories found
+                          </div>
+                        ) : (
+                          browseResult.entries.map((entry) => (
+                            <button
+                              key={entry.path}
+                              type="button"
+                              className={cn(
+                                "w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left",
+                                entry.isGitRepo &&
+                                  "bg-green-50 hover:bg-green-100",
+                                selectedPath === entry.path &&
+                                  "bg-blue-100 hover:bg-blue-100",
+                              )}
+                              onClick={() => selectRepository(entry)}
+                            >
+                              {entry.isGitRepo ? (
+                                <GitFork className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <Folder className="h-4 w-4 text-gray-400" />
+                              )}
+                              <span
+                                className={cn(
+                                  "flex-1 truncate",
+                                  entry.isGitRepo &&
+                                    "font-medium text-green-800",
+                                )}
+                              >
+                                {entry.name}
+                              </span>
+                              {!entry.isGitRepo && (
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
                 <p className="text-xs text-gray-500">
-                  Local filesystem path to the git repository
+                  Navigate and select a git repository (highlighted in green)
                 </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="repo-branch">Default Branch</Label>
-                <Input
-                  id="repo-branch"
-                  type="text"
-                  value={defaultBranch}
-                  onChange={(e) => setDefaultBranch(e.target.value)}
-                  placeholder="main"
-                />
-              </div>
+
+              {/* Selected repository info */}
+              {selectedPath && (
+                <div className="space-y-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">
+                      Selected Repository
+                    </Label>
+                    <div className="font-mono text-sm">{selectedPath}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="repo-branch">Default Branch</Label>
+                    <Input
+                      id="repo-branch"
+                      type="text"
+                      value={defaultBranch}
+                      onChange={(e) => setDefaultBranch(e.target.value)}
+                      placeholder="main"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2">
-                <Button type="submit" disabled={creating}>
+                <Button type="submit" disabled={creating || !selectedPath}>
                   {creating && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  {creating ? "Creating..." : "Create Repository"}
+                  {creating ? "Adding..." : "Add Repository"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowForm(false)}
+                  onClick={closeForm}
                   disabled={creating}
                 >
                   Cancel
@@ -146,7 +296,7 @@ export function RepositoryList() {
               <GitFork className="h-12 w-12 text-gray-400 mb-4" />
               <p className="text-gray-500">No repositories found.</p>
               <p className="text-sm text-gray-500">
-                Create your first repository above.
+                Add your first repository above.
               </p>
             </CardContent>
           </Card>
