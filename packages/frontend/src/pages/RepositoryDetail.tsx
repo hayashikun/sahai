@@ -146,7 +146,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
         )}
       </section>
 
-      <KanbanBoard tasks={tasks} />
+      <KanbanBoard tasks={tasks} onTaskUpdate={mutate} />
     </div>
   );
 }
