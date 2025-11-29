@@ -1,32 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { Project } from "shared/types";
-import { createProject, getProjects } from "../api";
+import { createProject } from "../api";
+import { useProjects } from "../hooks";
 
 export function ProjectList() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { projects, mutate } = useProjects();
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [creating, setCreating] = useState(false);
-
-  const fetchProjects = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await getProjects();
-      setProjects(data);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch projects");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,13 +16,14 @@ export function ProjectList() {
 
     try {
       setCreating(true);
+      setError(null);
       await createProject(
         newProjectName.trim(),
         newProjectDescription.trim() || undefined,
       );
       setNewProjectName("");
       setNewProjectDescription("");
-      await fetchProjects();
+      mutate();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create project");
     } finally {
@@ -48,20 +31,13 @@ export function ProjectList() {
     }
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
-
   return (
     <div>
       <h2>Projects</h2>
 
       <section>
         <h3>Create New Project</h3>
+        {error && <p style={{ color: "red" }}>{error}</p>}
         <form onSubmit={handleCreateProject}>
           <div>
             <label htmlFor="project-name">Name:</label>

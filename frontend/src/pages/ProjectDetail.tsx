@@ -1,45 +1,19 @@
-import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { Project, Repository } from "shared/types";
-import { getProject, getProjectRepositories } from "../api";
+import { useProject, useProjectRepositories } from "../hooks";
 
 export function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [project, setProject] = useState<Project | null>(null);
-  const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!projectId) return;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [projectData, reposData] = await Promise.all([
-          getProject(projectId),
-          getProjectRepositories(projectId),
-        ]);
-        setProject(projectData);
-        setRepositories(reposData);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to fetch project");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [projectId]);
-
-  if (loading) {
-    return <div>Loading...</div>;
+  if (!projectId) {
+    return <div>Project ID is required</div>;
   }
 
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
+  return <ProjectDetailContent projectId={projectId} />;
+}
+
+function ProjectDetailContent({ projectId }: { projectId: string }) {
+  const project = useProject(projectId);
+  const repositories = useProjectRepositories(projectId);
 
   if (!project) {
     return <div>Project not found</div>;

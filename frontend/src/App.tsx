@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components";
 import { Home, ProjectDetail, ProjectList } from "./pages";
@@ -8,8 +9,22 @@ export function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="projects" element={<ProjectList />} />
-          <Route path="projects/:projectId" element={<ProjectDetail />} />
+          <Route
+            path="projects"
+            element={
+              <Suspense fallback={<div>Loading...</div>}>
+                <ProjectList />
+              </Suspense>
+            }
+          />
+          <Route
+            path="projects/:projectId"
+            element={
+              <Suspense fallback={<div>Loading...</div>}>
+                <ProjectDetail />
+              </Suspense>
+            }
+          />
         </Route>
       </Routes>
     </BrowserRouter>
