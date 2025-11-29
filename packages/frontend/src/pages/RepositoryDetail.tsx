@@ -1,14 +1,36 @@
+import { ArrowLeft, GitBranch, Loader2, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { createTask } from "../api";
 import { KanbanBoard } from "../components";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 import { useRepository, useRepositoryTasks } from "../hooks";
 
 export function RepositoryDetail() {
   const { repositoryId } = useParams<{ repositoryId: string }>();
 
   if (!repositoryId) {
-    return <div>Repository ID is required</div>;
+    return (
+      <div className="text-center py-10 text-gray-500">
+        Repository ID is required
+      </div>
+    );
   }
 
   return <RepositoryDetailContent repositoryId={repositoryId} />;
@@ -26,7 +48,11 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   if (!repository) {
-    return <div>Repository not found</div>;
+    return (
+      <div className="text-center py-10 text-gray-500">
+        Repository not found
+      </div>
+    );
   }
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -55,96 +81,120 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   };
 
   return (
-    <div>
-      <Link to="/projects">&larr; Back to Projects</Link>
+    <div className="space-y-6">
+      <div>
+        <Button variant="ghost" size="sm" asChild className="mb-4">
+          <Link to="/projects">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Projects
+          </Link>
+        </Button>
 
-      <h2>{repository.name}</h2>
-      <p>
-        <small>
-          Path: {repository.path} | Default Branch: {repository.defaultBranch}
-        </small>
-      </p>
+        <h1 className="text-3xl font-bold tracking-tight">{repository.name}</h1>
+        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+          <span className="font-mono">{repository.path}</span>
+          <span className="flex items-center gap-1">
+            <GitBranch className="h-4 w-4" />
+            {repository.defaultBranch}
+          </span>
+        </div>
+      </div>
 
-      <section style={{ marginBottom: "24px" }}>
-        {!showForm ? (
-          <button type="button" onClick={() => setShowForm(true)}>
-            + New Task
-          </button>
-        ) : (
-          <div
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              padding: "16px",
-              maxWidth: "400px",
-            }}
-          >
-            <h3 style={{ margin: "0 0 12px 0" }}>Create New Task</h3>
-            {error && <p style={{ color: "red" }}>{error}</p>}
-            <form onSubmit={handleCreateTask}>
-              <div style={{ marginBottom: "8px" }}>
-                <label htmlFor="task-title">Title:</label>
-                <br />
-                <input
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Tasks</h2>
+        {!showForm && (
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Task
+          </Button>
+        )}
+      </div>
+
+      {showForm && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg">Create New Task</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowForm(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleCreateTask} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="task-title">Title</Label>
+                <Input
                   id="task-title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter task title"
                   required
-                  style={{ width: "100%" }}
                 />
               </div>
-              <div style={{ marginBottom: "8px" }}>
-                <label htmlFor="task-description">Description:</label>
-                <br />
-                <textarea
+              <div className="space-y-2">
+                <Label htmlFor="task-description">Description</Label>
+                <Textarea
                   id="task-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  style={{ width: "100%" }}
+                  placeholder="Optional description"
                   rows={3}
                 />
               </div>
-              <div style={{ marginBottom: "8px" }}>
-                <label htmlFor="task-executor">Executor:</label>
-                <br />
-                <select
-                  id="task-executor"
-                  value={executor}
-                  onChange={(e) => setExecutor(e.target.value)}
-                >
-                  <option value="ClaudeCode">Claude Code</option>
-                  <option value="Codex">Codex</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="task-executor">Executor</Label>
+                  <Select value={executor} onValueChange={setExecutor}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select executor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ClaudeCode">Claude Code</SelectItem>
+                      <SelectItem value="Codex">Codex</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="task-branch">Branch Name</Label>
+                  <Input
+                    id="task-branch"
+                    type="text"
+                    value={branchName}
+                    onChange={(e) => setBranchName(e.target.value)}
+                    placeholder="feature/my-branch"
+                    required
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: "8px" }}>
-                <label htmlFor="task-branch">Branch Name:</label>
-                <br />
-                <input
-                  id="task-branch"
-                  type="text"
-                  value={branchName}
-                  onChange={(e) => setBranchName(e.target.value)}
-                  required
-                  style={{ width: "100%" }}
-                />
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="submit" disabled={creating}>
-                  {creating ? "Creating..." : "Create"}
-                </button>
-                <button
+              <div className="flex gap-2">
+                <Button type="submit" disabled={creating}>
+                  {creating && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {creating ? "Creating..." : "Create Task"}
+                </Button>
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setShowForm(false)}
                   disabled={creating}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        )}
-      </section>
+          </CardContent>
+        </Card>
+      )}
 
       <KanbanBoard tasks={tasks} onTaskUpdate={mutate} />
     </div>
