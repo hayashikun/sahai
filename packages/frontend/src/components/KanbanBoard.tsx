@@ -1,47 +1,122 @@
-import type { Task } from "shared/schemas";
-import { TaskCard } from "./TaskCard";
+import {
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { useState } from "react";
+import type { Status, Task } from "shared/schemas";
+import { updateTaskStatus } from "../api";
+import { DroppableColumn } from "./DroppableColumn";
+import { DraggableTaskCard, TaskCard } from "./TaskCard";
 
 interface KanbanBoardProps {
   tasks: Task[];
+  onTaskUpdate?: () => void;
 }
 
-const COLUMNS: { status: Task["status"]; label: string }[] = [
+const COLUMNS: { status: Status; label: string }[] = [
   { status: "TODO", label: "TODO" },
   { status: "InProgress", label: "In Progress" },
   { status: "InReview", label: "In Review" },
   { status: "Done", label: "Done" },
 ];
 
-export function KanbanBoard({ tasks }: KanbanBoardProps) {
-  const tasksByStatus = (status: Task["status"]) =>
+const VALID_TRANSITIONS: Record<Status, Status[]> = {
+  TODO: ["InProgress"],
+  InProgress: ["TODO", "InReview"],
+  InReview: ["InProgress", "Done"],
+  Done: ["InReview"],
+};
+
+export function canTransition(from: Status, to: Status): boolean {
+  if (from === to) return false;
+  return VALID_TRANSITIONS[from].includes(to);
+}
+
+export function KanbanBoard({ tasks, onTaskUpdate }: KanbanBoardProps) {
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [updating, setUpdating] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+  );
+
+  const tasksByStatus = (status: Status) =>
     tasks.filter((task) => task.status === status);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    if (task) {
+      setActiveTask(task);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over || updating) return;
+
+    const taskId = active.id as string;
+    const newStatus = over.id as Status;
+    const task = tasks.find((t) => t.id === taskId);
+
+    if (!task || task.status === newStatus) return;
+    if (!canTransition(task.status, newStatus)) return;
+
+    try {
+      setUpdating(true);
+      await updateTaskStatus(taskId, newStatus);
+      onTaskUpdate?.();
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: "16px",
-      }}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
-      {COLUMNS.map((column) => (
-        <div
-          key={column.status}
-          style={{
-            backgroundColor: "#f5f5f5",
-            borderRadius: "4px",
-            padding: "8px",
-            minHeight: "200px",
-          }}
-        >
-          <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>
-            {column.label}
-          </h4>
-          {tasksByStatus(column.status).map((task) => (
-            <TaskCard key={task.id} task={task} />
-          ))}
-        </div>
-      ))}
-    </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: "16px",
+        }}
+      >
+        {COLUMNS.map((column) => (
+          <DroppableColumn
+            key={column.status}
+            status={column.status}
+            label={column.label}
+            isValidDrop={
+              activeTask
+                ? canTransition(activeTask.status, column.status)
+                : false
+            }
+            isActive={!!activeTask}
+          >
+            {tasksByStatus(column.status).map((task) => (
+              <DraggableTaskCard key={task.id} task={task} />
+            ))}
+          </DroppableColumn>
+        ))}
+      </div>
+      <DragOverlay>
+        {activeTask ? <TaskCard task={activeTask} isDragging /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

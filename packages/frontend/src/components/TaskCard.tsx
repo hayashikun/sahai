@@ -1,10 +1,13 @@
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import type { Task } from "shared/schemas";
 
 interface TaskCardProps {
   task: Task;
+  isDragging?: boolean;
 }
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, isDragging }: TaskCardProps) {
   return (
     <div
       style={{
@@ -13,6 +16,8 @@ export function TaskCard({ task }: TaskCardProps) {
         padding: "8px",
         marginBottom: "8px",
         backgroundColor: "#fff",
+        opacity: isDragging ? 0.8 : 1,
+        boxShadow: isDragging ? "0 4px 8px rgba(0,0,0,0.2)" : "none",
       }}
     >
       <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
@@ -27,6 +32,29 @@ export function TaskCard({ task }: TaskCardProps) {
         <span>{task.executor}</span>
         <span style={{ marginLeft: "8px" }}>{task.branchName}</span>
       </div>
+    </div>
+  );
+}
+
+interface DraggableTaskCardProps {
+  task: Task;
+}
+
+export function DraggableTaskCard({ task }: DraggableTaskCardProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: task.id,
+    });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+    cursor: "grab",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+      <TaskCard task={task} />
     </div>
   );
 }
