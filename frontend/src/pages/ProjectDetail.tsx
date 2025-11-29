@@ -41,7 +41,9 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
           <ul>
             {repositories.map((repo) => (
               <li key={repo.id}>
-                <strong>{repo.name}</strong>
+                <Link to={`/repositories/${repo.id}`}>
+                  <strong>{repo.name}</strong>
+                </Link>
                 <br />
                 <small>
                   Path: {repo.path} | Branch: {repo.defaultBranch}
