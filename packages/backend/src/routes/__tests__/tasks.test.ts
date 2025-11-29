@@ -222,6 +222,38 @@ describe("PUT /:id", () => {
 
     expect(res.status).toBe(404);
   });
+
+  test("updates task status", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTask("task-1", "repo-1", "Task 1");
+
+    const res = await taskById.request("/task-1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "InProgress" }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe("InProgress");
+    expect(data.startedAt).toBeDefined();
+  });
+
+  test("sets completedAt when status changes to Done", async () => {
+    await createRepository("repo-1", "Repo 1");
+    await createTask("task-1", "repo-1", "Task 1", "InReview");
+
+    const res = await taskById.request("/task-1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "Done" }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe("Done");
+    expect(data.completedAt).toBeDefined();
+  });
 });
 
 describe("DELETE /:id", () => {

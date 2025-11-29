@@ -93,11 +93,22 @@ taskById.put("/:id", async (c) => {
     return c.json({ error: "Task not found" }, 404);
   }
 
-  const updated = {
+  const updated: Record<string, unknown> = {
     title: body.title ?? existing[0].title,
     description: body.description ?? existing[0].description,
+    status: body.status ?? existing[0].status,
     updatedAt: now,
   };
+
+  // Set startedAt when transitioning to InProgress
+  if (body.status === "InProgress" && !existing[0].startedAt) {
+    updated.startedAt = now;
+  }
+
+  // Set completedAt when transitioning to Done
+  if (body.status === "Done" && !existing[0].completedAt) {
+    updated.completedAt = now;
+  }
 
   await db.update(tasks).set(updated).where(eq(tasks.id, id));
 
