@@ -5,7 +5,7 @@ import {
   Task,
   type Task as TaskType,
 } from "shared/schemas";
-import { apiDelete, apiPost, fetcher } from "./client";
+import { apiDelete, apiPost, apiPut, fetcher } from "./client";
 
 export async function getTask(taskId: string): Promise<TaskType> {
   const data = await fetcher(`/tasks/${taskId}`);
@@ -60,6 +60,14 @@ export async function recreateTask(
 export async function getTaskDiff(taskId: string): Promise<string> {
   const data = (await fetcher(`/tasks/${taskId}/diff`)) as { diff: string };
   return data.diff;
+}
+
+export async function updateTask(
+  taskId: string,
+  updates: { title?: string; description?: string },
+): Promise<TaskType> {
+  const data = await apiPut(`/tasks/${taskId}`, updates);
+  return Task.parse(data);
 }
 
 export async function deleteTask(taskId: string): Promise<void> {

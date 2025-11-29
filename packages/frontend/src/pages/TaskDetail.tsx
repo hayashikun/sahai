@@ -5,22 +5,36 @@ import {
   GitBranch,
   Loader2,
   Pause,
+  Pencil,
   Play,
   RotateCcw,
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ExecutionLog, Status, Task } from "shared/schemas";
 import {
   completeTask,
+  deleteTask,
   finishTask,
   getTaskDiff,
   pauseTask,
   resumeTask,
   startTask,
+  updateTask,
 } from "../api";
 import { DiffView } from "../components";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
@@ -29,6 +43,17 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import {
   Tabs,
   TabsContent,
@@ -54,6 +79,7 @@ export function TaskDetail() {
 function TaskDetailContent({ taskId }: { taskId: string }) {
   const { task, mutateTask, logs, connected, error } =
     useTaskWithRealtimeLogs(taskId);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState("");
@@ -61,6 +87,19 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   const [diff, setDiff] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffError, setDiffError] = useState<string | null>(null);
+
+  // Edit task state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDescription, setEditDescription] = useState(
+    task.description ?? "",
+  );
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Delete task state
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (task.status !== "TODO") {
@@ -102,6 +141,43 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
     setShowResumeForm(false);
   };
 
+  const handleEditTask = async () => {
+    if (!editTitle.trim()) return;
+
+    try {
+      setEditLoading(true);
+      setEditError(null);
+      await updateTask(taskId, {
+        title: editTitle.trim(),
+        description: editDescription.trim() || undefined,
+      });
+      mutateTask();
+      setEditOpen(false);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to update task");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    try {
+      setDeleteLoading(true);
+      setDeleteError(null);
+      await deleteTask(taskId);
+      navigate(`/repositories/${task.repositoryId}`);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Failed to delete task");
+      setDeleteLoading(false);
+    }
+  };
+
+  const resetEditForm = () => {
+    setEditTitle(task.title);
+    setEditDescription(task.description ?? "");
+    setEditError(null);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -112,7 +188,19 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
           </Link>
         </Button>
 
-        <TaskInfo task={task} />
+        <TaskInfo
+          task={task}
+          editOpen={editOpen}
+          setEditOpen={setEditOpen}
+          editTitle={editTitle}
+          setEditTitle={setEditTitle}
+          editDescription={editDescription}
+          setEditDescription={setEditDescription}
+          editLoading={editLoading}
+          editError={editError}
+          onEdit={handleEditTask}
+          resetEditForm={resetEditForm}
+        />
       </div>
 
       {actionError && (
@@ -126,6 +214,8 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
         loading={loading}
         showResumeForm={showResumeForm}
         resumeMessage={resumeMessage}
+        deleteLoading={deleteLoading}
+        deleteError={deleteError}
         onStart={() => handleAction(() => startTask(taskId), "start task")}
         onPause={() => handleAction(() => pauseTask(taskId), "pause task")}
         onComplete={() =>
@@ -133,6 +223,7 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
         }
         onResume={handleResume}
         onFinish={() => handleAction(() => finishTask(taskId), "finish task")}
+        onDelete={handleDeleteTask}
         onShowResumeForm={() => setShowResumeForm(true)}
         onCancelResume={() => {
           setShowResumeForm(false);
@@ -162,7 +253,33 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   );
 }
 
-function TaskInfo({ task }: { task: Task }) {
+interface TaskInfoProps {
+  task: Task;
+  editOpen: boolean;
+  setEditOpen: (open: boolean) => void;
+  editTitle: string;
+  setEditTitle: (title: string) => void;
+  editDescription: string;
+  setEditDescription: (description: string) => void;
+  editLoading: boolean;
+  editError: string | null;
+  onEdit: () => void;
+  resetEditForm: () => void;
+}
+
+function TaskInfo({
+  task,
+  editOpen,
+  setEditOpen,
+  editTitle,
+  setEditTitle,
+  editDescription,
+  setEditDescription,
+  editLoading,
+  editError,
+  onEdit,
+  resetEditForm,
+}: TaskInfoProps) {
   const statusVariant: Record<
     Status,
     "default" | "secondary" | "warning" | "success"
@@ -177,12 +294,78 @@ function TaskInfo({ task }: { task: Task }) {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <CardTitle className="text-2xl">{task.title}</CardTitle>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-2xl">{task.title}</CardTitle>
+              <Dialog
+                open={editOpen}
+                onOpenChange={(open) => {
+                  setEditOpen(open);
+                  if (open) resetEditForm();
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Task</DialogTitle>
+                    <DialogDescription>
+                      Update the task title and description.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {editError && (
+                    <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                      {editError}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-task-title">Title</Label>
+                      <Input
+                        id="edit-task-title"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        placeholder="Task title"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-task-description">Description</Label>
+                      <Textarea
+                        id="edit-task-description"
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        placeholder="Optional description"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditOpen(false)}
+                      disabled={editLoading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button onClick={onEdit} disabled={editLoading}>
+                      {editLoading && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Save Changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            {task.description && (
+              <p className="text-gray-500 mt-1">{task.description}</p>
+            )}
+          </div>
           <Badge variant={statusVariant[task.status]}>{task.status}</Badge>
         </div>
-        {task.description && (
-          <p className="text-gray-500">{task.description}</p>
-        )}
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -238,11 +421,14 @@ interface TaskActionsProps {
   loading: boolean;
   showResumeForm: boolean;
   resumeMessage: string;
+  deleteLoading: boolean;
+  deleteError: string | null;
   onStart: () => void;
   onPause: () => void;
   onComplete: () => void;
   onResume: () => void;
   onFinish: () => void;
+  onDelete: () => void;
   onShowResumeForm: () => void;
   onCancelResume: () => void;
   onResumeMessageChange: (message: string) => void;
@@ -253,11 +439,14 @@ function TaskActions({
   loading,
   showResumeForm,
   resumeMessage,
+  deleteLoading,
+  deleteError,
   onStart,
   onPause,
   onComplete,
   onResume,
   onFinish,
+  onDelete,
   onShowResumeForm,
   onCancelResume,
   onResumeMessageChange,
@@ -316,6 +505,44 @@ function TaskActions({
               Finish (Delete Branch)
             </Button>
           )}
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" disabled={loading || deleteLoading}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Task
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete "{task.title}"? This action
+                  cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {deleteError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                  {deleteError}
+                </div>
+              )}
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteLoading}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={onDelete}
+                  disabled={deleteLoading}
+                  className="bg-red-500 hover:bg-red-600"
+                >
+                  {deleteLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {showResumeForm && (
