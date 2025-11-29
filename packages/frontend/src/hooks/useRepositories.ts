@@ -3,10 +3,13 @@ import useSWR from "swr";
 import { fetcher } from "../api/client";
 
 export function useRepository(id: string) {
-  const { data } = useSWR(`/repositories/${id}`, fetcher, {
+  const { data, mutate } = useSWR(`/repositories/${id}`, fetcher, {
     suspense: true,
   });
-  return Repository.parse(data);
+  return {
+    repository: Repository.parse(data),
+    mutate,
+  };
 }
 
 export function useRepositoryTasks(repositoryId: string) {

@@ -1,8 +1,27 @@
-import { ArrowLeft, GitBranch, Loader2, Plus, X } from "lucide-react";
+import {
+  ArrowLeft,
+  GitBranch,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { createTask } from "../api";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { createTask, deleteRepository, updateRepository } from "../api";
 import { KanbanBoard } from "../components";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -10,6 +29,15 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
@@ -37,8 +65,11 @@ export function RepositoryDetail() {
 }
 
 function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
-  const repository = useRepository(repositoryId);
-  const { tasks, mutate } = useRepositoryTasks(repositoryId);
+  const { repository, mutate: mutateRepository } = useRepository(repositoryId);
+  const { tasks, mutate: mutateTasks } = useRepositoryTasks(repositoryId);
+  const navigate = useNavigate();
+
+  // Task creation state
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -47,13 +78,19 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!repository) {
-    return (
-      <div className="text-center py-10 text-gray-500">
-        Repository not found
-      </div>
-    );
-  }
+  // Edit repository state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(repository.name);
+  const [editPath, setEditPath] = useState(repository.path);
+  const [editDefaultBranch, setEditDefaultBranch] = useState(
+    repository.defaultBranch,
+  );
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Delete repository state
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,12 +109,55 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       setDescription("");
       setBranchName("");
       setShowForm(false);
-      mutate();
+      mutateTasks();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create task");
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleEditRepository = async () => {
+    if (!editName.trim() || !editPath.trim()) return;
+
+    try {
+      setEditLoading(true);
+      setEditError(null);
+      await updateRepository(repositoryId, {
+        name: editName.trim(),
+        path: editPath.trim(),
+        defaultBranch: editDefaultBranch.trim() || undefined,
+      });
+      mutateRepository();
+      setEditOpen(false);
+    } catch (e) {
+      setEditError(
+        e instanceof Error ? e.message : "Failed to update repository",
+      );
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteRepository = async () => {
+    try {
+      setDeleteLoading(true);
+      setDeleteError(null);
+      await deleteRepository(repositoryId);
+      navigate("/projects");
+    } catch (e) {
+      setDeleteError(
+        e instanceof Error ? e.message : "Failed to delete repository",
+      );
+      setDeleteLoading(false);
+    }
+  };
+
+  const resetEditForm = () => {
+    setEditName(repository.name);
+    setEditPath(repository.path);
+    setEditDefaultBranch(repository.defaultBranch);
+    setEditError(null);
   };
 
   return (
@@ -90,13 +170,137 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
           </Link>
         </Button>
 
-        <h1 className="text-3xl font-bold tracking-tight">{repository.name}</h1>
-        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-          <span className="font-mono">{repository.path}</span>
-          <span className="flex items-center gap-1">
-            <GitBranch className="h-4 w-4" />
-            {repository.defaultBranch}
-          </span>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {repository.name}
+            </h1>
+            <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+              <span className="font-mono">{repository.path}</span>
+              <span className="flex items-center gap-1">
+                <GitBranch className="h-4 w-4" />
+                {repository.defaultBranch}
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Dialog
+              open={editOpen}
+              onOpenChange={(open) => {
+                setEditOpen(open);
+                if (open) resetEditForm();
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Repository</DialogTitle>
+                  <DialogDescription>
+                    Update the repository details.
+                  </DialogDescription>
+                </DialogHeader>
+                {editError && (
+                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                    {editError}
+                  </div>
+                )}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-repo-name">Name</Label>
+                    <Input
+                      id="edit-repo-name"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Repository name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-repo-path">Path</Label>
+                    <Input
+                      id="edit-repo-path"
+                      value={editPath}
+                      onChange={(e) => setEditPath(e.target.value)}
+                      placeholder="/path/to/repository"
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-repo-branch">Default Branch</Label>
+                    <Input
+                      id="edit-repo-branch"
+                      value={editDefaultBranch}
+                      onChange={(e) => setEditDefaultBranch(e.target.value)}
+                      placeholder="main"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditOpen(false)}
+                    disabled={editLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleEditRepository} disabled={editLoading}>
+                    {editLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Save Changes
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Repository</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{repository.name}"?
+                    {tasks.length > 0 && (
+                      <span className="block mt-2 text-yellow-600">
+                        Warning: This repository has {tasks.length} task(s)
+                        associated with it.
+                      </span>
+                    )}
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                {deleteError && (
+                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                    {deleteError}
+                  </div>
+                )}
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleteLoading}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteRepository}
+                    disabled={deleteLoading}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    {deleteLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
 
@@ -196,7 +400,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
         </Card>
       )}
 
-      <KanbanBoard tasks={tasks} onTaskUpdate={mutate} />
+      <KanbanBoard tasks={tasks} onTaskUpdate={mutateTasks} />
     </div>
   );
 }

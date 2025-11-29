@@ -23,8 +23,15 @@ export function useProject(id: string) {
 }
 
 export function useProjectRepositories(projectId: string) {
-  const { data } = useSWR(`/projects/${projectId}/repositories`, fetcher, {
-    suspense: true,
-  });
-  return RepositoryArray.parse(data);
+  const { data, mutate } = useSWR(
+    `/projects/${projectId}/repositories`,
+    fetcher,
+    {
+      suspense: true,
+    },
+  );
+  return {
+    repositories: RepositoryArray.parse(data),
+    mutate,
+  };
 }

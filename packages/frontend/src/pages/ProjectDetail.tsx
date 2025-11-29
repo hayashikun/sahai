@@ -5,11 +5,19 @@ import {
   GitFork,
   Loader2,
   Pencil,
+  Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteProject, updateProject } from "../api";
+import {
+  associateRepositoryWithProject,
+  createRepository,
+  deleteProject,
+  disassociateRepositoryFromProject,
+  updateProject,
+} from "../api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,7 +67,8 @@ export function ProjectDetail() {
 
 function ProjectDetailContent({ projectId }: { projectId: string }) {
   const { project, mutate } = useProject(projectId);
-  const repositories = useProjectRepositories(projectId);
+  const { repositories, mutate: mutateRepositories } =
+    useProjectRepositories(projectId);
   const navigate = useNavigate();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -72,6 +81,17 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
 
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Add repository state
+  const [addRepoOpen, setAddRepoOpen] = useState(false);
+  const [newRepoName, setNewRepoName] = useState("");
+  const [newRepoPath, setNewRepoPath] = useState("");
+  const [newRepoBranch, setNewRepoBranch] = useState("main");
+  const [addRepoLoading, setAddRepoLoading] = useState(false);
+  const [addRepoError, setAddRepoError] = useState<string | null>(null);
+
+  // Remove repository state
+  const [removingRepoId, setRemovingRepoId] = useState<string | null>(null);
 
   const handleEdit = async () => {
     if (!editName.trim()) return;
@@ -106,10 +126,58 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
     }
   };
 
+  const handleAddRepository = async () => {
+    if (!newRepoName.trim() || !newRepoPath.trim()) return;
+
+    try {
+      setAddRepoLoading(true);
+      setAddRepoError(null);
+      // Create the repository first
+      const repo = await createRepository({
+        name: newRepoName.trim(),
+        path: newRepoPath.trim(),
+        defaultBranch: newRepoBranch.trim() || "main",
+      });
+      // Then associate it with the project
+      await associateRepositoryWithProject(projectId, repo.id);
+      mutateRepositories();
+      setAddRepoOpen(false);
+      setNewRepoName("");
+      setNewRepoPath("");
+      setNewRepoBranch("main");
+    } catch (e) {
+      setAddRepoError(
+        e instanceof Error ? e.message : "Failed to add repository",
+      );
+    } finally {
+      setAddRepoLoading(false);
+    }
+  };
+
+  const handleRemoveRepository = async (repoId: string) => {
+    try {
+      setRemovingRepoId(repoId);
+      await disassociateRepositoryFromProject(projectId, repoId);
+      mutateRepositories();
+    } catch (e) {
+      // Show error in console for now
+      console.error("Failed to remove repository:", e);
+    } finally {
+      setRemovingRepoId(null);
+    }
+  };
+
   const resetEditForm = () => {
     setEditName(project.name);
     setEditDescription(project.description ?? "");
     setEditError(null);
+  };
+
+  const resetAddRepoForm = () => {
+    setNewRepoName("");
+    setNewRepoPath("");
+    setNewRepoBranch("main");
+    setAddRepoError(null);
   };
 
   return (
@@ -249,10 +317,88 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <GitFork className="h-5 w-5" />
-          Repositories
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <GitFork className="h-5 w-5" />
+            Repositories
+          </h2>
+          <Dialog
+            open={addRepoOpen}
+            onOpenChange={(open) => {
+              setAddRepoOpen(open);
+              if (open) resetAddRepoForm();
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Repository
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Repository</DialogTitle>
+                <DialogDescription>
+                  Create a new repository and add it to this project.
+                </DialogDescription>
+              </DialogHeader>
+              {addRepoError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                  {addRepoError}
+                </div>
+              )}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-repo-name">Name</Label>
+                  <Input
+                    id="new-repo-name"
+                    value={newRepoName}
+                    onChange={(e) => setNewRepoName(e.target.value)}
+                    placeholder="my-repository"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-repo-path">Path</Label>
+                  <Input
+                    id="new-repo-path"
+                    value={newRepoPath}
+                    onChange={(e) => setNewRepoPath(e.target.value)}
+                    placeholder="/path/to/repository"
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Local filesystem path to the git repository
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-repo-branch">Default Branch</Label>
+                  <Input
+                    id="new-repo-branch"
+                    value={newRepoBranch}
+                    onChange={(e) => setNewRepoBranch(e.target.value)}
+                    placeholder="main"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setAddRepoOpen(false)}
+                  disabled={addRepoLoading}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleAddRepository} disabled={addRepoLoading}>
+                  {addRepoLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Add Repository
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         {repositories.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-10">
@@ -260,14 +406,20 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
               <p className="text-gray-500">
                 No repositories associated with this project.
               </p>
+              <p className="text-sm text-gray-400 mt-1">
+                Click "Add Repository" to create one.
+              </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {repositories.map((repo) => (
-              <Link key={repo.id} to={`/repositories/${repo.id}`}>
-                <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
-                  <CardHeader>
+              <Card
+                key={repo.id}
+                className="hover:bg-gray-50 transition-colors h-full relative group"
+              >
+                <Link to={`/repositories/${repo.id}`}>
+                  <CardHeader className="pr-12">
                     <CardTitle className="flex items-center gap-2">
                       <GitFork className="h-4 w-4" />
                       {repo.name}
@@ -280,8 +432,25 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
                       </div>
                     </CardDescription>
                   </CardHeader>
-                </Card>
-              </Link>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRemoveRepository(repo.id);
+                  }}
+                  disabled={removingRepoId === repo.id}
+                >
+                  {removingRepoId === repo.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <X className="h-4 w-4" />
+                  )}
+                </Button>
+              </Card>
             ))}
           </div>
         )}
