@@ -380,6 +380,41 @@ describe("tasks API", () => {
     });
   });
 
+  describe("getTaskDiff", () => {
+    test("fetches diff for a task", async () => {
+      const mockDiff = { diff: "diff --git a/test.txt b/test.txt\n..." };
+
+      globalThis.fetch = mock(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockDiff),
+        } as Response),
+      );
+
+      const { getTaskDiff } = await import("../tasks");
+      const diff = await getTaskDiff("task-1");
+
+      expect(diff).toBe("diff --git a/test.txt b/test.txt\n...");
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "http://localhost:3001/v1/tasks/task-1/diff",
+      );
+    });
+
+    test("throws error on failed request", async () => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve({
+          ok: false,
+          status: 404,
+        } as Response),
+      );
+
+      const { getTaskDiff } = await import("../tasks");
+      await expect(getTaskDiff("non-existent")).rejects.toThrow(
+        "API error: 404",
+      );
+    });
+  });
+
   describe("getTaskLogsStreamUrl", () => {
     test("returns correct SSE URL", () => {
       const url = getTaskLogsStreamUrl("task-123");

@@ -57,6 +57,11 @@ export async function recreateTask(
   return Task.parse(data);
 }
 
+export async function getTaskDiff(taskId: string): Promise<string> {
+  const data = (await fetcher(`/tasks/${taskId}/diff`)) as { diff: string };
+  return data.diff;
+}
+
 // SSE stream URL for logs
 export function getTaskLogsStreamUrl(taskId: string): string {
   return `http://localhost:3001/v1/tasks/${taskId}/logs/stream`;
