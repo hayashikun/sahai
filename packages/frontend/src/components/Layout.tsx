@@ -1,4 +1,4 @@
-import { FolderKanban, Home, LayoutDashboard } from "lucide-react";
+import { FolderKanban, GitFork, Home, LayoutDashboard } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "../lib/utils";
 
@@ -8,6 +8,7 @@ export function Layout() {
   const navItems = [
     { to: "/", label: "Home", icon: Home },
     { to: "/projects", label: "Projects", icon: FolderKanban },
+    { to: "/repositories", label: "Repositories", icon: GitFork },
   ];
 
   return (
