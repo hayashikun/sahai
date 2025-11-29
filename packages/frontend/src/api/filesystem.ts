@@ -16,7 +16,8 @@ export interface BrowseResult {
 export interface GitInfo {
   path: string;
   isGitRepo: boolean;
-  defaultBranch: string;
+  currentBranch: string;
+  branches: string[];
 }
 
 export async function browseDirectory(path?: string): Promise<BrowseResult> {

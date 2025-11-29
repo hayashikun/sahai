@@ -84,16 +84,35 @@ app.get("/git-info", async (c) => {
       return c.json({ error: "Not a git repository" }, 400);
     }
 
-    // Get default branch
-    const result = await Bun.$`git -C ${targetPath} symbolic-ref --short HEAD`
-      .nothrow()
-      .quiet();
-    const defaultBranch = result.exitCode === 0 ? result.text().trim() : "main";
+    // Get current branch
+    const currentBranchResult =
+      await Bun.$`git -C ${targetPath} symbolic-ref --short HEAD`
+        .nothrow()
+        .quiet();
+    const currentBranch =
+      currentBranchResult.exitCode === 0
+        ? currentBranchResult.text().trim()
+        : "main";
+
+    // Get all branches
+    const branchesResult =
+      await Bun.$`git -C ${targetPath} branch --format='%(refname:short)'`
+        .nothrow()
+        .quiet();
+    const branches =
+      branchesResult.exitCode === 0
+        ? branchesResult
+            .text()
+            .trim()
+            .split("\n")
+            .filter((b) => b.length > 0)
+        : [currentBranch];
 
     return c.json({
       path: targetPath,
       isGitRepo: true,
-      defaultBranch,
+      currentBranch,
+      branches,
     });
   } catch {
     return c.json({ error: "Cannot read git info" }, 400);

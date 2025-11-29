@@ -25,8 +25,14 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { useRepositories } from "../hooks";
 import { cn } from "../lib/utils";
 
@@ -35,6 +41,7 @@ export function RepositoryList() {
   const [showForm, setShowForm] = useState(false);
   const [selectedPath, setSelectedPath] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("main");
+  const [branches, setBranches] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,8 +83,10 @@ export function RepositoryList() {
     setSelectedPath(entry.path);
     try {
       const gitInfo = await getGitInfo(entry.path);
-      setDefaultBranch(gitInfo.defaultBranch);
+      setBranches(gitInfo.branches);
+      setDefaultBranch(gitInfo.currentBranch);
     } catch {
+      setBranches(["main"]);
       setDefaultBranch("main");
     }
   };
@@ -99,6 +108,7 @@ export function RepositoryList() {
       });
       setSelectedPath("");
       setDefaultBranch("main");
+      setBranches([]);
       setBrowseResult(null);
       setShowForm(false);
       mutate();
@@ -113,6 +123,7 @@ export function RepositoryList() {
     setShowForm(false);
     setSelectedPath("");
     setDefaultBranch("main");
+    setBranches([]);
     setBrowseResult(null);
     setError(null);
   };
@@ -256,13 +267,21 @@ export function RepositoryList() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="repo-branch">Default Branch</Label>
-                    <Input
-                      id="repo-branch"
-                      type="text"
+                    <Select
                       value={defaultBranch}
-                      onChange={(e) => setDefaultBranch(e.target.value)}
-                      placeholder="main"
-                    />
+                      onValueChange={setDefaultBranch}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch} value={branch}>
+                            {branch}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               )}
