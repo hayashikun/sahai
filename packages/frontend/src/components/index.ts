@@ -1,3 +1,4 @@
+export * from "./DiffView";
 export * from "./DroppableColumn";
 export * from "./KanbanBoard";
 export * from "./Layout";

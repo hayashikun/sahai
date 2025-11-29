@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ExecutionLog, Status, Task } from "shared/schemas";
 import {
   completeTask,
   finishTask,
+  getTaskDiff,
   pauseTask,
   resumeTask,
   startTask,
 } from "../api";
+import { DiffView } from "../components";
 import { useTaskWithRealtimeLogs } from "../hooks";
 
 export function TaskDetail() {
@@ -20,6 +22,8 @@ export function TaskDetail() {
   return <TaskDetailContent taskId={taskId} />;
 }
 
+type TabType = "logs" | "diff";
+
 function TaskDetailContent({ taskId }: { taskId: string }) {
   const { task, mutateTask, logs, connected, error } =
     useTaskWithRealtimeLogs(taskId);
@@ -27,6 +31,24 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState("");
   const [showResumeForm, setShowResumeForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("logs");
+  const [diff, setDiff] = useState<string | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffError, setDiffError] = useState<string | null>(null);
+
+  // Load diff when switching to diff tab or when task status changes
+  useEffect(() => {
+    if (activeTab === "diff" && task.status !== "TODO") {
+      setDiffLoading(true);
+      setDiffError(null);
+      getTaskDiff(taskId)
+        .then(setDiff)
+        .catch((e) => {
+          setDiffError(e instanceof Error ? e.message : "Failed to load diff");
+        })
+        .finally(() => setDiffLoading(false));
+    }
+  }, [activeTab, taskId, task.status]);
 
   const handleAction = async (
     action: () => Promise<Task>,
@@ -97,7 +119,20 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
         onResumeMessageChange={setResumeMessage}
       />
 
-      <ExecutionLogs logs={logs} connected={connected} error={error} />
+      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {activeTab === "logs" && (
+        <ExecutionLogs logs={logs} connected={connected} error={error} />
+      )}
+
+      {activeTab === "diff" && (
+        <DiffSection
+          task={task}
+          diff={diff}
+          loading={diffLoading}
+          error={diffError}
+        />
+      )}
     </div>
   );
 }
@@ -470,6 +505,117 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
           ))
         )}
       </div>
+    </section>
+  );
+}
+
+interface TabNavigationProps {
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
+}
+
+function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
+  const tabStyle = (isActive: boolean) => ({
+    padding: "8px 16px",
+    border: "none",
+    borderBottom: isActive ? "2px solid #3b82f6" : "2px solid transparent",
+    backgroundColor: "transparent",
+    color: isActive ? "#3b82f6" : "#6b7280",
+    fontWeight: isActive ? 600 : 400,
+    cursor: "pointer",
+    fontSize: "14px",
+  });
+
+  return (
+    <div
+      style={{
+        marginTop: "24px",
+        borderBottom: "1px solid #e5e7eb",
+        display: "flex",
+        gap: "8px",
+      }}
+    >
+      <button
+        type="button"
+        style={tabStyle(activeTab === "logs")}
+        onClick={() => onTabChange("logs")}
+      >
+        Execution Logs
+      </button>
+      <button
+        type="button"
+        style={tabStyle(activeTab === "diff")}
+        onClick={() => onTabChange("diff")}
+      >
+        Diff View
+      </button>
+    </div>
+  );
+}
+
+interface DiffSectionProps {
+  task: Task;
+  diff: string | null;
+  loading: boolean;
+  error: string | null;
+}
+
+function DiffSection({ task, diff, loading, error }: DiffSectionProps) {
+  if (task.status === "TODO") {
+    return (
+      <section style={{ marginTop: "16px" }}>
+        <div
+          style={{
+            padding: "24px",
+            textAlign: "center",
+            color: "#6b7280",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+          }}
+        >
+          Start the task to see the diff
+        </div>
+      </section>
+    );
+  }
+
+  if (loading) {
+    return (
+      <section style={{ marginTop: "16px" }}>
+        <div
+          style={{
+            padding: "24px",
+            textAlign: "center",
+            color: "#6b7280",
+          }}
+        >
+          Loading diff...
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section style={{ marginTop: "16px" }}>
+        <div
+          style={{
+            padding: "16px",
+            color: "#dc2626",
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: "8px",
+          }}
+        >
+          Error loading diff: {error}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section style={{ marginTop: "16px" }}>
+      <DiffView diff={diff ?? ""} />
     </section>
   );
 }
