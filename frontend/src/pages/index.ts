@@ -1,2 +1,3 @@
 export * from "./Home";
-export * from "./Projects";
+export * from "./ProjectDetail";
+export * from "./ProjectList";
