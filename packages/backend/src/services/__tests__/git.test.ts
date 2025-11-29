@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { $ } from "bun";
-import { createBranch, deleteBranch, getDiff, GitError } from "../git";
+import { createBranch, deleteBranch, GitError, getDiff } from "../git";
 
 let testRepoPath: string;
 
@@ -105,8 +105,9 @@ describe("deleteBranch", () => {
     await deleteBranch(testRepoPath, "unmerged-branch", true);
 
     // Verify branch was deleted
-    const result =
-      await $`git -C ${testRepoPath} branch --list unmerged-branch`.quiet().text();
+    const result = await $`git -C ${testRepoPath} branch --list unmerged-branch`
+      .quiet()
+      .text();
     expect(result.trim()).toBe("");
   });
 

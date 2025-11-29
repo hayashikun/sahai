@@ -57,7 +57,9 @@ describe("createWorktree", () => {
       expect(true).toBe(false); // Should not reach here
     } catch (error) {
       expect(error).toBeInstanceOf(GitError);
-      expect((error as GitError).message).toContain("Failed to create worktree");
+      expect((error as GitError).message).toContain(
+        "Failed to create worktree",
+      );
     }
   });
 
@@ -126,7 +128,9 @@ describe("deleteWorktree", () => {
       expect(true).toBe(false); // Should not reach here
     } catch (error) {
       expect(error).toBeInstanceOf(GitError);
-      expect((error as GitError).message).toContain("Failed to delete worktree");
+      expect((error as GitError).message).toContain(
+        "Failed to delete worktree",
+      );
     }
   });
 });

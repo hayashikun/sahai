@@ -488,7 +488,13 @@ describe("POST /:id/resume", () => {
 
   test("returns 400 if task has no worktree", async () => {
     await createRepository("repo-1", "Repo 1");
-    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress", null);
+    await createTaskWithStatus(
+      "task-1",
+      "repo-1",
+      "Task 1",
+      "InProgress",
+      null,
+    );
 
     const res = await taskById.request("/task-1/resume", { method: "POST" });
     expect(res.status).toBe(400);
