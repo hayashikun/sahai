@@ -1,47 +1,27 @@
-import type { Project, Repository } from "shared/types";
+import { Project, ProjectArray, RepositoryArray } from "shared/schemas";
 import useSWR from "swr";
 import { fetcher } from "../api/client";
-import type { ProjectResponse, RepositoryResponse } from "../api/projects";
-
-function toProject(response: ProjectResponse): Project {
-  return {
-    ...response,
-    description: response.description ?? undefined,
-    createdAt: new Date(response.createdAt),
-    updatedAt: new Date(response.updatedAt),
-  };
-}
-
-function toRepository(response: RepositoryResponse): Repository {
-  return {
-    ...response,
-    createdAt: new Date(response.createdAt),
-    updatedAt: new Date(response.updatedAt),
-  };
-}
 
 export function useProjects() {
-  const { data, mutate } = useSWR<ProjectResponse[]>("/projects", fetcher, {
+  const { data, mutate } = useSWR("/projects", fetcher, {
     suspense: true,
   });
   return {
-    projects: data?.map(toProject) ?? [],
+    projects: ProjectArray.parse(data),
     mutate,
   };
 }
 
 export function useProject(id: string) {
-  const { data } = useSWR<ProjectResponse>(`/projects/${id}`, fetcher, {
+  const { data } = useSWR(`/projects/${id}`, fetcher, {
     suspense: true,
   });
-  return data ? toProject(data) : null;
+  return Project.parse(data);
 }
 
 export function useProjectRepositories(projectId: string) {
-  const { data } = useSWR<RepositoryResponse[]>(
-    `/projects/${projectId}/repositories`,
-    fetcher,
-    { suspense: true },
-  );
-  return data?.map(toRepository) ?? [];
+  const { data } = useSWR(`/projects/${projectId}/repositories`, fetcher, {
+    suspense: true,
+  });
+  return RepositoryArray.parse(data);
 }

@@ -1,5 +1,4 @@
-import type { Task } from "shared/types";
-import { Status } from "shared/types";
+import type { Task } from "shared/schemas";
 import { TaskCard } from "./TaskCard";
 
 interface KanbanBoardProps {
@@ -7,10 +6,10 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS: { status: Task["status"]; label: string }[] = [
-  { status: Status.TODO, label: "TODO" },
-  { status: Status.InProgress, label: "In Progress" },
-  { status: Status.InReview, label: "In Review" },
-  { status: Status.Done, label: "Done" },
+  { status: "TODO", label: "TODO" },
+  { status: "InProgress", label: "In Progress" },
+  { status: "InReview", label: "In Review" },
+  { status: "Done", label: "Done" },
 ];
 
 export function KanbanBoard({ tasks }: KanbanBoardProps) {

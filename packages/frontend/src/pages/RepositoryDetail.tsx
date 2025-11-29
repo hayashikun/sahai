@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Executor } from "shared/types";
 import { createTask } from "../api";
 import { KanbanBoard } from "../components";
 import { useRepository, useRepositoryTasks } from "../hooks";
@@ -21,7 +20,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [executor, setExecutor] = useState<string>(Executor.ClaudeCode);
+  const [executor, setExecutor] = useState<string>("ClaudeCode");
   const [branchName, setBranchName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,8 +113,8 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                   value={executor}
                   onChange={(e) => setExecutor(e.target.value)}
                 >
-                  <option value={Executor.ClaudeCode}>Claude Code</option>
-                  <option value={Executor.Codex}>Codex</option>
+                  <option value="ClaudeCode">Claude Code</option>
+                  <option value="Codex">Codex</option>
                 </select>
               </div>
               <div style={{ marginBottom: "8px" }}>
