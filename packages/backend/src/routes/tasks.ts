@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
@@ -9,6 +10,49 @@ import { createWorktree, deleteWorktree } from "../services/worktree";
 
 // In-memory store for active executors
 const activeExecutors = new Map<string, Executor>();
+
+// SSE subscribers per task
+type LogSubscriber = (log: {
+  id: string;
+  taskId: string;
+  content: string;
+  logType: string;
+  createdAt: string;
+}) => void;
+const logSubscribers = new Map<string, Set<LogSubscriber>>();
+
+function subscribeToLogs(taskId: string, callback: LogSubscriber): () => void {
+  if (!logSubscribers.has(taskId)) {
+    logSubscribers.set(taskId, new Set());
+  }
+  logSubscribers.get(taskId)?.add(callback);
+
+  // Return unsubscribe function
+  return () => {
+    const subscribers = logSubscribers.get(taskId);
+    if (subscribers) {
+      subscribers.delete(callback);
+      if (subscribers.size === 0) {
+        logSubscribers.delete(taskId);
+      }
+    }
+  };
+}
+
+function broadcastLog(log: {
+  id: string;
+  taskId: string;
+  content: string;
+  logType: string;
+  createdAt: string;
+}): void {
+  const subscribers = logSubscribers.get(log.taskId);
+  if (subscribers) {
+    for (const callback of subscribers) {
+      callback(log);
+    }
+  }
+}
 
 // Routes for /v1/repositories/:repositoryId/tasks
 export const repositoryTasks = new Hono();
@@ -157,6 +201,54 @@ taskById.get("/:id/logs", async (c) => {
   return c.json(logs);
 });
 
+// GET /v1/tasks/:id/logs/stream - Stream execution logs via SSE
+taskById.get("/:id/logs/stream", async (c) => {
+  const id = c.req.param("id");
+
+  // Check if task exists
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+
+  return streamSSE(c, async (stream) => {
+    let eventId = 0;
+
+    const unsubscribe = subscribeToLogs(id, (log) => {
+      stream.writeSSE({
+        data: JSON.stringify(log),
+        event: "log",
+        id: String(eventId++),
+      });
+    });
+
+    // Send initial connection event
+    await stream.writeSSE({
+      data: JSON.stringify({ taskId: id, status: "connected" }),
+      event: "connected",
+      id: String(eventId++),
+    });
+
+    // Keep connection alive with periodic heartbeats
+    const heartbeat = setInterval(() => {
+      stream.writeSSE({
+        data: "",
+        event: "heartbeat",
+        id: String(eventId++),
+      });
+    }, 30000);
+
+    // Clean up on disconnect
+    stream.onAbort(() => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+
+    // Keep the stream open
+    await new Promise(() => {});
+  });
+});
+
 // POST /v1/tasks/:id/start - Create worktree, start executor
 taskById.post("/:id/start", async (c) => {
   const id = c.req.param("id");
@@ -209,13 +301,16 @@ taskById.post("/:id/start", async (c) => {
 
     executor.onOutput(async (output) => {
       // Save output to execution_logs
-      await db.insert(executionLogs).values({
+      const log = {
         id: crypto.randomUUID(),
         taskId: id,
         content: output.content,
         logType: output.logType,
         createdAt: new Date().toISOString(),
-      });
+      };
+      await db.insert(executionLogs).values(log);
+      // Broadcast to SSE subscribers
+      broadcastLog(log);
     });
 
     await executor.start({
@@ -336,13 +431,16 @@ taskById.post("/:id/resume", async (c) => {
     const executor = new ClaudeCodeExecutor();
 
     executor.onOutput(async (output) => {
-      await db.insert(executionLogs).values({
+      const log = {
         id: crypto.randomUUID(),
         taskId: id,
         content: output.content,
         logType: output.logType,
         createdAt: new Date().toISOString(),
-      });
+      };
+      await db.insert(executionLogs).values(log);
+      // Broadcast to SSE subscribers
+      broadcastLog(log);
     });
 
     const prompt = body.message ?? task.description ?? task.title;
