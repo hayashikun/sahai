@@ -534,6 +534,51 @@ describe("POST /:id/finish", () => {
   });
 });
 
+describe("GET /:id/diff", () => {
+  test("returns 404 for non-existent task", async () => {
+    const res = await taskById.request("/non-existent/diff");
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Task not found");
+  });
+
+  test("returns 404 if repository not found", async () => {
+    // Create a task with a non-existent repository ID
+    const now = new Date().toISOString();
+    await db.insert(tasks).values({
+      id: "orphan-task",
+      repositoryId: "non-existent-repo",
+      title: "Orphan Task",
+      description: null,
+      status: "InProgress",
+      executor: "ClaudeCode",
+      branchName: "feature/orphan",
+      baseBranch: "main",
+      worktreePath: null,
+      createdAt: now,
+      updatedAt: now,
+      startedAt: now,
+      completedAt: null,
+    });
+
+    const res = await taskById.request("/orphan-task/diff");
+    expect(res.status).toBe(404);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("Repository not found");
+  });
+
+  test("returns 500 if git diff fails", async () => {
+    // Create repository with invalid path (will cause git command to fail)
+    await createRepository("repo-1", "Repo 1");
+    await createTask("task-1", "repo-1", "Task 1");
+
+    const res = await taskById.request("/task-1/diff");
+    expect(res.status).toBe(500);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain("Failed to get diff");
+  });
+});
+
 describe("POST /:id/recreate", () => {
   test("returns 404 for non-existent task", async () => {
     const res = await taskById.request("/non-existent/recreate", {
