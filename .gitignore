@@ -31,4 +31,4 @@ bun.lock
 tmp/
 
 # Database
-backend/data/
+packages/backend/data/

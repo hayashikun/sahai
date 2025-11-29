@@ -2,9 +2,7 @@
   "name": "sahai",
   "private": true,
   "workspaces": [
-    "frontend",
-    "backend",
-    "shared"
+    "packages/*"
   ],
   "scripts": {
     "dev:backend": "bun run --filter backend dev",

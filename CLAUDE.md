@@ -38,6 +38,6 @@ bun run --filter frontend build
 
 ### Monorepo Structure (Bun Workspaces)
 
-- **backend/**: Hono + SQLite (drizzle-orm) API server
-- **frontend/**: React + Vite + Jotai
-- **shared/**: Shared TypeScript types
+- **packages/backend/**: Hono + SQLite (drizzle-orm) API server
+- **packages/frontend/**: React + Vite + Jotai
+- **packages/shared/**: Shared TypeScript types
