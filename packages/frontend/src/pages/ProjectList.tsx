@@ -60,7 +60,7 @@ export function ProjectList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
           <p className="text-gray-500">Manage your projects and repositories</p>
