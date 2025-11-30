@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ClipboardList,
   GitBranch,
   Loader2,
   Pencil,
@@ -22,6 +23,7 @@ import {
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -110,8 +112,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
 
   // Edit repository state
   const [editOpen, setEditOpen] = useState(false);
-  const [editName, setEditName] = useState(repository.name);
-  const [editPath, setEditPath] = useState(repository.path);
   const [editDefaultBranch, setEditDefaultBranch] = useState(
     repository.defaultBranch,
   );
@@ -154,15 +154,13 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   };
 
   const handleEditRepository = async () => {
-    if (!editName.trim() || !editPath.trim()) return;
+    if (!editDefaultBranch.trim()) return;
 
     try {
       setEditLoading(true);
       setEditError(null);
       await updateRepository(repositoryId, {
-        name: editName.trim(),
-        path: editPath.trim(),
-        defaultBranch: editDefaultBranch.trim() || undefined,
+        defaultBranch: editDefaultBranch.trim(),
       });
       mutateRepository();
       setEditOpen(false);
@@ -180,7 +178,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       setDeleteLoading(true);
       setDeleteError(null);
       await deleteRepository(repositoryId);
-      navigate("/projects");
+      navigate("/repositories");
     } catch (e) {
       setDeleteError(
         e instanceof Error ? e.message : "Failed to delete repository",
@@ -190,8 +188,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   };
 
   const resetEditForm = () => {
-    setEditName(repository.name);
-    setEditPath(repository.path);
     setEditDefaultBranch(repository.defaultBranch);
     setEditError(null);
   };
@@ -200,9 +196,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-4">
-          <Link to="/projects">
+          <Link to="/repositories">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Projects
+            Back to Repositories
           </Link>
         </Button>
 
@@ -245,35 +241,14 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     {editError}
                   </div>
                 )}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-repo-name">Name</Label>
-                    <Input
-                      id="edit-repo-name"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Repository name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-repo-path">Path</Label>
-                    <Input
-                      id="edit-repo-path"
-                      value={editPath}
-                      onChange={(e) => setEditPath(e.target.value)}
-                      placeholder="/path/to/repository"
-                      className="font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-repo-branch">Default Branch</Label>
-                    <Input
-                      id="edit-repo-branch"
-                      value={editDefaultBranch}
-                      onChange={(e) => setEditDefaultBranch(e.target.value)}
-                      placeholder="main"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-repo-branch">Default Branch</Label>
+                  <Input
+                    id="edit-repo-branch"
+                    value={editDefaultBranch}
+                    onChange={(e) => setEditDefaultBranch(e.target.value)}
+                    placeholder="main"
+                  />
                 </div>
                 <DialogFooter>
                   <Button
@@ -430,7 +405,19 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
         </Dialog>
       </div>
 
-      <KanbanBoard tasks={tasks} onTaskUpdate={mutateTasks} />
+      {tasks.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <ClipboardList className="h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-500">No tasks yet.</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Click "New Task" to create one.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <KanbanBoard tasks={tasks} onTaskUpdate={mutateTasks} />
+      )}
     </div>
   );
 }
