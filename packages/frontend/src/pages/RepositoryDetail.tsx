@@ -68,8 +68,45 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [description, setDescription] = useState("");
   const [executor, setExecutor] = useState<string>("ClaudeCode");
   const [branchName, setBranchName] = useState("");
+  const [branchNameEdited, setBranchNameEdited] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const base62Encode = (num: number): string => {
+    const chars =
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let result = "";
+    while (num > 0) {
+      result = chars[num % 62] + result;
+      num = Math.floor(num / 62);
+    }
+    return result || "0";
+  };
+
+  const titleToBranchName = (title: string): string => {
+    const slug = title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    if (!slug) return "";
+    const timestamp = base62Encode(Math.floor(Date.now() / 1000));
+    return `sahai/${timestamp}-${slug}`;
+  };
+
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (!branchNameEdited) {
+      setBranchName(titleToBranchName(newTitle));
+    }
+  };
+
+  const handleBranchNameChange = (newBranchName: string) => {
+    setBranchName(newBranchName);
+    setBranchNameEdited(true);
+  };
 
   // Edit repository state
   const [editOpen, setEditOpen] = useState(false);
@@ -90,6 +127,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     setDescription("");
     setExecutor("ClaudeCode");
     setBranchName("");
+    setBranchNameEdited(false);
     setError(null);
   };
 
@@ -336,7 +374,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                   id="task-title"
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="Enter task title"
                 />
               </div>
@@ -369,8 +407,8 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     id="task-branch"
                     type="text"
                     value={branchName}
-                    onChange={(e) => setBranchName(e.target.value)}
-                    placeholder="feature/my-branch"
+                    onChange={(e) => handleBranchNameChange(e.target.value)}
+                    placeholder="sahai/2b9MEx-add-some-feature"
                   />
                 </div>
               </div>
