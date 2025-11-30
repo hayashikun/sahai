@@ -107,6 +107,11 @@ describe("repositories API", () => {
         Promise.resolve({
           ok: false,
           status: 400,
+          statusText: "Bad Request",
+          json: () =>
+            Promise.resolve({
+              error: { code: "BAD_REQUEST", message: "Title is required" },
+            }),
         } as Response),
       );
 
@@ -116,7 +121,7 @@ describe("repositories API", () => {
           executor: "ClaudeCode",
           branchName: "test",
         }),
-      ).rejects.toThrow("API error: 400");
+      ).rejects.toThrow("Title is required");
     });
   });
 
@@ -192,11 +197,16 @@ describe("repositories API", () => {
         Promise.resolve({
           ok: false,
           status: 404,
+          statusText: "Not Found",
+          json: () =>
+            Promise.resolve({
+              error: { code: "NOT_FOUND", message: "Task not found" },
+            }),
         } as Response),
       );
 
       await expect(updateTaskStatus("task-999", "Done")).rejects.toThrow(
-        "API error: 404",
+        "Task not found",
       );
     });
   });

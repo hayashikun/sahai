@@ -70,10 +70,15 @@ describe("tasks API", () => {
         Promise.resolve({
           ok: false,
           status: 404,
+          statusText: "Not Found",
+          json: () =>
+            Promise.resolve({
+              error: { code: "NOT_FOUND", message: "Task not found" },
+            }),
         } as Response),
       );
 
-      await expect(getTask("non-existent")).rejects.toThrow("API error: 404");
+      await expect(getTask("non-existent")).rejects.toThrow("Task not found");
     });
   });
 
@@ -405,12 +410,17 @@ describe("tasks API", () => {
         Promise.resolve({
           ok: false,
           status: 404,
+          statusText: "Not Found",
+          json: () =>
+            Promise.resolve({
+              error: { code: "NOT_FOUND", message: "Task not found" },
+            }),
         } as Response),
       );
 
       const { getTaskDiff } = await import("../tasks");
       await expect(getTaskDiff("non-existent")).rejects.toThrow(
-        "API error: 404",
+        "Task not found",
       );
     });
   });
