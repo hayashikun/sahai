@@ -17,7 +17,9 @@ export async function createBranch(
 ): Promise<void> {
   const base = baseBranch ?? "HEAD";
 
-  const result = await $`git -C ${repoPath} checkout -b ${branchName} ${base}`
+  // Use 'git branch' instead of 'git checkout -b' to avoid checking out the branch
+  // This is important because worktree cannot use a branch that is already checked out
+  const result = await $`git -C ${repoPath} branch ${branchName} ${base}`
     .nothrow()
     .quiet();
 

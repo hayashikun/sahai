@@ -64,6 +64,70 @@ import { Textarea } from "../components/ui/textarea";
 import { useTaskWithRealtimeLogs } from "../hooks";
 import { cn } from "../lib/utils";
 
+// Parse Claude Code stream-json output to human-readable format
+function parseLogContent(content: string, logType: string): string {
+  // Return as-is for stderr and system logs
+  if (logType === "stderr" || logType === "system") {
+    return content;
+  }
+
+  try {
+    const parsed = JSON.parse(content);
+
+    // Handle result type (final result)
+    if (parsed.type === "result") {
+      return parsed.result || "Task completed";
+    }
+
+    // Handle system init type
+    if (parsed.type === "system" && parsed.subtype === "init") {
+      return `[init] Claude Code v${parsed.claude_code_version} started (model: ${parsed.model})`;
+    }
+
+    // Handle assistant messages
+    if (parsed.type === "assistant" && parsed.message?.content) {
+      const contents = parsed.message.content;
+      const parts: string[] = [];
+
+      for (const item of contents) {
+        if (item.type === "text") {
+          parts.push(item.text);
+        } else if (item.type === "tool_use") {
+          parts.push(
+            `[${item.name}] ${JSON.stringify(item.input).slice(0, 100)}...`,
+          );
+        }
+      }
+
+      return parts.join("\n") || content;
+    }
+
+    // Handle user messages (tool results)
+    if (parsed.type === "user" && parsed.message?.content) {
+      const contents = parsed.message.content;
+      const parts: string[] = [];
+
+      for (const item of contents) {
+        if (item.type === "tool_result") {
+          const resultContent =
+            typeof item.content === "string"
+              ? item.content.slice(0, 200)
+              : JSON.stringify(item.content).slice(0, 200);
+          parts.push(`[tool_result] ${resultContent}...`);
+        }
+      }
+
+      return parts.join("\n") || content;
+    }
+
+    // Fallback: return stringified JSON
+    return content;
+  } catch {
+    // Not JSON, return as-is
+    return content;
+  }
+}
+
 export function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
 
@@ -616,23 +680,13 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
                   log.logType === "system" && "bg-gray-50",
                 )}
               >
-                <div className="flex justify-between mb-1">
-                  <span
-                    className={cn(
-                      "font-semibold uppercase text-[10px]",
-                      log.logType === "stdout" && "text-gray-900",
-                      log.logType === "stderr" && "text-red-600",
-                      log.logType === "system" && "text-gray-500",
-                    )}
-                  >
-                    {log.logType}
-                  </span>
-                  <span className="text-gray-500 text-[10px]">
+                <div className="flex justify-end mb-1">
+                  <span className="text-gray-400 text-[10px]">
                     {formatTime(log.createdAt)}
                   </span>
                 </div>
                 <pre className="whitespace-pre-wrap break-words">
-                  {log.content}
+                  {parseLogContent(log.content, log.logType)}
                 </pre>
               </div>
             ))

@@ -204,8 +204,11 @@ describe("ClaudeCodeExecutor", () => {
         // Verify the initial prompt was sent
         expect(writtenMessages.length).toBe(1);
         const sentMessage = JSON.parse(writtenMessages[0].trim());
-        expect(sentMessage.type).toBe("user_message");
-        expect(sentMessage.content).toBe("Hello, please help me");
+        expect(sentMessage.type).toBe("user");
+        expect(sentMessage.message.role).toBe("user");
+        expect(sentMessage.message.content).toEqual([
+          { type: "text", text: "Hello, please help me" },
+        ]);
       } finally {
         Bun.spawn = originalSpawn;
       }
@@ -256,10 +259,12 @@ describe("ClaudeCodeExecutor", () => {
         expect(spawnArgs).toBeDefined();
         const args = spawnArgs as { cmd: string[]; cwd: string };
         expect(args.cmd).toContain("claude");
+        expect(args.cmd).toContain("-p");
         expect(args.cmd).toContain("--output-format");
         expect(args.cmd).toContain("stream-json");
         expect(args.cmd).toContain("--input-format");
         expect(args.cmd).toContain("--verbose");
+        expect(args.cmd).toContain("--dangerously-skip-permissions");
         expect(args.cwd).toBe("/test/working/dir");
       } finally {
         Bun.spawn = originalSpawn;
@@ -377,8 +382,11 @@ describe("ClaudeCodeExecutor", () => {
 
         expect(writtenMessages.length).toBe(1);
         const sentMessage = JSON.parse(writtenMessages[0].trim());
-        expect(sentMessage.type).toBe("user_message");
-        expect(sentMessage.content).toBe("follow up message");
+        expect(sentMessage.type).toBe("user");
+        expect(sentMessage.message.role).toBe("user");
+        expect(sentMessage.message.content).toEqual([
+          { type: "text", text: "follow up message" },
+        ]);
       } finally {
         Bun.spawn = originalSpawn;
       }
