@@ -1,3 +1,5 @@
+import type { ErrorCode } from "shared/schemas";
+
 // Use relative URL in production browser (when served by same server),
 // absolute URL in development or non-browser environments (tests)
 const isProductionBrowser =
@@ -10,12 +12,65 @@ const API_BASE_URL = isProductionBrowser
   ? "/v1"
   : `http://localhost:${API_PORT}/v1`;
 
-export async function fetcher<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+export class ApiError extends Error {
+  readonly code: ErrorCode;
+  readonly status: number;
+  readonly details?: Record<string, unknown>;
+
+  constructor(
+    code: ErrorCode,
+    message: string,
+    status: number,
+    details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    let errorData: {
+      error?: {
+        code: ErrorCode;
+        message: string;
+        details?: Record<string, unknown>;
+      };
+    };
+    try {
+      errorData = await response.json();
+    } catch {
+      throw new ApiError(
+        "INTERNAL_ERROR",
+        `HTTP ${response.status}: ${response.statusText}`,
+        response.status,
+      );
+    }
+
+    if (errorData.error) {
+      throw new ApiError(
+        errorData.error.code,
+        errorData.error.message,
+        response.status,
+        errorData.error.details,
+      );
+    }
+
+    throw new ApiError(
+      "INTERNAL_ERROR",
+      `HTTP ${response.status}: ${response.statusText}`,
+      response.status,
+    );
   }
   return response.json();
+}
+
+export async function fetcher<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`);
+  return handleResponse<T>(response);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
@@ -24,10 +79,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-  return response.json();
+  return handleResponse<T>(response);
 }
 
 export async function apiPut<T>(path: string, body: unknown): Promise<T> {
@@ -36,10 +88,7 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-  return response.json();
+  return handleResponse<T>(response);
 }
 
 export async function apiDelete(path: string): Promise<void> {
@@ -47,6 +96,6 @@ export async function apiDelete(path: string): Promise<void> {
     method: "DELETE",
   });
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    await handleResponse<void>(response);
   }
 }

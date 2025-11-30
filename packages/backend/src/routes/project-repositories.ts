@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client";
 import { projectRepositories, projects, repositories } from "../db/schema";
+import { conflict, notFound } from "../lib/errors";
 
 const app = new Hono();
 
@@ -16,7 +17,7 @@ app.get("/:projectId/repositories", async (c) => {
     .where(eq(projects.id, projectId));
 
   if (project.length === 0) {
-    return c.json({ error: "Project not found" }, 404);
+    return notFound(c, "Project");
   }
 
   // Get associated repositories
@@ -51,7 +52,7 @@ app.post("/:projectId/repositories/:repositoryId", async (c) => {
     .where(eq(projects.id, projectId));
 
   if (project.length === 0) {
-    return c.json({ error: "Project not found" }, 404);
+    return notFound(c, "Project");
   }
 
   // Check if repository exists
@@ -61,7 +62,7 @@ app.post("/:projectId/repositories/:repositoryId", async (c) => {
     .where(eq(repositories.id, repositoryId));
 
   if (repository.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   // Check if association already exists
@@ -76,7 +77,7 @@ app.post("/:projectId/repositories/:repositoryId", async (c) => {
     );
 
   if (existing.length > 0) {
-    return c.json({ error: "Association already exists" }, 409);
+    return conflict(c, "Association already exists");
   }
 
   const now = new Date().toISOString();
@@ -107,7 +108,7 @@ app.delete("/:projectId/repositories/:repositoryId", async (c) => {
     );
 
   if (existing.length === 0) {
-    return c.json({ error: "Association not found" }, 404);
+    return notFound(c, "Association");
   }
 
   await db

@@ -127,7 +127,7 @@ describe("GET /:id", () => {
     const res = await app.request("/non-existent-id");
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Repository not found");
+    expect(data.error.message).toBe("Repository not found");
   });
 });
 

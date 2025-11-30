@@ -7,6 +7,12 @@ import { executionLogs, repositories, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
 import { CodexExecutor } from "../executors/codex";
 import type { Executor } from "../executors/interface";
+import {
+  badRequest,
+  internalError,
+  invalidStateTransition,
+  notFound,
+} from "../lib/errors";
 import { createBranch, deleteBranch, getDiff } from "../services/git";
 import { createWorktree, deleteWorktree } from "../services/worktree";
 
@@ -81,7 +87,7 @@ repositoryTasks.get("/:repositoryId/tasks", async (c) => {
     .where(eq(repositories.id, repositoryId));
 
   if (repository.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   const result = await db
@@ -103,7 +109,7 @@ repositoryTasks.post("/:repositoryId/tasks", async (c) => {
     .where(eq(repositories.id, repositoryId));
 
   if (repository.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   const body = await c.req.json();
@@ -139,7 +145,7 @@ taskById.get("/:id", async (c) => {
   const result = await db.select().from(tasks).where(eq(tasks.id, id));
 
   if (result.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   return c.json(result[0]);
@@ -154,7 +160,7 @@ taskById.put("/:id", async (c) => {
   const existing = await db.select().from(tasks).where(eq(tasks.id, id));
 
   if (existing.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const updated: Record<string, unknown> = {
@@ -186,7 +192,7 @@ taskById.delete("/:id", async (c) => {
   const existing = await db.select().from(tasks).where(eq(tasks.id, id));
 
   if (existing.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   await db.delete(tasks).where(eq(tasks.id, id));
@@ -201,7 +207,7 @@ taskById.get("/:id/logs", async (c) => {
   // Check if task exists
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   // Get logs ordered by createdAt descending (newest first)
@@ -221,7 +227,7 @@ taskById.get("/:id/diff", async (c) => {
   // Get task
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const task = taskResult[0];
@@ -233,7 +239,7 @@ taskById.get("/:id/diff", async (c) => {
     .where(eq(repositories.id, task.repositoryId));
 
   if (repoResult.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   const repo = repoResult[0];
@@ -242,7 +248,7 @@ taskById.get("/:id/diff", async (c) => {
     const diff = await getDiff(repo.path, task.baseBranch, task.branchName);
     return c.json({ diff });
   } catch (error) {
-    return c.json({ error: `Failed to get diff: ${error}` }, 500);
+    return internalError(c, `Failed to get diff: ${error}`);
   }
 });
 
@@ -253,7 +259,7 @@ taskById.get("/:id/logs/stream", async (c) => {
   // Check if task exists
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   return streamSSE(c, async (stream) => {
@@ -301,13 +307,13 @@ taskById.post("/:id/start", async (c) => {
 
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const task = taskResult[0];
 
   if (task.status !== "TODO") {
-    return c.json({ error: "Task must be in TODO status to start" }, 400);
+    return invalidStateTransition(c, task.status, ["TODO"], "start");
   }
 
   // Get repository info
@@ -317,7 +323,7 @@ taskById.post("/:id/start", async (c) => {
     .where(eq(repositories.id, task.repositoryId));
 
   if (repoResult.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   const repo = repoResult[0];
@@ -347,7 +353,7 @@ taskById.post("/:id/start", async (c) => {
       executor = createExecutor(task.executor);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return c.json({ error: message }, 400);
+      return badRequest(c, message);
     }
 
     executor.onOutput(async (output) => {
@@ -376,7 +382,7 @@ taskById.post("/:id/start", async (c) => {
 
     return c.json(updatedTask[0]);
   } catch (error) {
-    return c.json({ error: `Failed to start task: ${error}` }, 500);
+    return internalError(c, `Failed to start task: ${error}`);
   }
 });
 
@@ -387,13 +393,13 @@ taskById.post("/:id/pause", async (c) => {
 
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const task = taskResult[0];
 
   if (task.status !== "InProgress") {
-    return c.json({ error: "Task must be in InProgress status to pause" }, 400);
+    return invalidStateTransition(c, task.status, ["InProgress"], "pause");
   }
 
   const executor = activeExecutors.get(id);
@@ -415,16 +421,13 @@ taskById.post("/:id/complete", async (c) => {
 
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const task = taskResult[0];
 
   if (task.status !== "InProgress") {
-    return c.json(
-      { error: "Task must be in InProgress status to complete" },
-      400,
-    );
+    return invalidStateTransition(c, task.status, ["InProgress"], "complete");
   }
 
   // Stop executor if running
@@ -454,20 +457,22 @@ taskById.post("/:id/resume", async (c) => {
 
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const task = taskResult[0];
 
   if (task.status !== "InProgress" && task.status !== "InReview") {
-    return c.json(
-      { error: "Task must be in InProgress or InReview status to resume" },
-      400,
+    return invalidStateTransition(
+      c,
+      task.status,
+      ["InProgress", "InReview"],
+      "resume",
     );
   }
 
   if (!task.worktreePath) {
-    return c.json({ error: "Task has no worktree" }, 400);
+    return badRequest(c, "Task has no worktree");
   }
 
   // Stop existing executor if running
@@ -484,7 +489,7 @@ taskById.post("/:id/resume", async (c) => {
       executor = createExecutor(task.executor);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return c.json({ error: message }, 400);
+      return badRequest(c, message);
     }
 
     executor.onOutput(async (output) => {
@@ -524,7 +529,7 @@ taskById.post("/:id/resume", async (c) => {
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
     return c.json(updatedTask[0]);
   } catch (error) {
-    return c.json({ error: `Failed to resume task: ${error}` }, 500);
+    return internalError(c, `Failed to resume task: ${error}`);
   }
 });
 
@@ -535,13 +540,13 @@ taskById.post("/:id/finish", async (c) => {
 
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const task = taskResult[0];
 
   if (task.status !== "InReview") {
-    return c.json({ error: "Task must be in InReview status to finish" }, 400);
+    return invalidStateTransition(c, task.status, ["InReview"], "finish");
   }
 
   // Get repository info
@@ -551,7 +556,7 @@ taskById.post("/:id/finish", async (c) => {
     .where(eq(repositories.id, task.repositoryId));
 
   if (repoResult.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   const repo = repoResult[0];
@@ -579,7 +584,7 @@ taskById.post("/:id/finish", async (c) => {
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
     return c.json(updatedTask[0]);
   } catch (error) {
-    return c.json({ error: `Failed to finish task: ${error}` }, 500);
+    return internalError(c, `Failed to finish task: ${error}`);
   }
 });
 
@@ -591,7 +596,7 @@ taskById.post("/:id/recreate", async (c) => {
 
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
-    return c.json({ error: "Task not found" }, 404);
+    return notFound(c, "Task");
   }
 
   const task = taskResult[0];

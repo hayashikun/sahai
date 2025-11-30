@@ -93,7 +93,7 @@ describe("GET /:repositoryId/tasks", () => {
     const res = await repositoryTasks.request("/non-existent/tasks");
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Repository not found");
+    expect(data.error.message).toBe("Repository not found");
   });
 });
 
@@ -175,7 +175,7 @@ describe("GET /:id", () => {
     const res = await taskById.request("/non-existent");
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 });
 
@@ -345,7 +345,7 @@ describe("GET /:id/logs", () => {
     const res = await taskById.request("/non-existent/logs");
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 });
 
@@ -356,7 +356,7 @@ describe("POST /:id/start", () => {
     });
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 
   test("returns 400 if task is not in TODO status", async () => {
@@ -365,8 +365,10 @@ describe("POST /:id/start", () => {
 
     const res = await taskById.request("/task-1/start", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task must be in TODO status to start");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot start: task is in InProgress status, but must be in TODO status",
+    );
   });
 
   test("returns 400 if task is in InReview status", async () => {
@@ -375,8 +377,10 @@ describe("POST /:id/start", () => {
 
     const res = await taskById.request("/task-1/start", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task must be in TODO status to start");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot start: task is in InReview status, but must be in TODO status",
+    );
   });
 
   test("returns 400 if task is in Done status", async () => {
@@ -385,8 +389,10 @@ describe("POST /:id/start", () => {
 
     const res = await taskById.request("/task-1/start", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task must be in TODO status to start");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot start: task is in Done status, but must be in TODO status",
+    );
   });
 });
 
@@ -397,7 +403,7 @@ describe("POST /:id/pause", () => {
     });
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 
   test("returns 400 if task is not in InProgress status", async () => {
@@ -406,8 +412,10 @@ describe("POST /:id/pause", () => {
 
     const res = await taskById.request("/task-1/pause", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task must be in InProgress status to pause");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot pause: task is in TODO status, but must be in InProgress status",
+    );
   });
 
   test("pauses a task in InProgress status", async () => {
@@ -428,7 +436,7 @@ describe("POST /:id/complete", () => {
     });
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 
   test("returns 400 if task is not in InProgress status", async () => {
@@ -437,8 +445,10 @@ describe("POST /:id/complete", () => {
 
     const res = await taskById.request("/task-1/complete", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task must be in InProgress status to complete");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot complete: task is in TODO status, but must be in InProgress status",
+    );
   });
 
   test("completes a task in InProgress status", async () => {
@@ -459,7 +469,7 @@ describe("POST /:id/resume", () => {
     });
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 
   test("returns 400 if task is in TODO status", async () => {
@@ -468,9 +478,9 @@ describe("POST /:id/resume", () => {
 
     const res = await taskById.request("/task-1/resume", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe(
-      "Task must be in InProgress or InReview status to resume",
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot resume: task is in TODO status, but must be in InProgress or InReview status",
     );
   });
 
@@ -480,9 +490,9 @@ describe("POST /:id/resume", () => {
 
     const res = await taskById.request("/task-1/resume", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe(
-      "Task must be in InProgress or InReview status to resume",
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot resume: task is in Done status, but must be in InProgress or InReview status",
     );
   });
 
@@ -499,7 +509,7 @@ describe("POST /:id/resume", () => {
     const res = await taskById.request("/task-1/resume", { method: "POST" });
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task has no worktree");
+    expect(data.error.message).toBe("Task has no worktree");
   });
 });
 
@@ -510,7 +520,7 @@ describe("POST /:id/finish", () => {
     });
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 
   test("returns 400 if task is not in InReview status", async () => {
@@ -519,8 +529,10 @@ describe("POST /:id/finish", () => {
 
     const res = await taskById.request("/task-1/finish", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task must be in InReview status to finish");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot finish: task is in InProgress status, but must be in InReview status",
+    );
   });
 
   test("returns 400 if task is in TODO status", async () => {
@@ -529,8 +541,10 @@ describe("POST /:id/finish", () => {
 
     const res = await taskById.request("/task-1/finish", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task must be in InReview status to finish");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toBe(
+      "Cannot finish: task is in TODO status, but must be in InReview status",
+    );
   });
 });
 
@@ -539,7 +553,7 @@ describe("GET /:id/diff", () => {
     const res = await taskById.request("/non-existent/diff");
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 
   test("returns 404 if repository not found", async () => {
@@ -564,7 +578,7 @@ describe("GET /:id/diff", () => {
     const res = await taskById.request("/orphan-task/diff");
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Repository not found");
+    expect(data.error.message).toBe("Repository not found");
   });
 
   test("returns 500 if git diff fails", async () => {
@@ -574,8 +588,8 @@ describe("GET /:id/diff", () => {
 
     const res = await taskById.request("/task-1/diff");
     expect(res.status).toBe(500);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toContain("Failed to get diff");
+    const data = (await res.json()) as { error: { message: string } };
+    expect(data.error.message).toContain("Failed to get diff");
   });
 });
 
@@ -586,7 +600,7 @@ describe("POST /:id/recreate", () => {
     });
     expect(res.status).toBe(404);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toBe("Task not found");
+    expect(data.error.message).toBe("Task not found");
   });
 
   test("creates a new task from existing task", async () => {
