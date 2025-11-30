@@ -13,7 +13,6 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   associateRepositoryWithProject,
-  createRepository,
   deleteProject,
   disassociateRepositoryFromProject,
   updateProject,
@@ -48,8 +47,15 @@ import {
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { useProject, useProjectRepositories } from "../hooks";
+import { useProject, useProjectRepositories, useRepositories } from "../hooks";
 
 export function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -67,8 +73,9 @@ export function ProjectDetail() {
 
 function ProjectDetailContent({ projectId }: { projectId: string }) {
   const { project, mutate } = useProject(projectId);
-  const { repositories, mutate: mutateRepositories } =
+  const { repositories: projectRepositories, mutate: mutateRepositories } =
     useProjectRepositories(projectId);
+  const { repositories: allRepositories } = useRepositories();
   const navigate = useNavigate();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -84,14 +91,18 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
 
   // Add repository state
   const [addRepoOpen, setAddRepoOpen] = useState(false);
-  const [newRepoName, setNewRepoName] = useState("");
-  const [newRepoPath, setNewRepoPath] = useState("");
-  const [newRepoBranch, setNewRepoBranch] = useState("main");
+  const [selectedRepoId, setSelectedRepoId] = useState<string>("");
   const [addRepoLoading, setAddRepoLoading] = useState(false);
   const [addRepoError, setAddRepoError] = useState<string | null>(null);
 
   // Remove repository state
   const [removingRepoId, setRemovingRepoId] = useState<string | null>(null);
+
+  // Filter out repositories that are already associated with this project
+  const projectRepoIds = new Set(projectRepositories.map((r) => r.id));
+  const availableRepositories = allRepositories.filter(
+    (r) => !projectRepoIds.has(r.id),
+  );
 
   const handleEdit = async () => {
     if (!editName.trim()) return;
@@ -127,24 +138,15 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
   };
 
   const handleAddRepository = async () => {
-    if (!newRepoName.trim() || !newRepoPath.trim()) return;
+    if (!selectedRepoId) return;
 
     try {
       setAddRepoLoading(true);
       setAddRepoError(null);
-      // Create the repository first
-      const repo = await createRepository({
-        name: newRepoName.trim(),
-        path: newRepoPath.trim(),
-        defaultBranch: newRepoBranch.trim() || "main",
-      });
-      // Then associate it with the project
-      await associateRepositoryWithProject(projectId, repo.id);
+      await associateRepositoryWithProject(projectId, selectedRepoId);
       mutateRepositories();
       setAddRepoOpen(false);
-      setNewRepoName("");
-      setNewRepoPath("");
-      setNewRepoBranch("main");
+      setSelectedRepoId("");
     } catch (e) {
       setAddRepoError(
         e instanceof Error ? e.message : "Failed to add repository",
@@ -174,9 +176,7 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
   };
 
   const resetAddRepoForm = () => {
-    setNewRepoName("");
-    setNewRepoPath("");
-    setNewRepoBranch("main");
+    setSelectedRepoId("");
     setAddRepoError(null);
   };
 
@@ -339,7 +339,7 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
               <DialogHeader>
                 <DialogTitle>Add Repository</DialogTitle>
                 <DialogDescription>
-                  Create a new repository and add it to this project.
+                  Select a repository to add to this project.
                 </DialogDescription>
               </DialogHeader>
               {addRepoError && (
@@ -347,39 +347,33 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
                   {addRepoError}
                 </div>
               )}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new-repo-name">Name</Label>
-                  <Input
-                    id="new-repo-name"
-                    value={newRepoName}
-                    onChange={(e) => setNewRepoName(e.target.value)}
-                    placeholder="my-repository"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-repo-path">Path</Label>
-                  <Input
-                    id="new-repo-path"
-                    value={newRepoPath}
-                    onChange={(e) => setNewRepoPath(e.target.value)}
-                    placeholder="/path/to/repository"
-                    className="font-mono"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Local filesystem path to the git repository
+              {availableRepositories.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  <p>No available repositories.</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Create a repository first from the Repositories page.
                   </p>
                 </div>
+              ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="new-repo-branch">Default Branch</Label>
-                  <Input
-                    id="new-repo-branch"
-                    value={newRepoBranch}
-                    onChange={(e) => setNewRepoBranch(e.target.value)}
-                    placeholder="main"
-                  />
+                  <Label htmlFor="select-repo">Repository</Label>
+                  <Select
+                    value={selectedRepoId}
+                    onValueChange={setSelectedRepoId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableRepositories.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
+              )}
               <DialogFooter>
                 <Button
                   variant="outline"
@@ -388,7 +382,10 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleAddRepository} disabled={addRepoLoading}>
+                <Button
+                  onClick={handleAddRepository}
+                  disabled={addRepoLoading || !selectedRepoId}
+                >
                   {addRepoLoading && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
@@ -399,7 +396,7 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
           </Dialog>
         </div>
 
-        {repositories.length === 0 ? (
+        {projectRepositories.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-10">
               <GitFork className="h-12 w-12 text-gray-400 mb-4" />
@@ -407,13 +404,13 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
                 No repositories associated with this project.
               </p>
               <p className="text-sm text-gray-400 mt-1">
-                Click "Add Repository" to create one.
+                Click "Add Repository" to add one.
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {repositories.map((repo) => (
+            {projectRepositories.map((repo) => (
               <Card
                 key={repo.id}
                 className="hover:bg-gray-50 transition-colors h-full relative group"
