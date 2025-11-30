@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  Calendar,
   ClipboardList,
   GitBranch,
   Loader2,
@@ -220,16 +219,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                 <GitBranch className="h-4 w-4" />
                 {repository.defaultBranch}
               </span>
-            </div>
-            <div className="flex gap-4 mt-2 text-sm text-gray-500">
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                Created: {repository.createdAt.toLocaleDateString()}
-              </div>
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                Updated: {repository.updatedAt.toLocaleDateString()}
-              </div>
             </div>
           </div>
           <div className="flex gap-2">
