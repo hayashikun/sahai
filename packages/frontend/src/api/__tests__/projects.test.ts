@@ -90,10 +90,15 @@ describe("projects API", () => {
         Promise.resolve({
           ok: false,
           status: 400,
+          statusText: "Bad Request",
+          json: () =>
+            Promise.resolve({
+              error: { code: "BAD_REQUEST", message: "Name is required" },
+            }),
         } as Response),
       );
 
-      await expect(createProject("")).rejects.toThrow("API error: 400");
+      await expect(createProject("")).rejects.toThrow("Name is required");
     });
   });
 });

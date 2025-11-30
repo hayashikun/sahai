@@ -1,6 +1,7 @@
+import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { Layout } from "./components";
+import { ErrorBoundary, Layout } from "./components";
 import {
   ProjectDetail,
   ProjectList,
@@ -8,6 +9,14 @@ import {
   RepositoryList,
   TaskDetail,
 } from "./pages";
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+    </div>
+  );
+}
 
 export function App() {
   return (
@@ -18,41 +27,51 @@ export function App() {
           <Route
             path="projects"
             element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <ProjectList />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <ProjectList />
+                </Suspense>
+              </ErrorBoundary>
             }
           />
           <Route
             path="projects/:projectId"
             element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <ProjectDetail />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <ProjectDetail />
+                </Suspense>
+              </ErrorBoundary>
             }
           />
           <Route
             path="repositories"
             element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <RepositoryList />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <RepositoryList />
+                </Suspense>
+              </ErrorBoundary>
             }
           />
           <Route
             path="repositories/:repositoryId"
             element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <RepositoryDetail />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <RepositoryDetail />
+                </Suspense>
+              </ErrorBoundary>
             }
           />
           <Route
             path="tasks/:taskId"
             element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <TaskDetail />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <TaskDetail />
+                </Suspense>
+              </ErrorBoundary>
             }
           />
         </Route>

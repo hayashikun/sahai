@@ -40,10 +40,30 @@ describe("client API", () => {
         Promise.resolve({
           ok: false,
           status: 500,
+          statusText: "Internal Server Error",
+          json: () => Promise.reject(new Error("No JSON")),
         } as Response),
       );
 
-      await expect(fetcher("/test")).rejects.toThrow("API error: 500");
+      await expect(fetcher("/test")).rejects.toThrow(
+        "HTTP 500: Internal Server Error",
+      );
+    });
+
+    test("throws ApiError with structured error response", async () => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: "Not Found",
+          json: () =>
+            Promise.resolve({
+              error: { code: "NOT_FOUND", message: "Resource not found" },
+            }),
+        } as Response),
+      );
+
+      await expect(fetcher("/test")).rejects.toThrow("Resource not found");
     });
   });
 
@@ -75,10 +95,15 @@ describe("client API", () => {
         Promise.resolve({
           ok: false,
           status: 400,
+          statusText: "Bad Request",
+          json: () =>
+            Promise.resolve({
+              error: { code: "BAD_REQUEST", message: "Invalid input" },
+            }),
         } as Response),
       );
 
-      await expect(apiPost("/items", {})).rejects.toThrow("API error: 400");
+      await expect(apiPost("/items", {})).rejects.toThrow("Invalid input");
     });
   });
 
@@ -110,10 +135,15 @@ describe("client API", () => {
         Promise.resolve({
           ok: false,
           status: 404,
+          statusText: "Not Found",
+          json: () =>
+            Promise.resolve({
+              error: { code: "NOT_FOUND", message: "Item not found" },
+            }),
         } as Response),
       );
 
-      await expect(apiPut("/items/999", {})).rejects.toThrow("API error: 404");
+      await expect(apiPut("/items/999", {})).rejects.toThrow("Item not found");
     });
   });
 
@@ -140,10 +170,15 @@ describe("client API", () => {
         Promise.resolve({
           ok: false,
           status: 403,
+          statusText: "Forbidden",
+          json: () =>
+            Promise.resolve({
+              error: { code: "BAD_REQUEST", message: "Permission denied" },
+            }),
         } as Response),
       );
 
-      await expect(apiDelete("/items/1")).rejects.toThrow("API error: 403");
+      await expect(apiDelete("/items/1")).rejects.toThrow("Permission denied");
     });
   });
 });

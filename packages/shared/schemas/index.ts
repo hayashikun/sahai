@@ -98,3 +98,24 @@ export const ProjectArray = z.array(Project);
 export const RepositoryArray = z.array(Repository);
 export const TaskArray = z.array(Task);
 export const ExecutionLogArray = z.array(ExecutionLog);
+
+// Error codes
+export const ErrorCode = z.enum([
+  "NOT_FOUND",
+  "BAD_REQUEST",
+  "VALIDATION_ERROR",
+  "CONFLICT",
+  "INTERNAL_ERROR",
+  "INVALID_STATE_TRANSITION",
+]);
+export type ErrorCode = z.infer<typeof ErrorCode>;
+
+// API Error response schema
+export const ApiError = z.object({
+  error: z.object({
+    code: ErrorCode,
+    message: z.string(),
+    details: z.record(z.unknown()).optional(),
+  }),
+});
+export type ApiError = z.infer<typeof ApiError>;

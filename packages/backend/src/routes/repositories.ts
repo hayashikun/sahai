@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client";
 import { repositories } from "../db/schema";
+import { notFound } from "../lib/errors";
 
 const app = new Hono();
 
@@ -39,7 +40,7 @@ app.get("/:id", async (c) => {
     .where(eq(repositories.id, id));
 
   if (result.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   return c.json(result[0]);
@@ -57,7 +58,7 @@ app.put("/:id", async (c) => {
     .where(eq(repositories.id, id));
 
   if (existing.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   const updated = {
@@ -82,7 +83,7 @@ app.delete("/:id", async (c) => {
     .where(eq(repositories.id, id));
 
   if (existing.length === 0) {
-    return c.json({ error: "Repository not found" }, 404);
+    return notFound(c, "Repository");
   }
 
   await db.delete(repositories).where(eq(repositories.id, id));

@@ -118,7 +118,7 @@ describe("GET /:id", () => {
     const res = await app.request("/non-existent-id");
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Project not found");
+    expect(data.error.message).toBe("Project not found");
   });
 });
 

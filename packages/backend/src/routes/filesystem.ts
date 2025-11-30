@@ -2,6 +2,7 @@ import { readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { Hono } from "hono";
+import { badRequest } from "../lib/errors";
 
 const app = new Hono();
 
@@ -30,7 +31,7 @@ app.get("/browse", async (c) => {
   try {
     const stats = await stat(targetPath);
     if (!stats.isDirectory()) {
-      return c.json({ error: "Path is not a directory" }, 400);
+      return badRequest(c, "Path is not a directory");
     }
 
     const entries = await readdir(targetPath, { withFileTypes: true });
@@ -65,7 +66,7 @@ app.get("/browse", async (c) => {
       entries: directories,
     });
   } catch {
-    return c.json({ error: "Cannot read directory" }, 400);
+    return badRequest(c, "Cannot read directory");
   }
 });
 
@@ -73,7 +74,7 @@ app.get("/browse", async (c) => {
 app.get("/git-info", async (c) => {
   const queryPath = c.req.query("path");
   if (!queryPath) {
-    return c.json({ error: "Path is required" }, 400);
+    return badRequest(c, "Path is required");
   }
 
   const targetPath = resolve(queryPath);
@@ -81,7 +82,7 @@ app.get("/git-info", async (c) => {
   try {
     const isGitRepo = await isGitRepository(targetPath);
     if (!isGitRepo) {
-      return c.json({ error: "Not a git repository" }, 400);
+      return badRequest(c, "Not a git repository");
     }
 
     // Get current branch
@@ -115,7 +116,7 @@ app.get("/git-info", async (c) => {
       branches,
     });
   } catch {
-    return c.json({ error: "Cannot read git info" }, 400);
+    return badRequest(c, "Cannot read git info");
   }
 });
 

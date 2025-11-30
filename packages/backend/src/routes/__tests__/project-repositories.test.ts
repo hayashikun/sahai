@@ -94,7 +94,7 @@ describe("GET /:projectId/repositories", () => {
     const res = await app.request("/non-existent/repositories");
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Project not found");
+    expect(data.error.message).toBe("Project not found");
   });
 });
 
@@ -123,7 +123,7 @@ describe("POST /:projectId/repositories/:repositoryId", () => {
 
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Project not found");
+    expect(data.error.message).toBe("Project not found");
   });
 
   test("returns 404 for non-existent repository", async () => {
@@ -135,7 +135,7 @@ describe("POST /:projectId/repositories/:repositoryId", () => {
 
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Repository not found");
+    expect(data.error.message).toBe("Repository not found");
   });
 
   test("returns 409 for duplicate association", async () => {
@@ -155,7 +155,7 @@ describe("POST /:projectId/repositories/:repositoryId", () => {
 
     expect(res.status).toBe(409);
     const data = await res.json();
-    expect(data.error).toBe("Association already exists");
+    expect(data.error.message).toBe("Association already exists");
   });
 });
 
@@ -196,6 +196,6 @@ describe("DELETE /:projectId/repositories/:repositoryId", () => {
 
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toBe("Association not found");
+    expect(data.error.message).toBe("Association not found");
   });
 });
