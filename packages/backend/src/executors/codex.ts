@@ -9,18 +9,17 @@ import type {
 } from "./interface";
 
 // JSON-RPC types for Codex app-server protocol
-// Note: Codex uses "data" instead of "params" for request payloads
 interface JsonRpcRequest {
   jsonrpc: "2.0";
   id: number;
   method: string;
-  data?: unknown;
+  params?: unknown;
 }
 
 interface JsonRpcNotification {
   jsonrpc: "2.0";
   method: string;
-  data?: unknown;
+  params?: unknown;
 }
 
 interface JsonRpcResponse {
@@ -158,7 +157,10 @@ export class CodexExecutor implements Executor {
   }
 
   // JSON-RPC helper methods
-  private async sendRequest(method: string, data?: unknown): Promise<unknown> {
+  private async sendRequest(
+    method: string,
+    params?: unknown,
+  ): Promise<unknown> {
     if (!this.process) throw new Error("Process not running");
 
     const id = this.requestId++;
@@ -166,7 +168,7 @@ export class CodexExecutor implements Executor {
       jsonrpc: "2.0",
       id,
       method,
-      data,
+      params,
     };
 
     return new Promise((resolve, reject) => {
@@ -177,13 +179,13 @@ export class CodexExecutor implements Executor {
     });
   }
 
-  private sendNotification(method: string, data?: unknown): void {
+  private sendNotification(method: string, params?: unknown): void {
     if (!this.process) return;
 
     const notification: JsonRpcNotification = {
       jsonrpc: "2.0",
       method,
-      data,
+      params,
     };
 
     const line = `${JSON.stringify(notification)}\n`;
@@ -193,11 +195,9 @@ export class CodexExecutor implements Executor {
 
   private async initialize(): Promise<void> {
     await this.sendRequest("initialize", {
-      params: {
-        clientInfo: {
-          name: "sahai-codex-executor",
-          version: "1.0.0",
-        },
+      clientInfo: {
+        name: "sahai-codex-executor",
+        version: "1.0.0",
       },
     });
     this.sendNotification("initialized");
@@ -205,11 +205,9 @@ export class CodexExecutor implements Executor {
 
   private async newConversation(cwd: string): Promise<void> {
     const response = (await this.sendRequest("newConversation", {
-      params: {
-        cwd,
-        sandbox: "workspace-write",
-        approvalPolicy: "on-request",
-      },
+      cwd,
+      sandbox: "workspace-write",
+      approvalPolicy: "on-request",
     })) as NewConversationResponse;
 
     this.conversationId = response.conversationId;
@@ -228,11 +226,9 @@ export class CodexExecutor implements Executor {
     // For Codex, we need to find the rollout file path
     // The session ID is typically the conversation ID
     const response = (await this.sendRequest("resumeConversation", {
-      params: {
-        path: sessionId, // This should be the path to the rollout file
-        overrides: {
-          cwd,
-        },
+      path: sessionId, // This should be the path to the rollout file
+      overrides: {
+        cwd,
       },
     })) as NewConversationResponse;
 
@@ -244,9 +240,7 @@ export class CodexExecutor implements Executor {
     if (!this.conversationId) throw new Error("No conversation started");
 
     await this.sendRequest("addConversationListener", {
-      params: {
-        conversationId: this.conversationId,
-      },
+      conversationId: this.conversationId,
     });
   }
 
@@ -254,10 +248,8 @@ export class CodexExecutor implements Executor {
     if (!this.conversationId) throw new Error("No conversation started");
 
     await this.sendRequest("sendUserMessage", {
-      params: {
-        conversationId: this.conversationId,
-        items: [{ type: "text", text: message }],
-      },
+      conversationId: this.conversationId,
+      items: [{ type: "text", text: message }],
     });
   }
 
@@ -353,11 +345,11 @@ export class CodexExecutor implements Executor {
       if ("id" in msg && "method" in msg && typeof msg.method === "string") {
         const method = msg.method as string;
         const requestId = msg.id;
-        const data = msg.data as Record<string, unknown>;
+        const params = msg.params as Record<string, unknown>;
 
         // Log the request
         this.emitOutput({
-          content: JSON.stringify({ method, data }),
+          content: JSON.stringify({ method, params }),
           logType: "stdout",
         });
 
@@ -375,7 +367,7 @@ export class CodexExecutor implements Executor {
       if ("method" in msg && typeof msg.method === "string" && !("id" in msg)) {
         this.handleServerNotification(
           msg.method,
-          (msg.data as Record<string, unknown>) ?? {},
+          (msg.params as Record<string, unknown>) ?? {},
         );
         return;
       }
@@ -393,11 +385,11 @@ export class CodexExecutor implements Executor {
 
   private handleServerNotification(
     method: string,
-    data: Record<string, unknown>,
+    params: Record<string, unknown>,
   ): void {
     // Log the notification
     this.emitOutput({
-      content: JSON.stringify({ method, data }),
+      content: JSON.stringify({ method, params }),
       logType: "stdout",
     });
 
