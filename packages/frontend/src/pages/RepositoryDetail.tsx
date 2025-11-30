@@ -68,8 +68,31 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [description, setDescription] = useState("");
   const [executor, setExecutor] = useState<string>("ClaudeCode");
   const [branchName, setBranchName] = useState("");
+  const [branchNameEdited, setBranchNameEdited] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const titleToBranchName = (title: string): string => {
+    return title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  };
+
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (!branchNameEdited) {
+      setBranchName(titleToBranchName(newTitle));
+    }
+  };
+
+  const handleBranchNameChange = (newBranchName: string) => {
+    setBranchName(newBranchName);
+    setBranchNameEdited(true);
+  };
 
   // Edit repository state
   const [editOpen, setEditOpen] = useState(false);
@@ -90,6 +113,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     setDescription("");
     setExecutor("ClaudeCode");
     setBranchName("");
+    setBranchNameEdited(false);
     setError(null);
   };
 
@@ -336,7 +360,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                   id="task-title"
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="Enter task title"
                 />
               </div>
@@ -369,7 +393,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     id="task-branch"
                     type="text"
                     value={branchName}
-                    onChange={(e) => setBranchName(e.target.value)}
+                    onChange={(e) => handleBranchNameChange(e.target.value)}
                     placeholder="feature/my-branch"
                   />
                 </div>
