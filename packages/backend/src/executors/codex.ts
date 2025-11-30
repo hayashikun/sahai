@@ -9,17 +9,18 @@ import type {
 } from "./interface";
 
 // JSON-RPC types for Codex app-server protocol
+// Note: Codex uses "data" instead of "params" for request payloads
 interface JsonRpcRequest {
   jsonrpc: "2.0";
   id: number;
   method: string;
-  params?: unknown;
+  data?: unknown;
 }
 
 interface JsonRpcNotification {
   jsonrpc: "2.0";
   method: string;
-  params?: unknown;
+  data?: unknown;
 }
 
 interface JsonRpcResponse {
@@ -157,10 +158,7 @@ export class CodexExecutor implements Executor {
   }
 
   // JSON-RPC helper methods
-  private async sendRequest(
-    method: string,
-    params?: unknown,
-  ): Promise<unknown> {
+  private async sendRequest(method: string, data?: unknown): Promise<unknown> {
     if (!this.process) throw new Error("Process not running");
 
     const id = this.requestId++;
@@ -168,7 +166,7 @@ export class CodexExecutor implements Executor {
       jsonrpc: "2.0",
       id,
       method,
-      params,
+      data,
     };
 
     return new Promise((resolve, reject) => {
@@ -179,13 +177,13 @@ export class CodexExecutor implements Executor {
     });
   }
 
-  private sendNotification(method: string, params?: unknown): void {
+  private sendNotification(method: string, data?: unknown): void {
     if (!this.process) return;
 
     const notification: JsonRpcNotification = {
       jsonrpc: "2.0",
       method,
-      params,
+      data,
     };
 
     const line = `${JSON.stringify(notification)}\n`;
@@ -326,12 +324,12 @@ export class CodexExecutor implements Executor {
     try {
       const msg = JSON.parse(line) as Record<string, unknown>;
 
-      // Handle response to our requests
-      if ("id" in msg && typeof msg.id === "number") {
+      // Handle response to our requests (has id but no method)
+      if ("id" in msg && !("method" in msg)) {
         const response = msg as JsonRpcResponse;
-        const pending = this.pendingRequests.get(response.id);
+        const pending = this.pendingRequests.get(response.id as number);
         if (pending) {
-          this.pendingRequests.delete(response.id);
+          this.pendingRequests.delete(response.id as number);
           if (response.error) {
             pending.reject(new Error(response.error.message));
           } else {
@@ -341,11 +339,33 @@ export class CodexExecutor implements Executor {
         return;
       }
 
-      // Handle server notifications
-      if ("method" in msg && typeof msg.method === "string") {
+      // Handle server requests (has id and method) - need to send response
+      if ("id" in msg && "method" in msg && typeof msg.method === "string") {
+        const method = msg.method as string;
+        const requestId = msg.id;
+        const data = msg.data as Record<string, unknown>;
+
+        // Log the request
+        this.emitOutput({
+          content: JSON.stringify({ method, data }),
+          logType: "stdout",
+        });
+
+        // Handle approval requests - auto-approve
+        if (
+          method === "applyPatchApproval" ||
+          method === "execCommandApproval"
+        ) {
+          this.sendApprovalResponse(requestId, "approved_for_session");
+        }
+        return;
+      }
+
+      // Handle server notifications (has method but no id)
+      if ("method" in msg && typeof msg.method === "string" && !("id" in msg)) {
         this.handleServerNotification(
           msg.method,
-          msg.params as Record<string, unknown>,
+          (msg.data as Record<string, unknown>) ?? {},
         );
         return;
       }
@@ -363,37 +383,25 @@ export class CodexExecutor implements Executor {
 
   private handleServerNotification(
     method: string,
-    params: Record<string, unknown>,
+    data: Record<string, unknown>,
   ): void {
     // Log the notification
     this.emitOutput({
-      content: JSON.stringify({ method, params }),
+      content: JSON.stringify({ method, data }),
       logType: "stdout",
     });
 
-    // Handle specific notifications
-    if (method === "conversationEvent" && params?.msg) {
-      const eventMsg = params.msg as Record<string, unknown>;
-      const eventType = eventMsg.type as string;
-
-      // Check for task end event
-      if (eventType === "taskEnd" || eventType === "conversationEnd") {
+    // Check for task completion event (codex/event/task_complete)
+    if (method.startsWith("codex/event/")) {
+      const eventType = method.replace("codex/event/", "");
+      if (eventType === "task_complete") {
         console.log("[CodexExecutor] Detected task completion");
         this.handleCompletion();
       }
     }
-
-    // Handle server requests that need approval (auto-approve for now)
-    if (method === "execCommandApproval" || method === "applyPatchApproval") {
-      // Auto-approve - send approval response
-      const requestId = params?.requestId as number;
-      if (requestId) {
-        this.sendApprovalResponse(requestId, "approve");
-      }
-    }
   }
 
-  private sendApprovalResponse(requestId: number, decision: string): void {
+  private sendApprovalResponse(requestId: unknown, decision: string): void {
     if (!this.process) return;
 
     const response = {
