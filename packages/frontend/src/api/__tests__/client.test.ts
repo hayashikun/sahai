@@ -31,7 +31,7 @@ describe("client API", () => {
 
       expect(result).toEqual(mockData);
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/test",
+        "http://localhost:49382/v1/test",
       );
     });
 
@@ -61,7 +61,7 @@ describe("client API", () => {
 
       expect(result).toEqual(mockResponse);
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/items",
+        "http://localhost:49382/v1/items",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -96,7 +96,7 @@ describe("client API", () => {
 
       expect(result).toEqual(mockResponse);
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/items/1",
+        "http://localhost:49382/v1/items/1",
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -128,7 +128,7 @@ describe("client API", () => {
       await apiDelete("/items/1");
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/items/1",
+        "http://localhost:49382/v1/items/1",
         {
           method: "DELETE",
         },

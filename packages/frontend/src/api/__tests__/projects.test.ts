@@ -39,7 +39,7 @@ describe("projects API", () => {
       expect(project.id).toBe("proj-1");
       expect(project.name).toBe("Test Project");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/projects",
+        "http://localhost:49382/v1/projects",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -73,7 +73,7 @@ describe("projects API", () => {
       expect(project.name).toBe("My Project");
       expect(project.description).toBe("A test project");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/projects",
+        "http://localhost:49382/v1/projects",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

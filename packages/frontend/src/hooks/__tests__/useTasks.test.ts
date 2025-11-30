@@ -160,7 +160,7 @@ describe("useTasks hooks", () => {
       const url = getTaskLogsStreamUrl("task-abc-123");
 
       expect(url).toBe(
-        "http://localhost:3001/v1/tasks/task-abc-123/logs/stream",
+        "http://localhost:49382/v1/tasks/task-abc-123/logs/stream",
       );
     });
   });
