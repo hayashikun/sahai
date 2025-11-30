@@ -53,6 +53,7 @@ export const tasks = sqliteTable(
     branchName: text("branch_name").notNull(),
     baseBranch: text("base_branch").notNull(),
     worktreePath: text("worktree_path"),
+    sessionId: text("session_id"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     startedAt: text("started_at"),

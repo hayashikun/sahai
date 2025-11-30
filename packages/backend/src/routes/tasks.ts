@@ -432,6 +432,15 @@ taskById.post("/:id/start", async (c) => {
       handleExecutorExit(id);
     });
 
+    executor.onSessionId(async (sessionId) => {
+      // Save session ID to task for later resume
+      console.log(`[tasks] Saving session ID ${sessionId} for task ${id}`);
+      await db
+        .update(tasks)
+        .set({ sessionId, updatedAt: new Date().toISOString() })
+        .where(eq(tasks.id, id));
+    });
+
     await executor.start({
       taskId: id,
       workingDirectory: worktreePath,
@@ -571,12 +580,22 @@ taskById.post("/:id/resume", async (c) => {
       handleExecutorExit(id);
     });
 
+    executor.onSessionId(async (sessionId) => {
+      // Save session ID to task for later resume
+      console.log(`[tasks] Saving session ID ${sessionId} for task ${id}`);
+      await db
+        .update(tasks)
+        .set({ sessionId, updatedAt: new Date().toISOString() })
+        .where(eq(tasks.id, id));
+    });
+
     const prompt = body.message ?? task.description ?? task.title;
 
     await executor.start({
       taskId: id,
       workingDirectory: task.worktreePath,
       prompt,
+      sessionId: task.sessionId ?? undefined,
     });
 
     activeExecutors.set(id, executor);
