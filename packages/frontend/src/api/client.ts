@@ -1,4 +1,11 @@
-const API_BASE_URL = "http://localhost:3001/v1";
+// Use relative URL in production browser (when served by same server),
+// absolute URL in development or non-browser environments (tests)
+const isProductionBrowser =
+  typeof window !== "undefined" &&
+  !import.meta.env.DEV &&
+  typeof document !== "undefined";
+
+const API_BASE_URL = isProductionBrowser ? "/v1" : "http://localhost:3001/v1";
 
 export async function fetcher<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
