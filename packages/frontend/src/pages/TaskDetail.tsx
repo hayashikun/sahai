@@ -7,7 +7,7 @@ import {
   Pause,
   Pencil,
   Play,
-  RotateCcw,
+  Send,
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -147,7 +147,7 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState("");
-  const [showResumeForm, setShowResumeForm] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
   const [diff, setDiff] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffError, setDiffError] = useState<string | null>(null);
@@ -197,12 +197,20 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   };
 
   const handleResume = async () => {
-    await handleAction(
-      () => resumeTask(taskId, resumeMessage || undefined),
-      "resume task",
-    );
-    setResumeMessage("");
-    setShowResumeForm(false);
+    if (resumeLoading) return;
+    try {
+      setResumeLoading(true);
+      setActionError(null);
+      await resumeTask(taskId, resumeMessage || undefined);
+      mutateTask();
+      setResumeMessage("");
+    } catch (e) {
+      setActionError(
+        `Failed to resume task: ${e instanceof Error ? e.message : "Unknown error"}`,
+      );
+    } finally {
+      setResumeLoading(false);
+    }
   };
 
   const handleEditTask = async () => {
@@ -276,8 +284,6 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
       <TaskActions
         task={task}
         loading={loading}
-        showResumeForm={showResumeForm}
-        resumeMessage={resumeMessage}
         deleteLoading={deleteLoading}
         deleteError={deleteError}
         onStart={() => handleAction(() => startTask(taskId), "start task")}
@@ -285,15 +291,8 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
         onComplete={() =>
           handleAction(() => completeTask(taskId), "complete task")
         }
-        onResume={handleResume}
         onFinish={() => handleAction(() => finishTask(taskId), "finish task")}
         onDelete={handleDeleteTask}
-        onShowResumeForm={() => setShowResumeForm(true)}
-        onCancelResume={() => {
-          setShowResumeForm(false);
-          setResumeMessage("");
-        }}
-        onResumeMessageChange={setResumeMessage}
       />
 
       <Tabs defaultValue="logs">
@@ -313,6 +312,14 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
           />
         </TabsContent>
       </Tabs>
+
+      <ChatInput
+        task={task}
+        message={resumeMessage}
+        loading={resumeLoading}
+        onMessageChange={setResumeMessage}
+        onSend={handleResume}
+      />
     </div>
   );
 }
@@ -483,37 +490,25 @@ function InfoItem({
 interface TaskActionsProps {
   task: Task;
   loading: boolean;
-  showResumeForm: boolean;
-  resumeMessage: string;
   deleteLoading: boolean;
   deleteError: string | null;
   onStart: () => void;
   onPause: () => void;
   onComplete: () => void;
-  onResume: () => void;
   onFinish: () => void;
   onDelete: () => void;
-  onShowResumeForm: () => void;
-  onCancelResume: () => void;
-  onResumeMessageChange: (message: string) => void;
 }
 
 function TaskActions({
   task,
   loading,
-  showResumeForm,
-  resumeMessage,
   deleteLoading,
   deleteError,
   onStart,
   onPause,
   onComplete,
-  onResume,
   onFinish,
   onDelete,
-  onShowResumeForm,
-  onCancelResume,
-  onResumeMessageChange,
 }: TaskActionsProps) {
   return (
     <Card>
@@ -550,18 +545,6 @@ function TaskActions({
               </Button>
             </>
           )}
-
-          {(task.status === "InProgress" || task.status === "InReview") &&
-            !showResumeForm && (
-              <Button
-                variant="outline"
-                onClick={onShowResumeForm}
-                disabled={loading}
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Resume with Message
-              </Button>
-            )}
 
           {task.status === "InReview" && (
             <Button variant="destructive" onClick={onFinish} disabled={loading}>
@@ -608,30 +591,6 @@ function TaskActions({
             </AlertDialogContent>
           </AlertDialog>
         </div>
-
-        {showResumeForm && (
-          <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-            <Textarea
-              value={resumeMessage}
-              onChange={(e) => onResumeMessageChange(e.target.value)}
-              placeholder="Enter additional instructions (optional)..."
-              rows={3}
-            />
-            <div className="flex gap-2">
-              <Button onClick={onResume} disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Resume
-              </Button>
-              <Button
-                variant="outline"
-                onClick={onCancelResume}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -757,4 +716,66 @@ function formatTime(date: Date): string {
     minute: "2-digit",
     second: "2-digit",
   }).format(date);
+}
+
+interface ChatInputProps {
+  task: Task;
+  message: string;
+  loading: boolean;
+  onMessageChange: (message: string) => void;
+  onSend: () => void;
+}
+
+function ChatInput({
+  task,
+  message,
+  loading,
+  onMessageChange,
+  onSend,
+}: ChatInputProps) {
+  const isEnabled = task.status === "InProgress" || task.status === "InReview";
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && isEnabled && !loading) {
+      e.preventDefault();
+      onSend();
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex gap-2">
+          <Input
+            value={message}
+            onChange={(e) => onMessageChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              isEnabled
+                ? "Send additional instructions to the agent..."
+                : task.status === "TODO"
+                  ? "Start the task to send messages"
+                  : "Task is completed"
+            }
+            disabled={!isEnabled || loading}
+            className="flex-1"
+          />
+          <Button onClick={onSend} disabled={!isEnabled || loading}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        {!isEnabled && (
+          <p className="text-xs text-gray-500 mt-2">
+            {task.status === "TODO"
+              ? "Start the task to send additional instructions to the agent."
+              : "This task is completed. No further instructions can be sent."}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
