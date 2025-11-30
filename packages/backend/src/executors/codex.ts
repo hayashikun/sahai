@@ -325,6 +325,7 @@ export class CodexExecutor implements Executor {
       const msg = JSON.parse(line) as Record<string, unknown>;
 
       // Handle response to our requests (has id but no method)
+      // Don't log responses - just resolve pending requests
       if ("id" in msg && !("method" in msg)) {
         const response = msg as CodexResponse;
         const pending = this.pendingRequests.get(response.id as number);
@@ -340,16 +341,10 @@ export class CodexExecutor implements Executor {
       }
 
       // Handle server requests (has id and method) - need to send response
+      // Don't log approval requests - just handle them silently
       if ("id" in msg && "method" in msg && typeof msg.method === "string") {
         const method = msg.method as string;
         const requestId = msg.id;
-        const params = msg.params as Record<string, unknown>;
-
-        // Log the request
-        this.emitOutput({
-          content: JSON.stringify({ method, params }),
-          logType: "stdout",
-        });
 
         // Handle approval requests - auto-approve
         if (
@@ -370,14 +365,12 @@ export class CodexExecutor implements Executor {
         return;
       }
 
-      // Log other messages
-      this.emitOutput({
-        content: JSON.stringify(msg),
-        logType: "stdout",
-      });
+      // Skip other messages (don't log raw JSON)
     } catch {
-      // Non-JSON output
-      this.emitOutput({ content: line, logType: "stdout" });
+      // Non-JSON output - log as-is
+      if (line.trim()) {
+        this.emitOutput({ content: line, logType: "stdout" });
+      }
     }
   }
 
@@ -385,25 +378,33 @@ export class CodexExecutor implements Executor {
     method: string,
     params: Record<string, unknown>,
   ): void {
-    // Check for task completion event (codex/event/task_complete)
-    if (method.startsWith("codex/event/")) {
-      const eventType = method.replace("codex/event/", "");
-      if (eventType === "task_complete") {
-        console.log("[CodexExecutor] Detected task completion");
-        this.handleCompletion();
-        return;
+    // Only process codex/event notifications - skip others silently
+    if (!method.startsWith("codex/event")) {
+      // Handle sessionConfigured silently (extract model info if needed)
+      if (method === "sessionConfigured") {
+        const model = params?.model as string;
+        if (model) {
+          this.emitOutput({
+            content: `[system] Model: ${model}`,
+            logType: "system",
+          });
+        }
       }
+      return;
+    }
+
+    // Check for task completion event
+    const eventType = method.replace("codex/event/", "");
+    if (eventType === "task_complete") {
+      console.log("[CodexExecutor] Detected task completion");
+      this.handleCompletion();
+      return;
     }
 
     // Parse and display Codex events in a human-readable format
     const msg = params?.msg as Record<string, unknown> | undefined;
     if (!msg) {
-      // Log raw notification if no msg field
-      this.emitOutput({
-        content: JSON.stringify({ method, params }),
-        logType: "stdout",
-      });
-      return;
+      return; // Skip if no msg field
     }
 
     const msgType = msg.type as string;
@@ -479,16 +480,26 @@ export class CodexExecutor implements Executor {
       case "taskComplete":
         return "[system] Task complete";
 
-      // Skip verbose events
+      // Skip verbose/internal events (based on reference implementation)
       case "tokenCount":
       case "turnDiff":
       case "agentReasoningSectionBreak":
+      case "agentReasoningRawContent":
+      case "agentReasoningRawContentDelta":
       case "userMessage":
+      case "getHistoryEntryResponse":
+      case "mcpListToolsResponse":
+      case "listCustomPromptsResponse":
+      case "turnAborted":
+      case "shutdownComplete":
+      case "conversationPath":
+      case "enteredReviewMode":
+      case "exitedReviewMode":
         return null;
 
       default:
-        // Log unknown events as JSON for debugging
-        return JSON.stringify({ type, ...msg });
+        // Skip unknown events silently
+        return null;
     }
   }
 
