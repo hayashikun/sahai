@@ -1,8 +1,7 @@
 import { Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components";
 import {
-  Home,
   ProjectDetail,
   ProjectList,
   RepositoryDetail,
@@ -15,7 +14,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
+          <Route index element={<Navigate to="/projects" replace />} />
           <Route
             path="projects"
             element={
