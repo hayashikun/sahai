@@ -6,8 +6,8 @@ A monorepo project with Hono backend and React frontend.
 
 ```
 sahai/
-├── backend/   # Hono server (port 3001)
-└── frontend/  # React + Vite (port 3000)
+├── backend/   # Hono server (port 49382, or API_PORT env)
+└── frontend/  # React + Vite (port 49381, or PORT env)
 ```
 
 ## Requirements

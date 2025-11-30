@@ -75,8 +75,9 @@ export async function deleteTask(taskId: string): Promise<void> {
 }
 
 // SSE stream URL for logs
+const API_PORT = "49382";
 export function getTaskLogsStreamUrl(taskId: string): string {
-  return `http://localhost:3001/v1/tasks/${taskId}/logs/stream`;
+  return `http://localhost:${API_PORT}/v1/tasks/${taskId}/logs/stream`;
 }
 
 // Parse SSE log event

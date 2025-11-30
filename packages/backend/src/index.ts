@@ -16,10 +16,11 @@ const app = new Hono();
 const staticDir = process.env.SAHAI_STATIC_DIR;
 const isProduction = !!staticDir;
 
+const frontendPort = process.env.PORT || "49381";
 app.use(
   "*",
   cors({
-    origin: isProduction ? "*" : "http://localhost:3000",
+    origin: isProduction ? "*" : `http://localhost:${frontendPort}`,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
   }),
@@ -57,7 +58,10 @@ if (staticDir) {
   });
 }
 
-const port = Number.parseInt(process.env.SAHAI_PORT || "3001", 10);
+const port = Number.parseInt(
+  process.env.SAHAI_PORT || process.env.API_PORT || "49382",
+  10,
+);
 
 export default {
   port,

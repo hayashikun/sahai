@@ -5,7 +5,10 @@ const isProductionBrowser =
   !import.meta.env.DEV &&
   typeof document !== "undefined";
 
-const API_BASE_URL = isProductionBrowser ? "/v1" : "http://localhost:3001/v1";
+const API_PORT = "49382";
+const API_BASE_URL = isProductionBrowser
+  ? "/v1"
+  : `http://localhost:${API_PORT}/v1`;
 
 export async function fetcher<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);

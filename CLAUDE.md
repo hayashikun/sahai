@@ -16,8 +16,8 @@ bun install
 bun run dev
 
 # Run individually
-bun run dev:backend   # Hono server on port 3001
-bun run dev:frontend  # Vite dev server on port 3000
+bun run dev:backend   # Hono server on port 49382 (or API_PORT env)
+bun run dev:frontend  # Vite dev server on port 49381 (or PORT env)
 
 # Linting and formatting (Biome)
 bun run lint          # Lint check

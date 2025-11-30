@@ -4,10 +4,12 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 
+const defaultPort = process.env.API_PORT || "49382";
+
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
   options: {
-    port: { type: "string", short: "p", default: "3001" },
+    port: { type: "string", short: "p", default: defaultPort },
     help: { type: "boolean", short: "h", default: false },
     version: { type: "boolean", short: "v", default: false },
   },
@@ -22,12 +24,12 @@ Usage:
   sahai [options]
 
 Options:
-  -p, --port <port>  Port to run the server on (default: 3001)
+  -p, --port <port>  Port to run the server on (default: 49382, or API_PORT env)
   -h, --help         Show this help message
   -v, --version      Show version number
 
 Examples:
-  sahai              Start the server on port 3001
+  sahai              Start the server on port 49382
   sahai -p 8080      Start the server on port 8080
 `);
   process.exit(0);
@@ -41,7 +43,7 @@ if (values.version) {
   process.exit(0);
 }
 
-const port = Number.parseInt(values.port || "3001", 10);
+const port = Number.parseInt(values.port || defaultPort, 10);
 
 // Find the root directory (where package.json is)
 const rootDir = dirname(import.meta.dir);

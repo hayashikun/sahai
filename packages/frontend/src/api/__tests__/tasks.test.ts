@@ -61,7 +61,7 @@ describe("tasks API", () => {
       expect(task.title).toBe("Test Task");
       expect(task.status).toBe("TODO");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1",
+        "http://localhost:49382/v1/tasks/task-1",
       );
     });
 
@@ -101,7 +101,7 @@ describe("tasks API", () => {
       expect(logs).toHaveLength(1);
       expect(logs[0].content).toBe("Test log");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/logs",
+        "http://localhost:49382/v1/tasks/task-1/logs",
       );
     });
   });
@@ -135,7 +135,7 @@ describe("tasks API", () => {
 
       expect(task.status).toBe("InProgress");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/start",
+        "http://localhost:49382/v1/tasks/task-1/start",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -173,7 +173,7 @@ describe("tasks API", () => {
       await pauseTask("task-1");
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/pause",
+        "http://localhost:49382/v1/tasks/task-1/pause",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -212,7 +212,7 @@ describe("tasks API", () => {
 
       expect(task.status).toBe("InReview");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/complete",
+        "http://localhost:49382/v1/tasks/task-1/complete",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -250,7 +250,7 @@ describe("tasks API", () => {
       await resumeTask("task-1", "Please continue with tests");
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/resume",
+        "http://localhost:49382/v1/tasks/task-1/resume",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -286,7 +286,7 @@ describe("tasks API", () => {
       await resumeTask("task-1");
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/resume",
+        "http://localhost:49382/v1/tasks/task-1/resume",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -325,7 +325,7 @@ describe("tasks API", () => {
 
       expect(task.status).toBe("Done");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/finish",
+        "http://localhost:49382/v1/tasks/task-1/finish",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -367,7 +367,7 @@ describe("tasks API", () => {
 
       expect(task.title).toBe("New Title");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/recreate",
+        "http://localhost:49382/v1/tasks/task-1/recreate",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -396,7 +396,7 @@ describe("tasks API", () => {
 
       expect(diff).toBe("diff --git a/test.txt b/test.txt\n...");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1/diff",
+        "http://localhost:49382/v1/tasks/task-1/diff",
       );
     });
 
@@ -418,7 +418,7 @@ describe("tasks API", () => {
   describe("getTaskLogsStreamUrl", () => {
     test("returns correct SSE URL", () => {
       const url = getTaskLogsStreamUrl("task-123");
-      expect(url).toBe("http://localhost:3001/v1/tasks/task-123/logs/stream");
+      expect(url).toBe("http://localhost:49382/v1/tasks/task-123/logs/stream");
     });
   });
 

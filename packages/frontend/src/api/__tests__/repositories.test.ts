@@ -52,7 +52,7 @@ describe("repositories API", () => {
       expect(task.title).toBe("Implement feature");
       expect(task.executor).toBe("ClaudeCode");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/repositories/repo-1/tasks",
+        "http://localhost:49382/v1/repositories/repo-1/tasks",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -149,7 +149,7 @@ describe("repositories API", () => {
 
       expect(task.status).toBe("InProgress");
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:3001/v1/tasks/task-1",
+        "http://localhost:49382/v1/tasks/task-1",
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
