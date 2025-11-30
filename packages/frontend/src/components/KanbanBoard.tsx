@@ -103,7 +103,11 @@ export function KanbanBoard({ tasks, onTaskUpdate }: KanbanBoardProps) {
             isActive={!!activeTask}
           >
             {tasksByStatus(column.status).map((task) => (
-              <DraggableTaskCard key={task.id} task={task} />
+              <DraggableTaskCard
+                key={task.id}
+                task={task}
+                onTaskUpdate={onTaskUpdate}
+              />
             ))}
           </DroppableColumn>
         ))}
