@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -320,7 +321,7 @@ taskById.post("/:id/start", async (c) => {
   }
 
   const repo = repoResult[0];
-  const worktreePath = `${repo.path}/.worktrees/${task.branchName}`;
+  const worktreePath = `${tmpdir()}/sahai-worktrees/${task.id}`;
 
   try {
     // Create branch from base branch
