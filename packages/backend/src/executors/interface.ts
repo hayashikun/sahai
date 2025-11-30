@@ -6,6 +6,7 @@ export interface ExecutorOutput {
 }
 
 export type OutputCallback = (output: ExecutorOutput) => void;
+export type ExitCallback = (exitCode: number | null) => void;
 
 export interface ExecutorConfig {
   taskId: string;
@@ -33,4 +34,9 @@ export interface Executor {
    * Register a callback for agent output
    */
   onOutput(callback: OutputCallback): void;
+
+  /**
+   * Register a callback for when the agent process exits
+   */
+  onExit(callback: ExitCallback): void;
 }

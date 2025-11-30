@@ -23,11 +23,17 @@ export function useTaskLogs(taskId: string) {
   };
 }
 
-export function useTaskLogsStream(taskId: string) {
+export function useTaskLogsStream(taskId: string, onStatusChange?: () => void) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const onStatusChangeRef = useRef(onStatusChange);
+
+  // Keep the ref updated
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
 
   const connect = useCallback(() => {
     if (eventSourceRef.current) {
@@ -47,6 +53,15 @@ export function useTaskLogsStream(taskId: string) {
       const log = parseLogEvent(event.data);
       if (log) {
         setLogs((prev) => [log, ...prev]);
+
+        // Detect status change from system logs
+        if (
+          log.logType === "system" &&
+          (log.content.includes("Task moved to") ||
+            log.content.includes("task completed"))
+        ) {
+          onStatusChangeRef.current?.();
+        }
       }
     });
 
@@ -92,13 +107,19 @@ export function useTaskLogsStream(taskId: string) {
 export function useTaskWithRealtimeLogs(taskId: string) {
   const { task, mutate: mutateTask } = useTask(taskId);
   const { logs: initialLogs } = useTaskLogs(taskId);
+
+  // Callback to refresh task when status changes via SSE
+  const handleStatusChange = useCallback(() => {
+    mutateTask();
+  }, [mutateTask]);
+
   const {
     logs: streamLogs,
     connected,
     error,
     clearLogs,
     reconnect,
-  } = useTaskLogsStream(taskId);
+  } = useTaskLogsStream(taskId, handleStatusChange);
 
   // Merge initial logs with stream logs, removing duplicates
   const allLogs = [...streamLogs];

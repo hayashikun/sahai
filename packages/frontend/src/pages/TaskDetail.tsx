@@ -733,14 +733,47 @@ function ChatInput({
   onMessageChange,
   onSend,
 }: ChatInputProps) {
-  const isEnabled = task.status === "InProgress" || task.status === "InReview";
+  // Can only send messages when:
+  // - Status is InReview (executor not running, waiting for input)
+  // - Status is InProgress but executor is NOT running (paused state)
+  const canSendMessage =
+    task.status === "InReview" ||
+    (task.status === "InProgress" && !task.isExecuting);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && isEnabled && !loading) {
+    if (e.key === "Enter" && !e.shiftKey && canSendMessage && !loading) {
       e.preventDefault();
       onSend();
     }
   };
+
+  const getPlaceholder = () => {
+    if (task.status === "TODO") {
+      return "Start the task to send messages";
+    }
+    if (task.status === "Done") {
+      return "Task is completed";
+    }
+    if (task.isExecuting) {
+      return "Waiting for agent to complete...";
+    }
+    return "Send additional instructions to the agent...";
+  };
+
+  const getHintText = () => {
+    if (task.status === "TODO") {
+      return "Start the task to send additional instructions to the agent.";
+    }
+    if (task.status === "Done") {
+      return "This task is completed. No further instructions can be sent.";
+    }
+    if (task.isExecuting) {
+      return "The agent is currently running. Wait for it to complete before sending new instructions.";
+    }
+    return null;
+  };
+
+  const hintText = getHintText();
 
   return (
     <Card>
@@ -750,17 +783,11 @@ function ChatInput({
             value={message}
             onChange={(e) => onMessageChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              isEnabled
-                ? "Send additional instructions to the agent..."
-                : task.status === "TODO"
-                  ? "Start the task to send messages"
-                  : "Task is completed"
-            }
-            disabled={!isEnabled || loading}
+            placeholder={getPlaceholder()}
+            disabled={!canSendMessage || loading}
             className="flex-1"
           />
-          <Button onClick={onSend} disabled={!isEnabled || loading}>
+          <Button onClick={onSend} disabled={!canSendMessage || loading}>
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -768,13 +795,7 @@ function ChatInput({
             )}
           </Button>
         </div>
-        {!isEnabled && (
-          <p className="text-xs text-gray-500 mt-2">
-            {task.status === "TODO"
-              ? "Start the task to send additional instructions to the agent."
-              : "This task is completed. No further instructions can be sent."}
-          </p>
-        )}
+        {hintText && <p className="text-xs text-gray-500 mt-2">{hintText}</p>}
       </CardContent>
     </Card>
   );
