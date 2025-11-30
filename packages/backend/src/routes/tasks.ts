@@ -4,12 +4,24 @@ import { streamSSE } from "hono/streaming";
 import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
+import { CodexExecutor } from "../executors/codex";
 import type { Executor } from "../executors/interface";
 import { createBranch, deleteBranch, getDiff } from "../services/git";
 import { createWorktree, deleteWorktree } from "../services/worktree";
 
 // In-memory store for active executors
 const activeExecutors = new Map<string, Executor>();
+
+function createExecutor(type: string): Executor {
+  switch (type) {
+    case "ClaudeCode":
+      return new ClaudeCodeExecutor();
+    case "Codex":
+      return new CodexExecutor();
+    default:
+      throw new Error(`Unsupported executor type: ${type}`);
+  }
+}
 
 // SSE subscribers per task
 type LogSubscriber = (log: {
@@ -329,7 +341,13 @@ taskById.post("/:id/start", async (c) => {
       .where(eq(tasks.id, id));
 
     // Create and start executor
-    const executor = new ClaudeCodeExecutor();
+    let executor: Executor;
+    try {
+      executor = createExecutor(task.executor);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: message }, 400);
+    }
 
     executor.onOutput(async (output) => {
       // Save output to execution_logs
@@ -460,7 +478,13 @@ taskById.post("/:id/resume", async (c) => {
 
   try {
     // Create and start executor
-    const executor = new ClaudeCodeExecutor();
+    let executor: Executor;
+    try {
+      executor = createExecutor(task.executor);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: message }, 400);
+    }
 
     executor.onOutput(async (output) => {
       const log = {
