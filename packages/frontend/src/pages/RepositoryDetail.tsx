@@ -72,6 +72,17 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const base62Encode = (num: number): string => {
+    const chars =
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let result = "";
+    while (num > 0) {
+      result = chars[num % 62] + result;
+      num = Math.floor(num / 62);
+    }
+    return result || "0";
+  };
+
   const titleToBranchName = (title: string): string => {
     const slug = title
       .toLowerCase()
@@ -80,7 +91,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
-    return slug ? `sahai/${slug}` : "";
+    if (!slug) return "";
+    const timestamp = base62Encode(Math.floor(Date.now() / 1000));
+    return `sahai/${timestamp}-${slug}`;
   };
 
   const handleTitleChange = (newTitle: string) => {
@@ -395,7 +408,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     type="text"
                     value={branchName}
                     onChange={(e) => handleBranchNameChange(e.target.value)}
-                    placeholder="sahai/add-some-feature"
+                    placeholder="sahai/2b9MEx-add-some-feature"
                   />
                 </div>
               </div>
