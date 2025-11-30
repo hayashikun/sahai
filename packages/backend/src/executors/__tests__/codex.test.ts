@@ -21,6 +21,24 @@ describe("CodexExecutor", () => {
     });
   });
 
+  describe("onExit", () => {
+    test("registers exit callback", () => {
+      executor = new CodexExecutor();
+      const callback = mock(() => {});
+
+      executor.onExit(callback);
+    });
+  });
+
+  describe("onSessionId", () => {
+    test("registers sessionId callback", () => {
+      executor = new CodexExecutor();
+      const callback = mock(() => {});
+
+      executor.onSessionId(callback);
+    });
+  });
+
   describe("sendMessage", () => {
     test("throws error when process is not running", async () => {
       executor = new CodexExecutor();
@@ -28,6 +46,15 @@ describe("CodexExecutor", () => {
       await expect(executor.sendMessage("hello")).rejects.toThrow(
         "Process is not running",
       );
+    });
+  });
+
+  describe("stop", () => {
+    test("does nothing when process is not running", async () => {
+      executor = new CodexExecutor();
+
+      // Should not throw
+      await executor.stop();
     });
   });
 
@@ -45,11 +72,15 @@ describe("CodexExecutor", () => {
         write: mock(() => {}),
         flush: mock(() => {}),
       };
-      const mockStdout = new ReadableStream({
+
+      // Create a mock stdout that responds to requests
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.close();
+          stdoutController = controller;
         },
       });
+
       const mockStderr = new ReadableStream({
         start(controller) {
           controller.close();
@@ -64,7 +95,31 @@ describe("CodexExecutor", () => {
       };
 
       // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
+      Bun.spawn = mock(() => {
+        // Send responses after a delay to simulate the app-server
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          // Initialize response
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          // newConversation response
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          // addConversationListener response
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          // sendUserMessage response
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        return mockProcess;
+      });
 
       try {
         await executor.start(config);
@@ -72,6 +127,80 @@ describe("CodexExecutor", () => {
         await expect(executor.start(config)).rejects.toThrow(
           "Executor is already running",
         );
+      } finally {
+        Bun.spawn = originalSpawn;
+      }
+    });
+
+    test("spawns codex app-server with correct arguments", async () => {
+      executor = new CodexExecutor();
+      const config: ExecutorConfig = {
+        taskId: "codex-spawn-args",
+        workingDirectory: "/work/tree",
+        prompt: "prompt",
+      };
+
+      const originalSpawn = Bun.spawn;
+      let spawnArgs: unknown;
+      const mockStdin = {
+        write: mock(() => {}),
+        flush: mock(() => {}),
+      };
+
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
+        start(controller) {
+          stdoutController = controller;
+        },
+      });
+
+      const mockStderr = new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      });
+      const mockProcess = {
+        stdin: mockStdin,
+        stdout: mockStdout,
+        stderr: mockStderr,
+        kill: mock(() => {}),
+        exited: new Promise(() => {}),
+      };
+
+      // @ts-expect-error - mocking Bun.spawn
+      Bun.spawn = mock((args: unknown) => {
+        spawnArgs = args;
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        return mockProcess;
+      });
+
+      try {
+        await executor.start(config);
+
+        const args = spawnArgs as { cmd: string[]; cwd: string };
+        expect(args.cmd).toEqual([
+          "npx",
+          "-y",
+          "@openai/codex@0.60.1",
+          "app-server",
+        ]);
+        expect(args.cwd).toBe("/work/tree");
       } finally {
         Bun.spawn = originalSpawn;
       }
@@ -93,11 +222,14 @@ describe("CodexExecutor", () => {
         write: mock(() => {}),
         flush: mock(() => {}),
       };
-      const mockStdout = new ReadableStream({
+
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.close();
+          stdoutController = controller;
         },
       });
+
       const mockStderr = new ReadableStream({
         start(controller) {
           controller.close();
@@ -112,7 +244,26 @@ describe("CodexExecutor", () => {
       };
 
       // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
+      Bun.spawn = mock(() => {
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        return mockProcess;
+      });
 
       try {
         await executor.start(config);
@@ -121,108 +272,6 @@ describe("CodexExecutor", () => {
         const systemLog = outputs.find((o) => o.logType === "system");
         expect(systemLog).toBeDefined();
         expect(systemLog?.content).toContain("Started Codex executor");
-      } finally {
-        Bun.spawn = originalSpawn;
-      }
-    });
-
-    test("sends initial prompt message", async () => {
-      executor = new CodexExecutor();
-      const writtenMessages: string[] = [];
-
-      const config: ExecutorConfig = {
-        taskId: "codex-initial-prompt",
-        workingDirectory: "/tmp",
-        prompt: "Hello Codex",
-      };
-
-      const originalSpawn = Bun.spawn;
-      const mockStdin = {
-        write: mock((data: string) => {
-          writtenMessages.push(data);
-        }),
-        flush: mock(() => {}),
-      };
-      const mockStdout = new ReadableStream({
-        start(controller) {
-          controller.close();
-        },
-      });
-      const mockStderr = new ReadableStream({
-        start(controller) {
-          controller.close();
-        },
-      });
-      const mockProcess = {
-        stdin: mockStdin,
-        stdout: mockStdout,
-        stderr: mockStderr,
-        kill: mock(() => {}),
-        exited: new Promise(() => {}),
-      };
-
-      // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
-
-      try {
-        await executor.start(config);
-        expect(writtenMessages.length).toBe(1);
-        expect(writtenMessages[0]).toBe("Hello Codex\n");
-      } finally {
-        Bun.spawn = originalSpawn;
-      }
-    });
-
-    test("spawns codex with correct arguments", async () => {
-      executor = new CodexExecutor();
-      const config: ExecutorConfig = {
-        taskId: "codex-spawn-args",
-        workingDirectory: "/work/tree",
-        prompt: "prompt",
-      };
-
-      const originalSpawn = Bun.spawn;
-      let spawnArgs: unknown;
-      const mockStdin = {
-        write: mock(() => {}),
-        flush: mock(() => {}),
-      };
-      const mockStdout = new ReadableStream({
-        start(controller) {
-          controller.close();
-        },
-      });
-      const mockStderr = new ReadableStream({
-        start(controller) {
-          controller.close();
-        },
-      });
-      const mockProcess = {
-        stdin: mockStdin,
-        stdout: mockStdout,
-        stderr: mockStderr,
-        kill: mock(() => {}),
-        exited: new Promise(() => {}),
-      };
-
-      // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock((args: unknown) => {
-        spawnArgs = args;
-        return mockProcess;
-      });
-
-      try {
-        await executor.start(config);
-
-        const args = spawnArgs as { cmd: string[]; cwd: string };
-        expect(args.cmd).toEqual([
-          "codex",
-          "exec",
-          "--json",
-          "--full-auto",
-          "-",
-        ]);
-        expect(args.cwd).toBe("/work/tree");
       } finally {
         Bun.spawn = originalSpawn;
       }
@@ -247,11 +296,14 @@ describe("CodexExecutor", () => {
         write: mock(() => {}),
         flush: mock(() => {}),
       };
-      const mockStdout = new ReadableStream({
+
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.close();
+          stdoutController = controller;
         },
       });
+
       const mockStderr = new ReadableStream({
         start(controller) {
           controller.close();
@@ -268,7 +320,26 @@ describe("CodexExecutor", () => {
       };
 
       // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
+      Bun.spawn = mock(() => {
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        return mockProcess;
+      });
 
       try {
         await executor.start(config);
@@ -288,7 +359,7 @@ describe("CodexExecutor", () => {
   });
 
   describe("sendMessage when running", () => {
-    test("writes message to stdin", async () => {
+    test("sends sendUserMessage JSON-RPC request", async () => {
       executor = new CodexExecutor();
       const writtenMessages: string[] = [];
 
@@ -305,11 +376,14 @@ describe("CodexExecutor", () => {
         }),
         flush: mock(() => {}),
       };
-      const mockStdout = new ReadableStream({
+
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.close();
+          stdoutController = controller;
         },
       });
+
       const mockStderr = new ReadableStream({
         start(controller) {
           controller.close();
@@ -324,14 +398,42 @@ describe("CodexExecutor", () => {
       };
 
       // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
+      Bun.spawn = mock(() => {
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        // Response for follow-up message
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":5,"result":{}}\n'));
+        }, 50);
+        return mockProcess;
+      });
 
       try {
         await executor.start(config);
         writtenMessages.length = 0;
 
         await executor.sendMessage("follow up");
-        expect(writtenMessages).toEqual(["follow up\n"]);
+
+        // Should have sent sendUserMessage request
+        expect(writtenMessages.length).toBe(1);
+        const msg = JSON.parse(writtenMessages[0]);
+        expect(msg.method).toBe("sendUserMessage");
+        expect(msg.params.items[0].data.text).toBe("follow up");
       } finally {
         Bun.spawn = originalSpawn;
       }
@@ -339,7 +441,7 @@ describe("CodexExecutor", () => {
   });
 
   describe("output parsing", () => {
-    test("parses stdout JSON messages", async () => {
+    test("parses codex event notifications", async () => {
       executor = new CodexExecutor();
       const outputs: ExecutorOutput[] = [];
       executor.onOutput((output) => outputs.push(output));
@@ -355,13 +457,14 @@ describe("CodexExecutor", () => {
         write: mock(() => {}),
         flush: mock(() => {}),
       };
-      const mockStdout = new ReadableStream({
+
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
         start(controller) {
-          const encoder = new TextEncoder();
-          controller.enqueue(encoder.encode('{"event":"message"}\n'));
-          controller.close();
+          stdoutController = controller;
         },
       });
+
       const mockStderr = new ReadableStream({
         start(controller) {
           controller.close();
@@ -376,15 +479,48 @@ describe("CodexExecutor", () => {
       };
 
       // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
+      Bun.spawn = mock(() => {
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        // Send an agent message event
+        setTimeout(() => {
+          const event = {
+            method: "codex/event/agentMessage",
+            params: {
+              msg: { type: "agentMessage", message: "Hello from Codex!" },
+            },
+          };
+          stdoutController.enqueue(
+            encoder.encode(`${JSON.stringify(event)}\n`),
+          );
+        }, 30);
+        return mockProcess;
+      });
 
       try {
         await executor.start(config);
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        const stdoutLog = outputs.find((o) => o.logType === "stdout");
+        const stdoutLog = outputs.find(
+          (o) => o.logType === "stdout" && o.content.includes("Hello from"),
+        );
         expect(stdoutLog).toBeDefined();
-        expect(stdoutLog?.content).toContain("message");
+        expect(stdoutLog?.content).toBe("Hello from Codex!");
       } finally {
         Bun.spawn = originalSpawn;
       }
@@ -406,18 +542,21 @@ describe("CodexExecutor", () => {
         write: mock(() => {}),
         flush: mock(() => {}),
       };
-      const mockStdout = new ReadableStream({
+
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.close();
+          stdoutController = controller;
         },
       });
-      const mockStderr = new ReadableStream({
+
+      let stderrController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStderr = new ReadableStream<Uint8Array>({
         start(controller) {
-          const encoder = new TextEncoder();
-          controller.enqueue(encoder.encode("error\n"));
-          controller.close();
+          stderrController = controller;
         },
       });
+
       const mockProcess = {
         stdin: mockStdin,
         stdout: mockStdout,
@@ -427,7 +566,30 @@ describe("CodexExecutor", () => {
       };
 
       // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
+      Bun.spawn = mock(() => {
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        // Send stderr output
+        setTimeout(() => {
+          stderrController.enqueue(encoder.encode("error message\n"));
+        }, 25);
+        return mockProcess;
+      });
 
       try {
         await executor.start(config);
@@ -457,13 +619,14 @@ describe("CodexExecutor", () => {
         write: mock(() => {}),
         flush: mock(() => {}),
       };
-      const mockStdout = new ReadableStream({
+
+      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+      const mockStdout = new ReadableStream<Uint8Array>({
         start(controller) {
-          const encoder = new TextEncoder();
-          controller.enqueue(encoder.encode("plain output\n"));
-          controller.close();
+          stdoutController = controller;
         },
       });
+
       const mockStderr = new ReadableStream({
         start(controller) {
           controller.close();
@@ -478,7 +641,30 @@ describe("CodexExecutor", () => {
       };
 
       // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => mockProcess);
+      Bun.spawn = mock(() => {
+        const encoder = new TextEncoder();
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
+        }, 5);
+        setTimeout(() => {
+          stdoutController.enqueue(
+            encoder.encode(
+              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
+            ),
+          );
+        }, 10);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
+        }, 15);
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
+        }, 20);
+        // Send non-JSON output
+        setTimeout(() => {
+          stdoutController.enqueue(encoder.encode("plain output\n"));
+        }, 25);
+        return mockProcess;
+      });
 
       try {
         await executor.start(config);
