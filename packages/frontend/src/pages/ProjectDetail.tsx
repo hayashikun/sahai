@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  Calendar,
   GitBranch,
   GitFork,
   Loader2,
@@ -301,17 +300,6 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </div>
-        </div>
-
-        <div className="flex gap-4 mt-4 text-sm text-gray-500">
-          <div className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            Created: {project.createdAt.toLocaleDateString()}
-          </div>
-          <div className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            Updated: {project.updatedAt.toLocaleDateString()}
           </div>
         </div>
       </div>
