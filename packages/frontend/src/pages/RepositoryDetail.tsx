@@ -5,7 +5,6 @@ import {
   Pencil,
   Plus,
   Trash2,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -23,12 +22,6 @@ import {
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -70,7 +63,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const navigate = useNavigate();
 
   // Task creation state
-  const [showForm, setShowForm] = useState(false);
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [executor, setExecutor] = useState<string>("ClaudeCode");
@@ -92,8 +85,15 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resetTaskForm = () => {
+    setTitle("");
+    setDescription("");
+    setExecutor("ClaudeCode");
+    setBranchName("");
+    setError(null);
+  };
+
+  const handleCreateTask = async () => {
     if (!title.trim() || !branchName.trim()) return;
 
     try {
@@ -105,10 +105,8 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
         executor,
         branchName: branchName.trim(),
       });
-      setTitle("");
-      setDescription("");
-      setBranchName("");
-      setShowForm(false);
+      resetTaskForm();
+      setCreateTaskOpen(false);
       mutateTasks();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create task");
@@ -306,33 +304,32 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
 
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Tasks</h2>
-        {!showForm && (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Task
-          </Button>
-        )}
-      </div>
-
-      {showForm && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg">Create New Task</CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowForm(false)}
-            >
-              <X className="h-4 w-4" />
+        <Dialog
+          open={createTaskOpen}
+          onOpenChange={(open) => {
+            setCreateTaskOpen(open);
+            if (open) resetTaskForm();
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Task
             </Button>
-          </CardHeader>
-          <CardContent>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Task</DialogTitle>
+              <DialogDescription>
+                Create a new task for this repository.
+              </DialogDescription>
+            </DialogHeader>
             {error && (
-              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
-            <form onSubmit={handleCreateTask} className="space-y-4">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="task-title">Title</Label>
                 <Input
@@ -341,7 +338,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter task title"
-                  required
                 />
               </div>
               <div className="space-y-2">
@@ -375,30 +371,26 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     value={branchName}
                     onChange={(e) => setBranchName(e.target.value)}
                     placeholder="feature/my-branch"
-                    required
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={creating}>
-                  {creating && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {creating ? "Creating..." : "Create Task"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowForm(false)}
-                  disabled={creating}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setCreateTaskOpen(false)}
+                disabled={creating}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCreateTask} disabled={creating}>
+                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Task
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <KanbanBoard tasks={tasks} onTaskUpdate={mutateTasks} />
     </div>
