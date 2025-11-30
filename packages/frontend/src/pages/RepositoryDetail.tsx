@@ -112,8 +112,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
 
   // Edit repository state
   const [editOpen, setEditOpen] = useState(false);
-  const [editName, setEditName] = useState(repository.name);
-  const [editPath, setEditPath] = useState(repository.path);
   const [editDefaultBranch, setEditDefaultBranch] = useState(
     repository.defaultBranch,
   );
@@ -156,15 +154,13 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   };
 
   const handleEditRepository = async () => {
-    if (!editName.trim() || !editPath.trim()) return;
+    if (!editDefaultBranch.trim()) return;
 
     try {
       setEditLoading(true);
       setEditError(null);
       await updateRepository(repositoryId, {
-        name: editName.trim(),
-        path: editPath.trim(),
-        defaultBranch: editDefaultBranch.trim() || undefined,
+        defaultBranch: editDefaultBranch.trim(),
       });
       mutateRepository();
       setEditOpen(false);
@@ -192,8 +188,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   };
 
   const resetEditForm = () => {
-    setEditName(repository.name);
-    setEditPath(repository.path);
     setEditDefaultBranch(repository.defaultBranch);
     setEditError(null);
   };
@@ -247,35 +241,14 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     {editError}
                   </div>
                 )}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-repo-name">Name</Label>
-                    <Input
-                      id="edit-repo-name"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Repository name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-repo-path">Path</Label>
-                    <Input
-                      id="edit-repo-path"
-                      value={editPath}
-                      onChange={(e) => setEditPath(e.target.value)}
-                      placeholder="/path/to/repository"
-                      className="font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-repo-branch">Default Branch</Label>
-                    <Input
-                      id="edit-repo-branch"
-                      value={editDefaultBranch}
-                      onChange={(e) => setEditDefaultBranch(e.target.value)}
-                      placeholder="main"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-repo-branch">Default Branch</Label>
+                  <Input
+                    id="edit-repo-branch"
+                    value={editDefaultBranch}
+                    onChange={(e) => setEditDefaultBranch(e.target.value)}
+                    placeholder="main"
+                  />
                 </div>
                 <DialogFooter>
                   <Button
