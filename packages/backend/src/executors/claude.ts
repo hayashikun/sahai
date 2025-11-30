@@ -21,11 +21,13 @@ export class ClaudeCodeExecutor implements Executor {
     this.process = Bun.spawn({
       cmd: [
         "claude",
+        "-p",
         "--output-format",
         "stream-json",
         "--input-format",
         "stream-json",
         "--verbose",
+        "--dangerously-skip-permissions",
       ],
       cwd: config.workingDirectory,
       stdin: "pipe",
@@ -76,8 +78,11 @@ export class ClaudeCodeExecutor implements Executor {
     const stdin = this.process.stdin;
 
     const jsonMessage = JSON.stringify({
-      type: "user_message",
-      content: message,
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: message }],
+      },
     });
 
     stdin.write(`${jsonMessage}\n`);
