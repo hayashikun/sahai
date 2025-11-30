@@ -73,13 +73,14 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const titleToBranchName = (title: string): string => {
-    return title
+    const slug = title
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
+    return slug ? `sahai/${slug}` : "";
   };
 
   const handleTitleChange = (newTitle: string) => {
