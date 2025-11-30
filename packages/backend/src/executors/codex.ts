@@ -193,9 +193,11 @@ export class CodexExecutor implements Executor {
 
   private async initialize(): Promise<void> {
     await this.sendRequest("initialize", {
-      clientInfo: {
-        name: "sahai-codex-executor",
-        version: "1.0.0",
+      params: {
+        clientInfo: {
+          name: "sahai-codex-executor",
+          version: "1.0.0",
+        },
       },
     });
     this.sendNotification("initialized");
@@ -203,9 +205,11 @@ export class CodexExecutor implements Executor {
 
   private async newConversation(cwd: string): Promise<void> {
     const response = (await this.sendRequest("newConversation", {
-      cwd,
-      sandbox: "workspace-write",
-      approvalPolicy: "on-request",
+      params: {
+        cwd,
+        sandbox: "workspace-write",
+        approvalPolicy: "on-request",
+      },
     })) as NewConversationResponse;
 
     this.conversationId = response.conversationId;
@@ -224,9 +228,11 @@ export class CodexExecutor implements Executor {
     // For Codex, we need to find the rollout file path
     // The session ID is typically the conversation ID
     const response = (await this.sendRequest("resumeConversation", {
-      path: sessionId, // This should be the path to the rollout file
-      overrides: {
-        cwd,
+      params: {
+        path: sessionId, // This should be the path to the rollout file
+        overrides: {
+          cwd,
+        },
       },
     })) as NewConversationResponse;
 
@@ -238,7 +244,9 @@ export class CodexExecutor implements Executor {
     if (!this.conversationId) throw new Error("No conversation started");
 
     await this.sendRequest("addConversationListener", {
-      conversationId: this.conversationId,
+      params: {
+        conversationId: this.conversationId,
+      },
     });
   }
 
@@ -246,8 +254,10 @@ export class CodexExecutor implements Executor {
     if (!this.conversationId) throw new Error("No conversation started");
 
     await this.sendRequest("sendUserMessage", {
-      conversationId: this.conversationId,
-      items: [{ type: "text", text: message }],
+      params: {
+        conversationId: this.conversationId,
+        items: [{ type: "text", text: message }],
+      },
     });
   }
 
