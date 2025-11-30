@@ -5,14 +5,17 @@ import type {
   ExecutorOutput,
   ExitCallback,
   OutputCallback,
+  SessionIdCallback,
 } from "./interface";
 
 export class ClaudeCodeExecutor implements Executor {
   private process: Subprocess<"pipe", "pipe", "pipe"> | null = null;
   private outputCallback: OutputCallback | null = null;
   private exitCallback: ExitCallback | null = null;
+  private sessionIdCallback: SessionIdCallback | null = null;
   private isRunning = false;
   private hasCompleted = false;
+  private sessionIdExtracted = false;
 
   async start(config: ExecutorConfig): Promise<void> {
     if (this.isRunning) {
@@ -21,25 +24,36 @@ export class ClaudeCodeExecutor implements Executor {
 
     this.isRunning = true;
 
+    // Build command with optional resume flag
+    const cmd = [
+      "claude",
+      "-p",
+      "--output-format",
+      "stream-json",
+      "--input-format",
+      "stream-json",
+      "--verbose",
+      "--dangerously-skip-permissions",
+    ];
+
+    // Add resume flags if sessionId is provided
+    if (config.sessionId) {
+      cmd.push("--resume", config.sessionId);
+    }
+
     this.process = Bun.spawn({
-      cmd: [
-        "claude",
-        "-p",
-        "--output-format",
-        "stream-json",
-        "--input-format",
-        "stream-json",
-        "--verbose",
-        "--dangerously-skip-permissions",
-      ],
+      cmd,
       cwd: config.workingDirectory,
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
     });
 
+    const resumeInfo = config.sessionId
+      ? ` (resuming session ${config.sessionId})`
+      : "";
     this.emitOutput({
-      content: `[system] Started Claude Code executor for task ${config.taskId}`,
+      content: `[system] Started Claude Code executor for task ${config.taskId}${resumeInfo}`,
       logType: "system",
     });
 
@@ -104,6 +118,10 @@ export class ClaudeCodeExecutor implements Executor {
     this.exitCallback = callback;
   }
 
+  onSessionId(callback: SessionIdCallback): void {
+    this.sessionIdCallback = callback;
+  }
+
   private emitOutput(output: ExecutorOutput): void {
     this.outputCallback?.(output);
   }
@@ -161,6 +179,20 @@ export class ClaudeCodeExecutor implements Executor {
     // Try to parse as JSON for stdout
     try {
       const msg = JSON.parse(line) as Record<string, unknown>;
+
+      // Extract session_id from JSON messages (appears in system, assistant, result messages)
+      if (
+        !this.sessionIdExtracted &&
+        typeof msg.session_id === "string" &&
+        msg.session_id
+      ) {
+        this.sessionIdExtracted = true;
+        console.log(
+          "[ClaudeCodeExecutor] Detected session_id:",
+          msg.session_id,
+        );
+        this.sessionIdCallback?.(msg.session_id);
+      }
 
       // Check for "result" type message which indicates Claude Code has completed
       // Result message looks like: {"type":"result","subtype":"success","is_error":false,...}

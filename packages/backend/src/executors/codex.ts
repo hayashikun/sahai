@@ -79,6 +79,10 @@ export class CodexExecutor implements Executor {
     this.exitCallback = callback;
   }
 
+  onSessionId(): void {
+    // Codex doesn't use session IDs - no-op
+  }
+
   private emitOutput(output: ExecutorOutput): void {
     this.outputCallback?.(output);
   }

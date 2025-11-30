@@ -7,11 +7,14 @@ export interface ExecutorOutput {
 
 export type OutputCallback = (output: ExecutorOutput) => void;
 export type ExitCallback = (exitCode: number | null) => void;
+export type SessionIdCallback = (sessionId: string) => void;
 
 export interface ExecutorConfig {
   taskId: string;
   workingDirectory: string;
   prompt: string;
+  /** Session ID for resuming a previous session */
+  sessionId?: string;
 }
 
 export interface Executor {
@@ -39,4 +42,9 @@ export interface Executor {
    * Register a callback for when the agent process exits
    */
   onExit(callback: ExitCallback): void;
+
+  /**
+   * Register a callback for when a session ID is detected
+   */
+  onSessionId(callback: SessionIdCallback): void;
 }
