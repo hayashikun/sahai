@@ -8,25 +8,24 @@ import type {
   SessionIdCallback,
 } from "./interface";
 
-// JSON-RPC types for Codex app-server protocol
-interface JsonRpcRequest {
-  jsonrpc: "2.0";
+// Codex app-server protocol types (simplified JSON-RPC without "jsonrpc" field)
+// See: codex-rs/app-server-protocol/src/jsonrpc_lite.rs
+// "We do not do true JSON-RPC 2.0, as we neither send nor expect the jsonrpc field"
+interface CodexRequest {
   id: number;
   method: string;
   params?: unknown;
 }
 
-interface JsonRpcNotification {
-  jsonrpc: "2.0";
+interface CodexNotification {
   method: string;
   params?: unknown;
 }
 
-interface JsonRpcResponse {
-  jsonrpc: "2.0";
+interface CodexResponse {
   id: number;
   result?: unknown;
-  error?: { code: number; message: string };
+  error?: { code: number; message: string; data?: unknown };
 }
 
 interface NewConversationResponse {
@@ -156,7 +155,7 @@ export class CodexExecutor implements Executor {
     this.outputCallback?.(output);
   }
 
-  // JSON-RPC helper methods
+  // Codex protocol helper methods (simplified JSON-RPC without "jsonrpc" field)
   private async sendRequest(
     method: string,
     params?: unknown,
@@ -164,8 +163,7 @@ export class CodexExecutor implements Executor {
     if (!this.process) throw new Error("Process not running");
 
     const id = this.requestId++;
-    const request: JsonRpcRequest = {
-      jsonrpc: "2.0",
+    const request: CodexRequest = {
       id,
       method,
       params,
@@ -182,8 +180,7 @@ export class CodexExecutor implements Executor {
   private sendNotification(method: string, params?: unknown): void {
     if (!this.process) return;
 
-    const notification: JsonRpcNotification = {
-      jsonrpc: "2.0",
+    const notification: CodexNotification = {
       method,
       params,
     };
@@ -328,7 +325,7 @@ export class CodexExecutor implements Executor {
 
       // Handle response to our requests (has id but no method)
       if ("id" in msg && !("method" in msg)) {
-        const response = msg as JsonRpcResponse;
+        const response = msg as CodexResponse;
         const pending = this.pendingRequests.get(response.id as number);
         if (pending) {
           this.pendingRequests.delete(response.id as number);
@@ -406,8 +403,8 @@ export class CodexExecutor implements Executor {
   private sendApprovalResponse(requestId: unknown, decision: string): void {
     if (!this.process) return;
 
+    // Codex protocol response (no jsonrpc field)
     const response = {
-      jsonrpc: "2.0",
       id: requestId,
       result: { decision },
     };
