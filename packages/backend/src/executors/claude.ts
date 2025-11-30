@@ -163,7 +163,9 @@ export class ClaudeCodeExecutor implements Executor {
       const msg = JSON.parse(line) as Record<string, unknown>;
 
       // Check for "result" type message which indicates Claude Code has completed
+      // Result message looks like: {"type":"result","subtype":"success","is_error":false,...}
       if (msg.type === "result") {
+        console.log("[ClaudeCodeExecutor] Detected result message:", msg);
         this.handleCompletion();
       }
 
@@ -178,8 +180,17 @@ export class ClaudeCodeExecutor implements Executor {
   }
 
   private handleCompletion(): void {
-    if (this.hasCompleted) return;
+    if (this.hasCompleted) {
+      console.log(
+        "[ClaudeCodeExecutor] handleCompletion called but already completed",
+      );
+      return;
+    }
     this.hasCompleted = true;
+
+    console.log(
+      "[ClaudeCodeExecutor] Handling completion, triggering exit callback",
+    );
 
     this.emitOutput({
       content: "[system] Claude Code task completed",
@@ -187,10 +198,16 @@ export class ClaudeCodeExecutor implements Executor {
     });
 
     // Trigger exit callback with success code
-    this.exitCallback?.(0);
+    if (this.exitCallback) {
+      console.log("[ClaudeCodeExecutor] Calling exit callback");
+      this.exitCallback(0);
+    } else {
+      console.log("[ClaudeCodeExecutor] No exit callback registered!");
+    }
 
     // Kill the process since it may keep running waiting for more input
     if (this.process) {
+      console.log("[ClaudeCodeExecutor] Killing process");
       this.process.kill();
     }
   }

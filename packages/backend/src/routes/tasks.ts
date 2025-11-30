@@ -42,19 +42,26 @@ function withExecutingStatus<T extends { id: string }>(
 
 // Handle executor completion: update task status to InReview
 async function handleExecutorExit(taskId: string): Promise<void> {
+  console.log(`[handleExecutorExit] Called for task ${taskId}`);
   const now = new Date().toISOString();
 
   // Remove from active executors
   activeExecutors.delete(taskId);
+  console.log(`[handleExecutorExit] Removed task from activeExecutors`);
 
   // Get current task status
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
-  if (taskResult.length === 0) return;
+  if (taskResult.length === 0) {
+    console.log(`[handleExecutorExit] Task not found`);
+    return;
+  }
 
   const task = taskResult[0];
+  console.log(`[handleExecutorExit] Task status: ${task.status}`);
 
   // Only transition to InReview if currently InProgress
   if (task.status === "InProgress") {
+    console.log(`[handleExecutorExit] Transitioning to InReview`);
     await db
       .update(tasks)
       .set({
@@ -73,6 +80,11 @@ async function handleExecutorExit(taskId: string): Promise<void> {
     };
     await db.insert(executionLogs).values(log);
     broadcastLog(log);
+    console.log(`[handleExecutorExit] Transition complete`);
+  } else {
+    console.log(
+      `[handleExecutorExit] Not transitioning - status is not InProgress`,
+    );
   }
 }
 
