@@ -385,19 +385,110 @@ export class CodexExecutor implements Executor {
     method: string,
     params: Record<string, unknown>,
   ): void {
-    // Log the notification
-    this.emitOutput({
-      content: JSON.stringify({ method, params }),
-      logType: "stdout",
-    });
-
     // Check for task completion event (codex/event/task_complete)
     if (method.startsWith("codex/event/")) {
       const eventType = method.replace("codex/event/", "");
       if (eventType === "task_complete") {
         console.log("[CodexExecutor] Detected task completion");
         this.handleCompletion();
+        return;
       }
+    }
+
+    // Parse and display Codex events in a human-readable format
+    const msg = params?.msg as Record<string, unknown> | undefined;
+    if (!msg) {
+      // Log raw notification if no msg field
+      this.emitOutput({
+        content: JSON.stringify({ method, params }),
+        logType: "stdout",
+      });
+      return;
+    }
+
+    const msgType = msg.type as string;
+    const output = this.formatCodexEvent(msgType, msg);
+    if (output) {
+      this.emitOutput({ content: output, logType: "stdout" });
+    }
+  }
+
+  private formatCodexEvent(
+    type: string,
+    msg: Record<string, unknown>,
+  ): string | null {
+    switch (type) {
+      // Assistant messages
+      case "agentMessage":
+        return msg.message as string;
+      case "agentMessageDelta":
+        return msg.delta as string;
+
+      // Thinking/Reasoning
+      case "agentReasoning":
+        return `[thinking] ${msg.text as string}`;
+      case "agentReasoningDelta":
+        return `[thinking] ${msg.delta as string}`;
+
+      // Commands
+      case "execCommandBegin": {
+        const command = (msg.command as string[])?.join(" ") || "";
+        return `[command] $ ${command}`;
+      }
+      case "execCommandEnd": {
+        const exitCode = msg.exitCode as number;
+        const output = msg.formattedOutput as string;
+        if (output) {
+          return `[command output] (exit: ${exitCode})\n${output}`;
+        }
+        return `[command] exit code: ${exitCode}`;
+      }
+      case "execCommandOutputDelta": {
+        const chunk = msg.chunk as number[];
+        if (chunk) {
+          const text = String.fromCharCode(...chunk);
+          return text;
+        }
+        return null;
+      }
+
+      // File edits
+      case "patchApplyBegin": {
+        const changes = msg.changes as Record<string, unknown>;
+        const paths = Object.keys(changes || {});
+        return `[edit] Applying changes to: ${paths.join(", ")}`;
+      }
+      case "patchApplyEnd": {
+        const success = msg.success as boolean;
+        return success
+          ? "[edit] Changes applied"
+          : "[edit] Failed to apply changes";
+      }
+
+      // Errors
+      case "error":
+        return `[error] ${msg.message as string}`;
+      case "streamError":
+        return `[error] Stream error: ${msg.message as string}`;
+
+      // Session events
+      case "sessionConfigured":
+        return `[system] Session configured (model: ${msg.model as string})`;
+      case "taskStarted":
+        return "[system] Task started";
+      case "taskComplete":
+        return "[system] Task complete";
+
+      // Skip verbose events
+      case "tokenCount":
+      case "turnDiff":
+      case "agentReasoningSectionBreak":
+      case "userMessage":
+        return null;
+
+      default:
+        // Log unknown events as JSON for debugging
+        return JSON.stringify({ type, ...msg });
     }
   }
 
