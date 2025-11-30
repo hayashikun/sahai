@@ -53,9 +53,9 @@ export class CodexExecutor implements Executor {
 
     this.isRunning = true;
 
-    // Use npx to run codex app-server
+    // Use npx to run codex app-server (same version as reference implementation)
     this.process = Bun.spawn({
-      cmd: ["npx", "-y", "@openai/codex", "app-server"],
+      cmd: ["npx", "-y", "@openai/codex@0.60.1", "app-server"],
       cwd: config.workingDirectory,
       stdin: "pipe",
       stdout: "pipe",
@@ -244,9 +244,10 @@ export class CodexExecutor implements Executor {
   private async sendUserMessage(message: string): Promise<void> {
     if (!this.conversationId) throw new Error("No conversation started");
 
+    // InputItem uses serde(tag = "type", content = "data") format
     await this.sendRequest("sendUserMessage", {
       conversationId: this.conversationId,
-      items: [{ type: "text", text: message }],
+      items: [{ type: "text", data: { text: message } }],
     });
   }
 
