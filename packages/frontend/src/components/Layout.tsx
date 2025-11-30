@@ -1,4 +1,4 @@
-import { FolderKanban, GitFork, Home, LayoutDashboard } from "lucide-react";
+import { FolderKanban, GitFork, LayoutDashboard } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "../lib/utils";
 
@@ -6,7 +6,6 @@ export function Layout() {
   const location = useLocation();
 
   const navItems = [
-    { to: "/", label: "Home", icon: Home },
     { to: "/projects", label: "Projects", icon: FolderKanban },
     { to: "/repositories", label: "Repositories", icon: GitFork },
   ];
@@ -21,10 +20,7 @@ export function Layout() {
           </Link>
           <nav className="ml-8 flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive =
-                item.to === "/"
-                  ? location.pathname === "/"
-                  : location.pathname.startsWith(item.to);
+              const isActive = location.pathname.startsWith(item.to);
               return (
                 <Link
                   key={item.to}
