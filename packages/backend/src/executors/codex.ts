@@ -452,6 +452,11 @@ export class CodexExecutor implements Executor {
         }
         return null;
       }
+      case "execApprovalRequest": {
+        const command = (msg.command as string[])?.join(" ") || "";
+        const reason = msg.reason as string;
+        return `[approval] Command: ${command || reason || "command execution"}`;
+      }
 
       // File edits
       case "patchApplyBegin": {
@@ -462,8 +467,57 @@ export class CodexExecutor implements Executor {
       case "patchApplyEnd": {
         const success = msg.success as boolean;
         return success
-          ? "[edit] Changes applied"
+          ? "[edit] Changes applied successfully"
           : "[edit] Failed to apply changes";
+      }
+      case "applyPatchApprovalRequest": {
+        const changes = msg.changes as Record<string, unknown>;
+        const paths = Object.keys(changes || {});
+        return `[approval] Edit files: ${paths.join(", ")}`;
+      }
+
+      // MCP tool calls
+      case "mcpToolCallBegin": {
+        const invocation = msg.invocation as Record<string, unknown>;
+        const server = invocation?.server as string;
+        const tool = invocation?.tool as string;
+        return `[mcp] Calling ${server}:${tool}`;
+      }
+      case "mcpToolCallEnd": {
+        const invocation = msg.invocation as Record<string, unknown>;
+        const tool = invocation?.tool as string;
+        const result = msg.result as Record<string, unknown>;
+        if (result?.Err) {
+          return `[mcp] ${tool} failed: ${result.Err as string}`;
+        }
+        return `[mcp] ${tool} completed`;
+      }
+
+      // Web search
+      case "webSearchBegin":
+        return "[web] Starting web search...";
+      case "webSearchEnd": {
+        const query = msg.query as string;
+        return `[web] Searched: ${query}`;
+      }
+
+      // Image viewing
+      case "viewImageToolCall": {
+        const path = msg.path as string;
+        return `[image] Viewing: ${path}`;
+      }
+
+      // Plan/Todo updates
+      case "planUpdate": {
+        const plan = msg.plan as Array<{ step: string; status: string }>;
+        const explanation = msg.explanation as string;
+        if (explanation) {
+          return `[plan] ${explanation}`;
+        }
+        if (plan && plan.length > 0) {
+          return `[plan] Updated (${plan.length} steps)`;
+        }
+        return "[plan] Updated";
       }
 
       // Errors
@@ -472,16 +526,35 @@ export class CodexExecutor implements Executor {
       case "streamError":
         return `[error] Stream error: ${msg.message as string}`;
 
+      // Background events
+      case "backgroundEvent":
+        return `[background] ${msg.message as string}`;
+
       // Session events
-      case "sessionConfigured":
-        return `[system] Session configured (model: ${msg.model as string})`;
+      case "sessionConfigured": {
+        const model = msg.model as string;
+        const sessionId = msg.sessionId as string;
+        return `[system] Session configured (model: ${model}, session: ${sessionId?.slice(0, 8)}...)`;
+      }
       case "taskStarted":
         return "[system] Task started";
       case "taskComplete":
         return "[system] Task complete";
 
-      // Skip verbose/internal events (based on reference implementation)
-      case "tokenCount":
+      // Token usage (display summary)
+      case "tokenCount": {
+        const info = msg.info as Record<string, unknown>;
+        if (info) {
+          const input = info.input_tokens as number;
+          const output = info.output_tokens as number;
+          if (input || output) {
+            return `[tokens] Input: ${input || 0}, Output: ${output || 0}`;
+          }
+        }
+        return null;
+      }
+
+      // Internal events - skip silently (based on reference implementation)
       case "turnDiff":
       case "agentReasoningSectionBreak":
       case "agentReasoningRawContent":
@@ -498,8 +571,8 @@ export class CodexExecutor implements Executor {
         return null;
 
       default:
-        // Skip unknown events silently
-        return null;
+        // Log unknown events for debugging
+        return `[${type}] ${JSON.stringify(msg)}`;
     }
   }
 
