@@ -1,5 +1,7 @@
 import {
   ArrowLeft,
+  Calendar,
+  ClipboardList,
   GitBranch,
   Loader2,
   Pencil,
@@ -22,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -180,7 +183,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       setDeleteLoading(true);
       setDeleteError(null);
       await deleteRepository(repositoryId);
-      navigate("/projects");
+      navigate("/repositories");
     } catch (e) {
       setDeleteError(
         e instanceof Error ? e.message : "Failed to delete repository",
@@ -200,9 +203,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-4">
-          <Link to="/projects">
+          <Link to="/repositories">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Projects
+            Back to Repositories
           </Link>
         </Button>
 
@@ -217,6 +220,16 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                 <GitBranch className="h-4 w-4" />
                 {repository.defaultBranch}
               </span>
+            </div>
+            <div className="flex gap-4 mt-2 text-sm text-gray-500">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                Created: {repository.createdAt.toLocaleDateString()}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                Updated: {repository.updatedAt.toLocaleDateString()}
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
@@ -430,7 +443,19 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
         </Dialog>
       </div>
 
-      <KanbanBoard tasks={tasks} onTaskUpdate={mutateTasks} />
+      {tasks.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <ClipboardList className="h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-500">No tasks yet.</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Click "New Task" to create one.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <KanbanBoard tasks={tasks} onTaskUpdate={mutateTasks} />
+      )}
     </div>
   );
 }
