@@ -395,7 +395,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     type="text"
                     value={branchName}
                     onChange={(e) => handleBranchNameChange(e.target.value)}
-                    placeholder="feature/my-branch"
+                    placeholder="sahai/add-some-feature"
                   />
                 </div>
               </div>
