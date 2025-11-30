@@ -68,6 +68,7 @@ export const Task = z.object({
     .nullable()
     .transform(nullToUndefined)
     .pipe(z.string().optional()),
+  isExecuting: z.boolean().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   startedAt: z.coerce

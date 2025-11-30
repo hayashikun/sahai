@@ -3,12 +3,14 @@ import type {
   Executor,
   ExecutorConfig,
   ExecutorOutput,
+  ExitCallback,
   OutputCallback,
 } from "./interface";
 
 export class ClaudeCodeExecutor implements Executor {
   private process: Subprocess<"pipe", "pipe", "pipe"> | null = null;
   private outputCallback: OutputCallback | null = null;
+  private exitCallback: ExitCallback | null = null;
   private isRunning = false;
 
   async start(config: ExecutorConfig): Promise<void> {
@@ -52,6 +54,7 @@ export class ClaudeCodeExecutor implements Executor {
       });
       this.isRunning = false;
       this.process = null;
+      this.exitCallback?.(exitCode);
     });
 
     // Send initial prompt
@@ -91,6 +94,10 @@ export class ClaudeCodeExecutor implements Executor {
 
   onOutput(callback: OutputCallback): void {
     this.outputCallback = callback;
+  }
+
+  onExit(callback: ExitCallback): void {
+    this.exitCallback = callback;
   }
 
   private emitOutput(output: ExecutorOutput): void {

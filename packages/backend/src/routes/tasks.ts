@@ -30,6 +30,52 @@ function createExecutor(type: string): Executor {
   }
 }
 
+// Add isExecuting field to task based on activeExecutors
+function withExecutingStatus<T extends { id: string }>(
+  task: T,
+): T & { isExecuting: boolean } {
+  return {
+    ...task,
+    isExecuting: activeExecutors.has(task.id),
+  };
+}
+
+// Handle executor completion: update task status to InReview
+async function handleExecutorExit(taskId: string): Promise<void> {
+  const now = new Date().toISOString();
+
+  // Remove from active executors
+  activeExecutors.delete(taskId);
+
+  // Get current task status
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
+  if (taskResult.length === 0) return;
+
+  const task = taskResult[0];
+
+  // Only transition to InReview if currently InProgress
+  if (task.status === "InProgress") {
+    await db
+      .update(tasks)
+      .set({
+        status: "InReview",
+        updatedAt: now,
+      })
+      .where(eq(tasks.id, taskId));
+
+    // Broadcast status change via logs
+    const log = {
+      id: crypto.randomUUID(),
+      taskId,
+      content: "[system] Executor completed. Task moved to InReview.",
+      logType: "system",
+      createdAt: now,
+    };
+    await db.insert(executionLogs).values(log);
+    broadcastLog(log);
+  }
+}
+
 // SSE subscribers per task
 type LogSubscriber = (log: {
   id: string;
@@ -95,7 +141,7 @@ repositoryTasks.get("/:repositoryId/tasks", async (c) => {
     .from(tasks)
     .where(eq(tasks.repositoryId, repositoryId));
 
-  return c.json(result);
+  return c.json(result.map(withExecutingStatus));
 });
 
 // POST /v1/repositories/:repositoryId/tasks - Create a new task
@@ -133,7 +179,7 @@ repositoryTasks.post("/:repositoryId/tasks", async (c) => {
   };
 
   await db.insert(tasks).values(newTask);
-  return c.json(newTask, 201);
+  return c.json(withExecutingStatus(newTask), 201);
 });
 
 // Routes for /v1/tasks/:id
@@ -148,7 +194,7 @@ taskById.get("/:id", async (c) => {
     return notFound(c, "Task");
   }
 
-  return c.json(result[0]);
+  return c.json(withExecutingStatus(result[0]));
 });
 
 // PUT /v1/tasks/:id - Update a task
@@ -182,7 +228,7 @@ taskById.put("/:id", async (c) => {
 
   await db.update(tasks).set(updated).where(eq(tasks.id, id));
 
-  return c.json({ ...existing[0], ...updated });
+  return c.json(withExecutingStatus({ ...existing[0], ...updated }));
 });
 
 // DELETE /v1/tasks/:id - Delete a task
@@ -370,6 +416,10 @@ taskById.post("/:id/start", async (c) => {
       broadcastLog(log);
     });
 
+    executor.onExit(() => {
+      handleExecutorExit(id);
+    });
+
     await executor.start({
       taskId: id,
       workingDirectory: worktreePath,
@@ -380,7 +430,7 @@ taskById.post("/:id/start", async (c) => {
 
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
 
-    return c.json(updatedTask[0]);
+    return c.json(withExecutingStatus(updatedTask[0]));
   } catch (error) {
     return internalError(c, `Failed to start task: ${error}`);
   }
@@ -411,7 +461,7 @@ taskById.post("/:id/pause", async (c) => {
   await db.update(tasks).set({ updatedAt: now }).where(eq(tasks.id, id));
 
   const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-  return c.json(updatedTask[0]);
+  return c.json(withExecutingStatus(updatedTask[0]));
 });
 
 // POST /v1/tasks/:id/complete - Transition to InReview
@@ -446,7 +496,7 @@ taskById.post("/:id/complete", async (c) => {
     .where(eq(tasks.id, id));
 
   const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-  return c.json(updatedTask[0]);
+  return c.json(withExecutingStatus(updatedTask[0]));
 });
 
 // POST /v1/tasks/:id/resume - Restart executor
@@ -505,6 +555,10 @@ taskById.post("/:id/resume", async (c) => {
       broadcastLog(log);
     });
 
+    executor.onExit(() => {
+      handleExecutorExit(id);
+    });
+
     const prompt = body.message ?? task.description ?? task.title;
 
     await executor.start({
@@ -527,7 +581,7 @@ taskById.post("/:id/resume", async (c) => {
     }
 
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-    return c.json(updatedTask[0]);
+    return c.json(withExecutingStatus(updatedTask[0]));
   } catch (error) {
     return internalError(c, `Failed to resume task: ${error}`);
   }
@@ -582,7 +636,7 @@ taskById.post("/:id/finish", async (c) => {
       .where(eq(tasks.id, id));
 
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-    return c.json(updatedTask[0]);
+    return c.json(withExecutingStatus(updatedTask[0]));
   } catch (error) {
     return internalError(c, `Failed to finish task: ${error}`);
   }
@@ -619,5 +673,5 @@ taskById.post("/:id/recreate", async (c) => {
   };
 
   await db.insert(tasks).values(newTask);
-  return c.json(newTask, 201);
+  return c.json(withExecutingStatus(newTask), 201);
 });
