@@ -12,6 +12,7 @@ export class ClaudeCodeExecutor implements Executor {
   private outputCallback: OutputCallback | null = null;
   private exitCallback: ExitCallback | null = null;
   private isRunning = false;
+  private hasCompleted = false;
 
   async start(config: ExecutorConfig): Promise<void> {
     if (this.isRunning) {
@@ -54,7 +55,10 @@ export class ClaudeCodeExecutor implements Executor {
       });
       this.isRunning = false;
       this.process = null;
-      this.exitCallback?.(exitCode);
+      // Only call exitCallback if not already completed via result message
+      if (!this.hasCompleted) {
+        this.exitCallback?.(exitCode);
+      }
     });
 
     // Send initial prompt
@@ -157,6 +161,12 @@ export class ClaudeCodeExecutor implements Executor {
     // Try to parse as JSON for stdout
     try {
       const msg = JSON.parse(line) as Record<string, unknown>;
+
+      // Check for "result" type message which indicates Claude Code has completed
+      if (msg.type === "result") {
+        this.handleCompletion();
+      }
+
       return {
         content: JSON.stringify(msg),
         logType: "stdout",
@@ -164,6 +174,24 @@ export class ClaudeCodeExecutor implements Executor {
     } catch {
       // Non-JSON output
       return { content: line, logType: "stdout" };
+    }
+  }
+
+  private handleCompletion(): void {
+    if (this.hasCompleted) return;
+    this.hasCompleted = true;
+
+    this.emitOutput({
+      content: "[system] Claude Code task completed",
+      logType: "system",
+    });
+
+    // Trigger exit callback with success code
+    this.exitCallback?.(0);
+
+    // Kill the process since it may keep running waiting for more input
+    if (this.process) {
+      this.process.kill();
     }
   }
 }
