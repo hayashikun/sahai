@@ -31,6 +31,10 @@ bun run dev:backend
 bun run dev:frontend
 ```
 
+- Backend listens on `49382` by default; override with `API_PORT=xxxxx`.
+- Frontend dev server listens on `49381` by default; override with `PORT=xxxxx`.
+- Frontend API calls target the backend at `VITE_API_BASE_URL` (default `http://localhost:49382`) when not served from the same origin.
+
 ## License
 
 Apache-2.0
