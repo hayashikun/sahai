@@ -59,9 +59,14 @@ if (staticDir) {
 }
 
 const port = Number.parseInt(
-  process.env.SAHAI_PORT || process.env.API_PORT || "49382",
+  process.env.SAHAI_PORT || process.env.PORT || "49831",
   10,
 );
+
+export const server = Bun.serve({
+  port,
+  fetch: app.fetch,
+});
 
 export default {
   port,
