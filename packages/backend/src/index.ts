@@ -58,10 +58,7 @@ if (staticDir) {
   });
 }
 
-const port = Number.parseInt(
-  process.env.SAHAI_PORT || process.env.PORT || "49831",
-  10,
-);
+const port = Number.parseInt(process.env.API_PORT || "49382", 10);
 
 export const server = Bun.serve({
   port,

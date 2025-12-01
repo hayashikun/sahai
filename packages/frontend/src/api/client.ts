@@ -7,10 +7,14 @@ const isProductionBrowser =
   !import.meta.env.DEV &&
   typeof document !== "undefined";
 
-const API_PORT = "49382";
-const API_BASE_URL = isProductionBrowser
+const env = typeof import.meta !== "undefined" ? import.meta.env ?? {} : {};
+const API_BASE = (
+  (env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:49382"
+).replace(/\/$/, "");
+
+export const API_BASE_URL = isProductionBrowser
   ? "/v1"
-  : `http://localhost:${API_PORT}/v1`;
+  : `${API_BASE}/v1`;
 
 export class ApiError extends Error {
   readonly code: ErrorCode;

@@ -5,7 +5,7 @@ import {
   Task,
   type Task as TaskType,
 } from "shared/schemas";
-import { apiDelete, apiPost, apiPut, fetcher } from "./client";
+import { API_BASE_URL, apiDelete, apiPost, apiPut, fetcher } from "./client";
 
 export async function getTask(taskId: string): Promise<TaskType> {
   const data = await fetcher(`/tasks/${taskId}`);
@@ -83,9 +83,8 @@ export async function openWorktreeInTerminal(taskId: string): Promise<void> {
 }
 
 // SSE stream URL for logs
-const API_PORT = "49382";
 export function getTaskLogsStreamUrl(taskId: string): string {
-  return `http://localhost:${API_PORT}/v1/tasks/${taskId}/logs/stream`;
+  return `${API_BASE_URL}/tasks/${taskId}/logs/stream`;
 }
 
 // Parse SSE log event
