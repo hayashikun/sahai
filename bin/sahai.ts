@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 
-const defaultPort = process.env.API_PORT || "49382";
+const defaultPort = process.env.PORT || "49831";
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -24,12 +24,12 @@ Usage:
   sahai [options]
 
 Options:
-  -p, --port <port>  Port to run the server on (default: 49382, or API_PORT env)
+  -p, --port <port>  Port to run the server on (default: 49831, or PORT env)
   -h, --help         Show this help message
   -v, --version      Show version number
 
 Examples:
-  sahai              Start the server on port 49382
+  sahai              Start the server on port 49831
   sahai -p 8080      Start the server on port 8080
 `);
   process.exit(0);
