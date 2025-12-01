@@ -17,6 +17,7 @@ export interface GitInfo {
   path: string;
   isGitRepo: boolean;
   currentBranch: string;
+  defaultBranch: string;
   branches: string[];
 }
 
