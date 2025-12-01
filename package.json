@@ -48,6 +48,10 @@
   "bugs": {
     "url": "https://github.com/hayashikun/sahai/issues"
   },
+  "dependencies": {
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.6.0"
+  },
   "engines": {
     "bun": ">=1.0.0"
   },
