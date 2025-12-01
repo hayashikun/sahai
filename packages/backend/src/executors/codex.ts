@@ -1,4 +1,8 @@
 import type { Subprocess } from "bun";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
 import type {
   Executor,
   ExecutorConfig,
@@ -220,10 +224,12 @@ export class CodexExecutor implements Executor {
     sessionId: string,
     cwd: string,
   ): Promise<void> {
+    const rolloutPath = await this.forkRolloutFile(sessionId);
+
     // For Codex, we need to find the rollout file path
     // The session ID is typically the conversation ID
     const response = (await this.sendRequest("resumeConversation", {
-      path: sessionId, // This should be the path to the rollout file
+      path: rolloutPath,
       overrides: {
         cwd,
       },
@@ -231,6 +237,112 @@ export class CodexExecutor implements Executor {
 
     this.conversationId = response.conversationId;
     console.log(`[CodexExecutor] Resumed conversation: ${this.conversationId}`);
+  }
+
+  private async forkRolloutFile(sessionId: string): Promise<string> {
+    const original = await this.findRolloutFilePath(sessionId);
+    const content = await readFile(original, "utf8");
+    const [firstLine, ...rest] = content.split(/\r?\n/);
+    if (!firstLine?.trim()) {
+      throw new Error(`Rollout file ${original} missing header line`);
+    }
+
+    let meta: Record<string, unknown>;
+    try {
+      meta = JSON.parse(firstLine.trim());
+    } catch (err) {
+      throw new Error(
+        `Failed to parse rollout header JSON in ${original}: ${String(err)}`,
+      );
+    }
+
+    const payload = (meta as { payload?: Record<string, unknown> }).payload;
+    if (!payload || typeof payload !== "object") {
+      throw new Error(
+        `Rollout meta payload missing or not an object in ${original}`,
+      );
+    }
+
+    const newSessionId = randomUUID();
+    payload.id = newSessionId;
+    if (!("source" in payload)) {
+      payload.source = {};
+    }
+
+    const newMetaLine = JSON.stringify({ ...meta, payload });
+    const restLines = rest.join("\n");
+
+    const destination = await this.createNewRolloutPath(newSessionId);
+    await writeFile(
+      destination,
+      restLines.length > 0
+        ? `${newMetaLine}\n${restLines}\n`
+        : `${newMetaLine}\n`,
+      "utf8",
+    );
+
+    return destination;
+  }
+
+  private async createNewRolloutPath(sessionId: string): Promise<string> {
+    const now = new Date();
+    const sessionsRoot = path.join(homedir(), ".codex", "sessions");
+    const year = now.getFullYear().toString();
+    const month = `${now.getMonth() + 1}`.padStart(2, "0");
+    const day = `${now.getDate()}`.padStart(2, "0");
+    const dir = path.join(sessionsRoot, year, month, day);
+    await mkdir(dir, { recursive: true });
+
+    const ts = `${year}-${month}-${day}T${`${now.getHours()}`.padStart(2, "0")}-${`${now.getMinutes()}`.padStart(2, "0")}-${`${now.getSeconds()}`.padStart(2, "0")}`;
+    const filename = `rollout-${ts}-${sessionId}.jsonl`;
+    return path.join(dir, filename);
+  }
+
+  private async findRolloutFilePath(sessionId: string): Promise<string> {
+    // If caller provided a direct path, use it when it exists
+    const directPath = path.resolve(sessionId);
+    if (await this.pathExists(directPath)) {
+      return directPath;
+    }
+
+    const sessionsRoot = path.join(homedir(), ".codex", "sessions");
+    const dirsToSearch = [sessionsRoot];
+
+    while (dirsToSearch.length > 0) {
+      const current = dirsToSearch.pop();
+      if (!current || !(await this.pathExists(current))) continue;
+
+      const entries = await readdir(current, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          dirsToSearch.push(fullPath);
+          continue;
+        }
+
+        if (
+          entry.isFile() &&
+          entry.name.startsWith("rollout-") &&
+          entry.name.endsWith(".jsonl") &&
+          entry.name.includes(sessionId)
+        ) {
+          return fullPath;
+        }
+      }
+    }
+
+    throw new Error(
+      `Could not find rollout file for session ${sessionId} under ${sessionsRoot}`,
+    );
+  }
+
+  private async pathExists(targetPath: string): Promise<boolean> {
+    try {
+      await stat(targetPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async addConversationListener(): Promise<void> {
