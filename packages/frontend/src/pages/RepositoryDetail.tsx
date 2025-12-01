@@ -7,7 +7,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { createTask, deleteRepository, startTask, updateRepository } from "../api";
 import { KanbanBoard } from "../components";
@@ -60,6 +60,7 @@ export function RepositoryDetail() {
 }
 
 function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
+  const START_IMMEDIATELY_STORAGE_KEY = "sahai:create-task-start-immediately";
   const { repository, mutate: mutateRepository } = useRepository(repositoryId);
   const { tasks, mutate: mutateTasks } = useRepositoryTasks(repositoryId);
   const navigate = useNavigate();
@@ -74,7 +75,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [creating, setCreating] = useState(false);
   const [startImmediately, setStartImmediately] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const START_IMMEDIATELY_STORAGE_KEY = "sahai:create-task-start-immediately";
 
   useEffect(() => {
     const savedPreference = localStorage.getItem(START_IMMEDIATELY_STORAGE_KEY);
@@ -88,7 +88,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       START_IMMEDIATELY_STORAGE_KEY,
       startImmediately ? "true" : "false",
     );
-  }, [startImmediately, START_IMMEDIATELY_STORAGE_KEY]);
+  }, [startImmediately]);
 
   const base62Encode = (num: number): string => {
     const chars =
@@ -138,16 +138,16 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const resetTaskForm = () => {
+  const resetTaskForm = useCallback(() => {
     setTitle("");
     setDescription("");
     setExecutor("ClaudeCode");
     setBranchName("");
     setBranchNameEdited(false);
     setError(null);
-  };
+  }, []);
 
-  const handleCreateTask = async () => {
+  const handleCreateTask = useCallback(async () => {
     if (creating) return;
     if (!title.trim() || !branchName.trim()) return;
 
@@ -181,7 +181,17 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     } finally {
       setCreating(false);
     }
-  };
+  }, [
+    branchName,
+    creating,
+    description,
+    executor,
+    mutateTasks,
+    repositoryId,
+    startImmediately,
+    title,
+    resetTaskForm,
+  ]);
 
   useEffect(() => {
     if (!createTaskOpen) return;
