@@ -1,6 +1,6 @@
 {
   "name": "sahai",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "AI Coding Agent orchestration tool with Kanban interface",
   "type": "module",
   "bin": {
@@ -47,6 +47,10 @@
   "homepage": "https://github.com/hayashikun/sahai",
   "bugs": {
     "url": "https://github.com/hayashikun/sahai/issues"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.6.0"
   },
   "engines": {
     "bun": ">=1.0.0"
