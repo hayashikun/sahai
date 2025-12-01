@@ -1,4 +1,6 @@
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -86,6 +88,119 @@ async function handleExecutorExit(taskId: string): Promise<void> {
       `[handleExecutorExit] Not transitioning - status is not InProgress`,
     );
   }
+}
+
+async function runCommand(
+  command: string[],
+  errorMessage: string,
+): Promise<void> {
+  try {
+    const process = Bun.spawn(command, {
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    const exitCode = await process.exited;
+    if (exitCode !== 0) {
+      const stderr = await new Response(process.stderr).text();
+      throw new Error(stderr || `Command exited with code ${exitCode}`);
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
+    throw new Error(`${errorMessage}: ${message}`);
+  }
+}
+
+async function openInFileExplorer(path: string): Promise<void> {
+  const normalizedPath = resolve(path);
+  const platform = process.platform;
+
+  if (platform === "darwin") {
+    await runCommand(
+      ["open", normalizedPath],
+      "Failed to open worktree in Finder",
+    );
+    return;
+  }
+
+  if (platform === "win32") {
+    await runCommand(
+      ["explorer", normalizedPath],
+      "Failed to open worktree in Explorer",
+    );
+    return;
+  }
+
+  await runCommand(
+    ["xdg-open", normalizedPath],
+    "Failed to open worktree in file explorer",
+  );
+}
+
+function escapeShellPath(path: string): string {
+  return path.replace(/'/g, "'\\''");
+}
+
+async function openInTerminal(path: string): Promise<void> {
+  const normalizedPath = resolve(path);
+  const platform = process.platform;
+
+  if (platform === "darwin") {
+    const terminalApp = process.env.SAHAI_TERMINAL_APP || "Terminal";
+    await runCommand(
+      ["open", "-a", terminalApp, normalizedPath],
+      `Failed to open ${terminalApp} at worktree`,
+    );
+    return;
+  }
+
+  if (platform === "win32") {
+    const escapedPath = normalizedPath.replace(/'/g, "''");
+    await runCommand(
+      [
+        "powershell",
+        "-NoProfile",
+        "-Command",
+        `Start-Process powershell -WorkingDirectory '${escapedPath}'`,
+      ],
+      "Failed to open terminal at worktree",
+    );
+    return;
+  }
+
+  const customCommand = process.env.SAHAI_TERMINAL_COMMAND;
+  if (customCommand) {
+    const escapedPath = escapeShellPath(normalizedPath);
+    const rendered = customCommand.replaceAll("{path}", `'${escapedPath}'`);
+    await runCommand(
+      ["bash", "-lc", rendered],
+      "Failed to open terminal at worktree",
+    );
+    return;
+  }
+
+  const candidates: string[][] = [
+    ["gnome-terminal", "--working-directory", normalizedPath],
+    ["konsole", "--workdir", normalizedPath],
+    ["xfce4-terminal", "--working-directory", normalizedPath],
+    ["x-terminal-emulator", "--working-directory", normalizedPath],
+    ["alacritty", "--working-directory", normalizedPath],
+  ];
+
+  let lastError: Error | null = null;
+  for (const candidate of candidates) {
+    try {
+      await runCommand(candidate, "Failed to open terminal at worktree");
+      return;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw new Error(
+    lastError?.message ??
+      "No supported terminal launcher found. Set SAHAI_TERMINAL_COMMAND to override.",
+  );
 }
 
 // SSE subscribers per task
@@ -307,6 +422,66 @@ taskById.get("/:id/diff", async (c) => {
     return c.json({ diff });
   } catch (error) {
     return internalError(c, `Failed to get diff: ${error}`);
+  }
+});
+
+// POST /v1/tasks/:id/worktree/open-explorer - Open worktree path in file explorer
+taskById.post("/:id/worktree/open-explorer", async (c) => {
+  const id = c.req.param("id");
+
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return notFound(c, "Task");
+  }
+
+  const task = taskResult[0];
+  if (!task.worktreePath) {
+    return badRequest(c, "Task has no worktree");
+  }
+  if (!existsSync(task.worktreePath)) {
+    return badRequest(c, "Worktree path does not exist");
+  }
+
+  try {
+    await openInFileExplorer(task.worktreePath);
+    return c.json({ message: "Opened worktree in file explorer" });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error ?? "Unknown error");
+    return internalError(
+      c,
+      `Failed to open worktree in file explorer: ${message}`,
+    );
+  }
+});
+
+// POST /v1/tasks/:id/worktree/open-terminal - Open worktree path in terminal
+taskById.post("/:id/worktree/open-terminal", async (c) => {
+  const id = c.req.param("id");
+
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return notFound(c, "Task");
+  }
+
+  const task = taskResult[0];
+  if (!task.worktreePath) {
+    return badRequest(c, "Task has no worktree");
+  }
+  if (!existsSync(task.worktreePath)) {
+    return badRequest(c, "Worktree path does not exist");
+  }
+
+  try {
+    await openInTerminal(task.worktreePath);
+    return c.json({ message: "Opened worktree in terminal" });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error ?? "Unknown error");
+    return internalError(
+      c,
+      `Failed to open worktree in terminal: ${message}`,
+    );
   }
 });
 

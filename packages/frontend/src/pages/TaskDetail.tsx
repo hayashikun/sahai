@@ -2,12 +2,15 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle,
+  Clipboard,
   GitBranch,
+  FolderOpen,
   Loader2,
   Pause,
   Pencil,
   Play,
   Send,
+  Terminal,
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -18,6 +21,8 @@ import {
   deleteTask,
   finishTask,
   getTaskDiff,
+  openWorktreeInExplorer,
+  openWorktreeInTerminal,
   pauseTask,
   resumeTask,
   startTask,
@@ -151,6 +156,9 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   const [diff, setDiff] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffError, setDiffError] = useState<string | null>(null);
+  const [worktreeActionLoading, setWorktreeActionLoading] = useState<
+    "copy" | "explorer" | "terminal" | null
+  >(null);
 
   // Edit task state
   const [editOpen, setEditOpen] = useState(false);
@@ -213,6 +221,43 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
     }
   };
 
+  const handleCopyWorktreePath = async () => {
+    if (!task.worktreePath) return;
+    if (worktreeActionLoading) return;
+    try {
+      setWorktreeActionLoading("copy");
+      await navigator.clipboard.writeText(task.worktreePath);
+      setActionError(null);
+    } catch (e) {
+      setActionError(
+        `Failed to copy worktree path: ${e instanceof Error ? e.message : "Unknown error"}`,
+      );
+    } finally {
+      setWorktreeActionLoading(null);
+    }
+  };
+
+  const handleWorktreeAction = async (
+    action: "explorer" | "terminal",
+  ): Promise<void> => {
+    if (!task.worktreePath || worktreeActionLoading) return;
+    try {
+      setWorktreeActionLoading(action);
+      setActionError(null);
+      if (action === "explorer") {
+        await openWorktreeInExplorer(taskId);
+      } else {
+        await openWorktreeInTerminal(taskId);
+      }
+    } catch (e) {
+      setActionError(
+        `Failed to open worktree: ${e instanceof Error ? e.message : "Unknown error"}`,
+      );
+    } finally {
+      setWorktreeActionLoading(null);
+    }
+  };
+
   const handleEditTask = async () => {
     if (!editTitle.trim()) return;
 
@@ -272,6 +317,10 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
           editError={editError}
           onEdit={handleEditTask}
           resetEditForm={resetEditForm}
+          onCopyWorktree={handleCopyWorktreePath}
+          onOpenWorktreeExplorer={() => handleWorktreeAction("explorer")}
+          onOpenWorktreeTerminal={() => handleWorktreeAction("terminal")}
+          worktreeActionLoading={worktreeActionLoading}
         />
       </div>
 
@@ -336,6 +385,10 @@ interface TaskInfoProps {
   editError: string | null;
   onEdit: () => void;
   resetEditForm: () => void;
+  onCopyWorktree: () => void;
+  onOpenWorktreeExplorer: () => void;
+  onOpenWorktreeTerminal: () => void;
+  worktreeActionLoading: "copy" | "explorer" | "terminal" | null;
 }
 
 function TaskInfo({
@@ -350,6 +403,10 @@ function TaskInfo({
   editError,
   onEdit,
   resetEditForm,
+  onCopyWorktree,
+  onOpenWorktreeExplorer,
+  onOpenWorktreeTerminal,
+  worktreeActionLoading,
 }: TaskInfoProps) {
   const statusVariant: Record<
     Status,
@@ -448,7 +505,57 @@ function TaskInfo({
           />
           <InfoItem label="Base Branch" value={task.baseBranch} />
           {task.worktreePath && (
-            <InfoItem label="Worktree" value={task.worktreePath} />
+            <div className="space-y-1">
+              <p className="text-gray-500 text-xs">Worktree</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium flex items-center gap-1 truncate">
+                  <span className="truncate font-mono">
+                    {task.worktreePath}
+                  </span>
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onCopyWorktree}
+                    title="Copy worktree path"
+                    disabled={worktreeActionLoading === "copy"}
+                  >
+                    {worktreeActionLoading === "copy" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Clipboard className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onOpenWorktreeExplorer}
+                    title="Open in file explorer"
+                    disabled={worktreeActionLoading === "explorer"}
+                  >
+                    {worktreeActionLoading === "explorer" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FolderOpen className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onOpenWorktreeTerminal}
+                    title="Open in terminal"
+                    disabled={worktreeActionLoading === "terminal"}
+                  >
+                    {worktreeActionLoading === "terminal" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Terminal className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
           <InfoItem
             label="Created"
