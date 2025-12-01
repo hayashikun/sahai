@@ -7,9 +7,9 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { createTask, deleteRepository, updateRepository } from "../api";
+import { createTask, deleteRepository, startTask, updateRepository } from "../api";
 import { KanbanBoard } from "../components";
 import {
   AlertDialog,
@@ -72,7 +72,23 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [branchName, setBranchName] = useState("");
   const [branchNameEdited, setBranchNameEdited] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [startImmediately, setStartImmediately] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const START_IMMEDIATELY_STORAGE_KEY = "sahai:create-task-start-immediately";
+
+  useEffect(() => {
+    const savedPreference = localStorage.getItem(START_IMMEDIATELY_STORAGE_KEY);
+    if (savedPreference) {
+      setStartImmediately(savedPreference === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      START_IMMEDIATELY_STORAGE_KEY,
+      startImmediately ? "true" : "false",
+    );
+  }, [startImmediately, START_IMMEDIATELY_STORAGE_KEY]);
 
   const base62Encode = (num: number): string => {
     const chars =
@@ -132,17 +148,31 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   };
 
   const handleCreateTask = async () => {
+    if (creating) return;
     if (!title.trim() || !branchName.trim()) return;
 
     try {
       setCreating(true);
       setError(null);
-      await createTask(repositoryId, {
+      const newTask = await createTask(repositoryId, {
         title: title.trim(),
         description: description.trim() || undefined,
         executor,
         branchName: branchName.trim(),
       });
+      if (startImmediately) {
+        try {
+          await startTask(newTask.id);
+        } catch (e) {
+          setError(
+            e instanceof Error
+              ? `Task created but failed to start: ${e.message}`
+              : "Task created but failed to start",
+          );
+          mutateTasks();
+          return;
+        }
+      }
       resetTaskForm();
       setCreateTaskOpen(false);
       mutateTasks();
@@ -152,6 +182,20 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       setCreating(false);
     }
   };
+
+  useEffect(() => {
+    if (!createTaskOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        handleCreateTask();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [createTaskOpen, handleCreateTask]);
 
   const handleEditRepository = async () => {
     if (!editDefaultBranch.trim()) return;
@@ -387,6 +431,15 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                   />
                 </div>
               </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300"
+                  checked={startImmediately}
+                  onChange={(e) => setStartImmediately(e.target.checked)}
+                />
+                <span>Start immediately</span>
+              </label>
             </div>
             <DialogFooter>
               <Button
