@@ -6,10 +6,10 @@ import {
   expect,
   test,
 } from "bun:test";
-import { $ } from "bun";
 import { mkdtempSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { $ } from "bun";
 import { db, runMigrations } from "../../db/client";
 import { executionLogs, repositories, tasks } from "../../db/schema";
 import { repositoryTasks, taskById } from "../tasks";
@@ -619,7 +619,9 @@ describe("GET /:id/diff", () => {
       await $`git -C ${repoPath} branch --show-current`.quiet().text()
     ).trim();
     const branchName = "feature/untracked";
-    const worktreePath = mkdtempSync(join(tmpdir(), "tasks-untracked-worktree-"));
+    const worktreePath = mkdtempSync(
+      join(tmpdir(), "tasks-untracked-worktree-"),
+    );
 
     await $`git -C ${repoPath} branch ${branchName}`.quiet();
     await $`git -C ${repoPath} worktree add ${worktreePath} ${branchName}`.quiet();

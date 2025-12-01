@@ -57,8 +57,7 @@ export async function getDiff(
   targetBranch: string,
   options?: { worktreePath?: string },
 ): Promise<string> {
-  const useWorktree =
-    options?.worktreePath && existsSync(options.worktreePath);
+  const useWorktree = options?.worktreePath && existsSync(options.worktreePath);
 
   const baseDiff = useWorktree
     ? await $`git -C ${options.worktreePath} diff ${baseBranch}`
