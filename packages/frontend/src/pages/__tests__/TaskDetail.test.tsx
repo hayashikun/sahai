@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { cleanup } from "@testing-library/react";
 import { Window } from "happy-dom";
 import type { Task } from "shared/schemas";
+import { shouldSubmitChatMessage } from "../TaskDetail";
 
 // Set up happy-dom
 const window = new Window();
@@ -202,6 +203,43 @@ describe("TaskDetail", () => {
       expect(showComplete).toBe(false);
       expect(showResume).toBe(false);
       expect(showFinish).toBe(false);
+    });
+  });
+
+  describe("ChatInput keyboard shortcuts", () => {
+    const canSend = true;
+    const loading = false;
+
+    test("Command+Enter submits message", () => {
+      const shouldSubmit = shouldSubmitChatMessage(
+        {
+          key: "Enter",
+          metaKey: true,
+          ctrlKey: false,
+          shiftKey: false,
+          altKey: false,
+        },
+        canSend,
+        loading,
+      );
+
+      expect(shouldSubmit).toBe(true);
+    });
+
+    test("Ctrl+Enter submits message", () => {
+      const shouldSubmit = shouldSubmitChatMessage(
+        {
+          key: "Enter",
+          metaKey: false,
+          ctrlKey: true,
+          shiftKey: false,
+          altKey: false,
+        },
+        canSend,
+        loading,
+      );
+
+      expect(shouldSubmit).toBe(true);
     });
   });
 

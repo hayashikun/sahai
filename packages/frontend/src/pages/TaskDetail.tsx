@@ -13,6 +13,7 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
+import type React from "react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ExecutionLog, Status, Task } from "shared/schemas";
@@ -833,7 +834,26 @@ interface ChatInputProps {
   onSend: () => void;
 }
 
-function ChatInput({
+type KeyEventLike = Pick<
+  React.KeyboardEvent<HTMLInputElement>,
+  "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey"
+>;
+
+export function shouldSubmitChatMessage(
+  event: KeyEventLike,
+  canSendMessage: boolean,
+  loading: boolean,
+): boolean {
+  if (event.key !== "Enter" || loading) return false;
+
+  const hasSubmitModifier = event.metaKey || event.ctrlKey;
+  const isPlainEnter =
+    !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey;
+
+  return canSendMessage && (hasSubmitModifier || isPlainEnter);
+}
+
+export function ChatInput({
   task,
   message,
   loading,
@@ -848,10 +868,12 @@ function ChatInput({
     (task.status === "InProgress" && !task.isExecuting);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && canSendMessage && !loading) {
-      e.preventDefault();
-      onSend();
+    if (!shouldSubmitChatMessage(e, canSendMessage, loading)) {
+      return;
     }
+
+    e.preventDefault();
+    onSend();
   };
 
   const getPlaceholder = () => {
