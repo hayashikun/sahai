@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { $ } from "bun";
 
 export class GitError extends Error {
@@ -54,18 +55,66 @@ export async function getDiff(
   repoPath: string,
   baseBranch: string,
   targetBranch: string,
+  options?: { worktreePath?: string },
 ): Promise<string> {
-  const result =
-    await $`git -C ${repoPath} diff ${baseBranch}...${targetBranch}`
-      .nothrow()
-      .quiet();
+  const useWorktree = options?.worktreePath && existsSync(options.worktreePath);
 
-  if (result.exitCode !== 0) {
+  const baseDiff = useWorktree
+    ? await $`git -C ${options.worktreePath} diff ${baseBranch}`
+        .nothrow()
+        .quiet()
+    : await $`git -C ${repoPath} diff ${baseBranch}...${targetBranch}`
+        .nothrow()
+        .quiet();
+
+  const hasError = (code: number) => code !== 0 && code !== 1;
+
+  if (hasError(baseDiff.exitCode)) {
     throw new GitError(
       `Failed to get diff between '${baseBranch}' and '${targetBranch}'`,
-      result.stderr.toString(),
+      baseDiff.stderr.toString(),
     );
   }
 
-  return result.stdout.toString();
+  if (!useWorktree) {
+    return baseDiff.stdout.toString();
+  }
+
+  // Include untracked files from the worktree (git diff --no-index returns 1 when diffs exist)
+  const untrackedResult =
+    await $`git -C ${options.worktreePath} ls-files --others --exclude-standard`
+      .nothrow()
+      .quiet();
+
+  if (hasError(untrackedResult.exitCode)) {
+    throw new GitError(
+      "Failed to list untracked files in worktree",
+      untrackedResult.stderr.toString(),
+    );
+  }
+
+  const untrackedFiles = untrackedResult.stdout
+    .toString()
+    .split("\n")
+    .filter(Boolean);
+
+  const untrackedDiffs: string[] = [];
+
+  for (const file of untrackedFiles) {
+    const diffResult =
+      await $`git -C ${options.worktreePath} diff --no-index -- /dev/null ${file}`
+        .nothrow()
+        .quiet();
+
+    if (hasError(diffResult.exitCode)) {
+      throw new GitError(
+        `Failed to diff untracked file '${file}'`,
+        diffResult.stderr.toString(),
+      );
+    }
+
+    untrackedDiffs.push(diffResult.stdout.toString());
+  }
+
+  return [baseDiff.stdout.toString(), ...untrackedDiffs].join("\n");
 }

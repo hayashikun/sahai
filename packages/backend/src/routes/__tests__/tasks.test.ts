@@ -6,8 +6,10 @@ import {
   expect,
   test,
 } from "bun:test";
-import { unlinkSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, rmSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { $ } from "bun";
 import { db, runMigrations } from "../../db/client";
 import { executionLogs, repositories, tasks } from "../../db/schema";
 import { repositoryTasks, taskById } from "../tasks";
@@ -549,6 +551,119 @@ describe("POST /:id/finish", () => {
 });
 
 describe("GET /:id/diff", () => {
+  test("returns diff from worktree when changes are not committed", async () => {
+    const repoPath = mkdtempSync(join(tmpdir(), "tasks-diff-repo-"));
+    await $`git init ${repoPath}`.quiet();
+    await $`git -C ${repoPath} config user.email "test@test.com"`.quiet();
+    await $`git -C ${repoPath} config user.name "Test"`.quiet();
+    await $`sh -c "echo base > ${repoPath}/README.md"`.quiet();
+    await $`git -C ${repoPath} add README.md`.quiet();
+    await $`git -C ${repoPath} commit -m "init"`.quiet();
+
+    const baseBranch = (
+      await $`git -C ${repoPath} branch --show-current`.quiet().text()
+    ).trim();
+    const branchName = "feature/worktree-diff";
+    const worktreePath = mkdtempSync(join(tmpdir(), "tasks-worktree-"));
+
+    await $`git -C ${repoPath} branch ${branchName}`.quiet();
+    await $`git -C ${repoPath} worktree add ${worktreePath} ${branchName}`.quiet();
+    await $`sh -c "echo worktree change >> ${worktreePath}/README.md"`.quiet();
+
+    const now = new Date().toISOString();
+    await db.insert(repositories).values({
+      id: "repo-diff",
+      name: "Repo Diff",
+      path: repoPath,
+      defaultBranch: baseBranch,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(tasks).values({
+      id: "task-diff",
+      repositoryId: "repo-diff",
+      title: "Task Diff",
+      description: null,
+      status: "InProgress",
+      executor: "ClaudeCode",
+      branchName,
+      baseBranch,
+      worktreePath,
+      createdAt: now,
+      updatedAt: now,
+      startedAt: now,
+      completedAt: null,
+    });
+
+    const res = await taskById.request("/task-diff/diff");
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { diff: string };
+    expect(data.diff).toContain("worktree change");
+
+    await $`git -C ${repoPath} worktree remove ${worktreePath} --force`.quiet();
+    await $`git -C ${repoPath} branch -D ${branchName}`.quiet();
+    rmSync(worktreePath, { recursive: true, force: true });
+    rmSync(repoPath, { recursive: true, force: true });
+  });
+
+  test("returns diff including untracked worktree files", async () => {
+    const repoPath = mkdtempSync(join(tmpdir(), "tasks-untracked-repo-"));
+    await $`git init ${repoPath}`.quiet();
+    await $`git -C ${repoPath} config user.email "test@test.com"`.quiet();
+    await $`git -C ${repoPath} config user.name "Test"`.quiet();
+    await $`sh -c "echo base > ${repoPath}/README.md"`.quiet();
+    await $`git -C ${repoPath} add README.md`.quiet();
+    await $`git -C ${repoPath} commit -m "init"`.quiet();
+
+    const baseBranch = (
+      await $`git -C ${repoPath} branch --show-current`.quiet().text()
+    ).trim();
+    const branchName = "feature/untracked";
+    const worktreePath = mkdtempSync(
+      join(tmpdir(), "tasks-untracked-worktree-"),
+    );
+
+    await $`git -C ${repoPath} branch ${branchName}`.quiet();
+    await $`git -C ${repoPath} worktree add ${worktreePath} ${branchName}`.quiet();
+    await $`sh -c "echo 'hello untracked' > ${worktreePath}/NEW_FILE.txt"`.quiet();
+
+    const now = new Date().toISOString();
+    await db.insert(repositories).values({
+      id: "repo-untracked",
+      name: "Repo Untracked",
+      path: repoPath,
+      defaultBranch: baseBranch,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(tasks).values({
+      id: "task-untracked",
+      repositoryId: "repo-untracked",
+      title: "Task Untracked",
+      description: null,
+      status: "InProgress",
+      executor: "ClaudeCode",
+      branchName,
+      baseBranch,
+      worktreePath,
+      createdAt: now,
+      updatedAt: now,
+      startedAt: now,
+      completedAt: null,
+    });
+
+    const res = await taskById.request("/task-untracked/diff");
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { diff: string };
+    expect(data.diff).toContain("NEW_FILE.txt");
+    expect(data.diff).toContain("hello untracked");
+
+    await $`git -C ${repoPath} worktree remove ${worktreePath} --force`.quiet();
+    await $`git -C ${repoPath} branch -D ${branchName}`.quiet();
+    rmSync(worktreePath, { recursive: true, force: true });
+    rmSync(repoPath, { recursive: true, force: true });
+  });
+
   test("returns 404 for non-existent task", async () => {
     const res = await taskById.request("/non-existent/diff");
     expect(res.status).toBe(404);

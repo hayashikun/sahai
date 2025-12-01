@@ -160,6 +160,51 @@ describe("getDiff", () => {
     await $`git -C ${testRepoPath} branch -D same-branch`.quiet();
   });
 
+  test("includes worktree changes when worktree path is provided", async () => {
+    const baseBranch = (
+      await $`git -C ${testRepoPath} branch --show-current`.quiet().text()
+    ).trim();
+    const branchName = "worktree-branch";
+    const worktreePath = mkdtempSync(join(tmpdir(), "git-worktree-"));
+
+    await $`git -C ${testRepoPath} branch ${branchName}`.quiet();
+    await $`git -C ${testRepoPath} worktree add ${worktreePath} ${branchName}`.quiet();
+    await $`sh -c "echo 'worktree change' >> ${worktreePath}/README.md"`.quiet();
+
+    const diff = await getDiff(testRepoPath, baseBranch, branchName, {
+      worktreePath,
+    });
+
+    expect(diff).toContain("worktree change");
+
+    await $`git -C ${testRepoPath} worktree remove ${worktreePath} --force`.quiet();
+    await $`git -C ${testRepoPath} branch -D ${branchName}`.quiet();
+    rmSync(worktreePath, { recursive: true, force: true });
+  });
+
+  test("includes untracked files from worktree", async () => {
+    const baseBranch = (
+      await $`git -C ${testRepoPath} branch --show-current`.quiet().text()
+    ).trim();
+    const branchName = "worktree-untracked";
+    const worktreePath = mkdtempSync(join(tmpdir(), "git-worktree-untracked-"));
+
+    await $`git -C ${testRepoPath} branch ${branchName}`.quiet();
+    await $`git -C ${testRepoPath} worktree add ${worktreePath} ${branchName}`.quiet();
+    await $`sh -c "echo 'untracked content' > ${worktreePath}/NEW_FILE.txt"`.quiet();
+
+    const diff = await getDiff(testRepoPath, baseBranch, branchName, {
+      worktreePath,
+    });
+
+    expect(diff).toContain("NEW_FILE.txt");
+    expect(diff).toContain("untracked content");
+
+    await $`git -C ${testRepoPath} worktree remove ${worktreePath} --force`.quiet();
+    await $`git -C ${testRepoPath} branch -D ${branchName}`.quiet();
+    rmSync(worktreePath, { recursive: true, force: true });
+  });
+
   test("throws GitError for non-existent branch", async () => {
     try {
       await getDiff(testRepoPath, "main", "non-existent-branch");

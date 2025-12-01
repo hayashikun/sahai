@@ -420,7 +420,9 @@ taskById.get("/:id/diff", async (c) => {
   const repo = repoResult[0];
 
   try {
-    const diff = await getDiff(repo.path, task.baseBranch, task.branchName);
+    const diff = await getDiff(repo.path, task.baseBranch, task.branchName, {
+      worktreePath: task.worktreePath ?? undefined,
+    });
     return c.json({ diff });
   } catch (error) {
     return internalError(c, `Failed to get diff: ${error}`);
