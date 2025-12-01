@@ -106,7 +106,9 @@ async function runCommand(
     }
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
+      error instanceof Error
+        ? error.message
+        : `Unknown error: ${String(error)}`;
     throw new Error(`${errorMessage}: ${message}`);
   }
 }
@@ -478,10 +480,7 @@ taskById.post("/:id/worktree/open-terminal", async (c) => {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : String(error ?? "Unknown error");
-    return internalError(
-      c,
-      `Failed to open worktree in terminal: ${message}`,
-    );
+    return internalError(c, `Failed to open worktree in terminal: ${message}`);
   }
 });
 
