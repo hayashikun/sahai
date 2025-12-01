@@ -123,13 +123,13 @@ app.get("/git-info", async (c) => {
         : [currentBranch];
     const branches = Array.from(new Set([...branchesList, defaultBranch]));
 
-      return c.json({
-        path: targetPath,
-        isGitRepo: true,
-        currentBranch,
-        defaultBranch,
-        branches,
-      });
+    return c.json({
+      path: targetPath,
+      isGitRepo: true,
+      currentBranch,
+      defaultBranch,
+      branches,
+    });
   } catch {
     return badRequest(c, "Cannot read git info");
   }

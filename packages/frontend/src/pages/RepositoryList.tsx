@@ -283,14 +283,14 @@ export function RepositoryList() {
                   <div className="font-mono text-sm">{selectedPath}</div>
                 </div>
                 <div className="space-y-2">
-              <Label htmlFor="repo-branch">Default Branch</Label>
-              <Select
-                key={selectedPath}
-                value={defaultBranch || undefined}
-                onValueChange={setDefaultBranch}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a branch" />
+                  <Label htmlFor="repo-branch">Default Branch</Label>
+                  <Select
+                    key={selectedPath}
+                    value={defaultBranch || undefined}
+                    onValueChange={setDefaultBranch}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a branch" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) => (
