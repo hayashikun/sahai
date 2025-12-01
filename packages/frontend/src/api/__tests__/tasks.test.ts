@@ -5,13 +5,13 @@ import {
   getTask,
   getTaskLogs,
   getTaskLogsStreamUrl,
+  openWorktreeInExplorer,
+  openWorktreeInTerminal,
   parseLogEvent,
   pauseTask,
   recreateTask,
   resumeTask,
   startTask,
-  openWorktreeInExplorer,
-  openWorktreeInTerminal,
 } from "../tasks";
 
 // Mock fetch globally
