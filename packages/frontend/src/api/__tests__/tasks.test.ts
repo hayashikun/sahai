@@ -5,6 +5,8 @@ import {
   getTask,
   getTaskLogs,
   getTaskLogsStreamUrl,
+  openWorktreeInExplorer,
+  openWorktreeInTerminal,
   parseLogEvent,
   pauseTask,
   recreateTask,
@@ -179,6 +181,50 @@ describe("tasks API", () => {
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
         "http://localhost:49382/v1/tasks/task-1/pause",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+    });
+  });
+
+  describe("openWorktreeInExplorer", () => {
+    test("sends POST request to open worktree in explorer", async () => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({}),
+        } as Response),
+      );
+
+      await openWorktreeInExplorer("task-1");
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "http://localhost:49382/v1/tasks/task-1/worktree/open-explorer",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+    });
+  });
+
+  describe("openWorktreeInTerminal", () => {
+    test("sends POST request to open worktree in terminal", async () => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({}),
+        } as Response),
+      );
+
+      await openWorktreeInTerminal("task-1");
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "http://localhost:49382/v1/tasks/task-1/worktree/open-terminal",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

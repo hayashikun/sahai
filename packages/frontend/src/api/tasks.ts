@@ -74,6 +74,14 @@ export async function deleteTask(taskId: string): Promise<void> {
   await apiDelete(`/tasks/${taskId}`);
 }
 
+export async function openWorktreeInExplorer(taskId: string): Promise<void> {
+  await apiPost(`/tasks/${taskId}/worktree/open-explorer`, {});
+}
+
+export async function openWorktreeInTerminal(taskId: string): Promise<void> {
+  await apiPost(`/tasks/${taskId}/worktree/open-terminal`, {});
+}
+
 // SSE stream URL for logs
 const API_PORT = "49382";
 export function getTaskLogsStreamUrl(taskId: string): string {
