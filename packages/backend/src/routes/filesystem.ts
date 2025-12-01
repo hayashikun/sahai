@@ -95,12 +95,25 @@ app.get("/git-info", async (c) => {
         ? currentBranchResult.text().trim()
         : "main";
 
-    // Get all branches
+    // Get remote default branch (falls back to current branch)
+    const defaultBranchResult =
+      await Bun.$`git -C ${targetPath} symbolic-ref refs/remotes/origin/HEAD`
+        .nothrow()
+        .quiet();
+    const rawDefaultBranch =
+      defaultBranchResult.exitCode === 0
+        ? defaultBranchResult.text().trim()
+        : "";
+    const defaultBranch = rawDefaultBranch
+      ? rawDefaultBranch.replace(/^refs\/remotes\/origin\//, "")
+      : currentBranch;
+
+    // Get all branches and ensure the default branch is present
     const branchesResult =
       await Bun.$`git -C ${targetPath} branch --format='%(refname:short)'`
         .nothrow()
         .quiet();
-    const branches =
+    const branchesList =
       branchesResult.exitCode === 0
         ? branchesResult
             .text()
@@ -108,13 +121,15 @@ app.get("/git-info", async (c) => {
             .split("\n")
             .filter((b) => b.length > 0)
         : [currentBranch];
+    const branches = Array.from(new Set([...branchesList, defaultBranch]));
 
-    return c.json({
-      path: targetPath,
-      isGitRepo: true,
-      currentBranch,
-      branches,
-    });
+      return c.json({
+        path: targetPath,
+        isGitRepo: true,
+        currentBranch,
+        defaultBranch,
+        branches,
+      });
   } catch {
     return badRequest(c, "Cannot read git info");
   }

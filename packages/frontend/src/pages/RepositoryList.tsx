@@ -46,7 +46,7 @@ export function RepositoryList() {
   const { repositories, mutate } = useRepositories();
   const [open, setOpen] = useState(false);
   const [selectedPath, setSelectedPath] = useState("");
-  const [defaultBranch, setDefaultBranch] = useState("main");
+  const [defaultBranch, setDefaultBranch] = useState("");
   const [branches, setBranches] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,8 +89,14 @@ export function RepositoryList() {
     setSelectedPath(entry.path);
     try {
       const gitInfo = await getGitInfo(entry.path);
-      setBranches(gitInfo.branches);
-      setDefaultBranch(gitInfo.currentBranch);
+      const initialDefaultBranch =
+        gitInfo.defaultBranch?.trim() || gitInfo.currentBranch;
+      const availableBranches = Array.from(
+        new Set([initialDefaultBranch, ...gitInfo.branches]),
+      );
+
+      setBranches(availableBranches);
+      setDefaultBranch(initialDefaultBranch);
     } catch {
       setBranches(["main"]);
       setDefaultBranch("main");
@@ -124,11 +130,18 @@ export function RepositoryList() {
   const resetAndClose = () => {
     setOpen(false);
     setSelectedPath("");
-    setDefaultBranch("main");
+    setDefaultBranch("");
     setBranches([]);
     setBrowseResult(null);
     setError(null);
   };
+
+  useEffect(() => {
+    if (!defaultBranch && branches.length > 0) {
+      // Ensure the select shows a value when branches are present
+      setDefaultBranch(branches[0]);
+    }
+  }, [branches, defaultBranch]);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -270,13 +283,14 @@ export function RepositoryList() {
                   <div className="font-mono text-sm">{selectedPath}</div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="repo-branch">Default Branch</Label>
-                  <Select
-                    value={defaultBranch}
-                    onValueChange={setDefaultBranch}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a branch" />
+              <Label htmlFor="repo-branch">Default Branch</Label>
+              <Select
+                key={selectedPath}
+                value={defaultBranch || undefined}
+                onValueChange={setDefaultBranch}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a branch" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) => (
