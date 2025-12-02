@@ -122,7 +122,7 @@ describe("CodexExecutor", () => {
       }
     });
 
-    test("spawns codex app-server with correct arguments", async () => {
+    test("spawns codex exec with correct arguments", async () => {
       executor = new CodexExecutor();
       const config: ExecutorConfig = {
         taskId: "codex-spawn-args",
@@ -184,7 +184,14 @@ describe("CodexExecutor", () => {
         await executor.start(config);
 
         const args = spawnArgs as { cmd: string[]; cwd: string };
-        expect(args.cmd).toEqual(["codex", "app-server"]);
+        expect(args.cmd).toEqual([
+          "codex",
+          "exec",
+          "--json",
+          "--sandbox",
+          "danger-full-access",
+          "prompt",
+        ]);
         expect(args.cwd).toBe("/work/tree");
       } finally {
         Bun.spawn = originalSpawn;
@@ -419,11 +426,19 @@ describe("CodexExecutor", () => {
         await executor.start(config);
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        const stdoutLog = outputs.find(
-          (o) => o.logType === "stdout" && o.content.includes("Hello from"),
-        );
-        expect(stdoutLog).toBeDefined();
-        expect(stdoutLog?.content).toBe("Hello from Codex!");
+        const eventLog = outputs
+          .filter((o) => o.logType === "stdout")
+          .map((o) => {
+            try {
+              return JSON.parse(o.content);
+            } catch {
+              return null;
+            }
+          })
+          .find((m) => m && m.method === "codex/event/agentMessage");
+
+        expect(eventLog).toBeDefined();
+        expect((eventLog as any).params.msg.message).toBe("Hello from Codex!");
       } finally {
         Bun.spawn = originalSpawn;
       }
