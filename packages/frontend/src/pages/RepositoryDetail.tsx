@@ -74,7 +74,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [executor, setExecutor] = useState<string>("ClaudeCode");
+  const [executor, setExecutor] = useState<string>("Gemini");
   const [branchName, setBranchName] = useState("");
   const [branchNameEdited, setBranchNameEdited] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -432,6 +432,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     <SelectContent>
                       <SelectItem value="ClaudeCode">Claude Code</SelectItem>
                       <SelectItem value="Codex">Codex</SelectItem>
+                      <SelectItem value="Gemini">Gemini</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

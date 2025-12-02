@@ -25,7 +25,7 @@ describe("repositories API", () => {
         title: "Implement feature",
         description: null,
         status: "TODO",
-        executor: "ClaudeCode",
+        executor: "Gemini",
         branchName: "feature-branch",
         baseBranch: "main",
         worktreePath: null,
@@ -44,13 +44,13 @@ describe("repositories API", () => {
 
       const task = await createTask("repo-1", {
         title: "Implement feature",
-        executor: "ClaudeCode",
+        executor: "Gemini",
         branchName: "feature-branch",
       });
 
       expect(task.id).toBe("task-1");
       expect(task.title).toBe("Implement feature");
-      expect(task.executor).toBe("ClaudeCode");
+      expect(task.executor).toBe("Gemini");
       expect(globalThis.fetch).toHaveBeenCalledWith(
         "http://localhost:49382/v1/repositories/repo-1/tasks",
         {
@@ -58,7 +58,7 @@ describe("repositories API", () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: "Implement feature",
-            executor: "ClaudeCode",
+            executor: "Gemini",
             branchName: "feature-branch",
           }),
         },
@@ -72,7 +72,7 @@ describe("repositories API", () => {
         title: "Fix bug",
         description: "Fix the login bug",
         status: "TODO",
-        executor: "ClaudeCode",
+        executor: "Gemini",
         branchName: "fix-login",
         baseBranch: "develop",
         worktreePath: null,
@@ -92,7 +92,7 @@ describe("repositories API", () => {
       const task = await createTask("repo-1", {
         title: "Fix bug",
         description: "Fix the login bug",
-        executor: "ClaudeCode",
+        executor: "Gemini",
         branchName: "fix-login",
         baseBranch: "develop",
       });
@@ -118,7 +118,7 @@ describe("repositories API", () => {
       await expect(
         createTask("repo-1", {
           title: "",
-          executor: "ClaudeCode",
+          executor: "Gemini",
           branchName: "test",
         }),
       ).rejects.toThrow("Title is required");
@@ -133,7 +133,7 @@ describe("repositories API", () => {
         title: "Test Task",
         description: null,
         status: "InProgress",
-        executor: "ClaudeCode",
+        executor: "Gemini",
         branchName: "feature-branch",
         baseBranch: "main",
         worktreePath: "/path/to/worktree",
@@ -170,7 +170,7 @@ describe("repositories API", () => {
         title: "Test Task",
         description: null,
         status: "Done",
-        executor: "ClaudeCode",
+        executor: "Gemini",
         branchName: "feature-branch",
         baseBranch: "main",
         worktreePath: null,

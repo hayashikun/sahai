@@ -60,7 +60,7 @@ async function createTask(
     title,
     description: null,
     status,
-    executor: "ClaudeCode",
+    executor: "Gemini",
     branchName: `feature/${id}`,
     baseBranch: "main",
     worktreePath: null,
@@ -109,7 +109,7 @@ describe("POST /:repositoryId/tasks", () => {
       body: JSON.stringify({
         title: "New Task",
         description: "Task description",
-        executor: "ClaudeCode",
+        executor: "Gemini",
         branchName: "feature/new-task",
       }),
     });
@@ -119,7 +119,7 @@ describe("POST /:repositoryId/tasks", () => {
     expect(data.title).toBe("New Task");
     expect(data.description).toBe("Task description");
     expect(data.status).toBe("TODO");
-    expect(data.executor).toBe("ClaudeCode");
+    expect(data.executor).toBe("Gemini");
     expect(data.branchName).toBe("feature/new-task");
     expect(data.baseBranch).toBe("main");
     expect(data.repositoryId).toBe("repo-1");
@@ -134,7 +134,7 @@ describe("POST /:repositoryId/tasks", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: "New Task",
-        executor: "Codex",
+        executor: "Gemini",
         branchName: "feature/new-task",
         baseBranch: "develop",
       }),
@@ -143,7 +143,7 @@ describe("POST /:repositoryId/tasks", () => {
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.baseBranch).toBe("develop");
-    expect(data.executor).toBe("Codex");
+    expect(data.executor).toBe("Gemini");
   });
 
   test("returns 404 for non-existent repository", async () => {
@@ -310,7 +310,7 @@ async function createTaskWithStatus(
     title,
     description: "Test description",
     status,
-    executor: "ClaudeCode",
+    executor: "Gemini",
     branchName: `feature/${id}`,
     baseBranch: "main",
     worktreePath,

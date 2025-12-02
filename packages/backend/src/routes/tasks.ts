@@ -8,6 +8,7 @@ import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
 import { CodexExecutor } from "../executors/codex";
+import { GeminiExecutor } from "../executors/gemini";
 import type { Executor } from "../executors/interface";
 import {
   badRequest,
@@ -27,6 +28,8 @@ function createExecutor(type: string): Executor {
       return new ClaudeCodeExecutor();
     case "Codex":
       return new CodexExecutor();
+    case "Gemini":
+      return new GeminiExecutor();
     default:
       throw new Error(`Unsupported executor type: ${type}`);
   }

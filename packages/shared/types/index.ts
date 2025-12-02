@@ -10,6 +10,7 @@ export type Status = (typeof Status)[keyof typeof Status];
 export const Executor = {
   ClaudeCode: "ClaudeCode",
   Codex: "Codex",
+  Gemini: "Gemini",
 } as const;
 
 export type Executor = (typeof Executor)[keyof typeof Executor];
