@@ -24,10 +24,7 @@ export class GeminiExecutor implements Executor {
 
     this.isRunning = true;
 
-    const cmd = [
-      "gemini",
-      "--experimental-acp",
-    ];
+    const cmd = ["gemini", "--experimental-acp"];
 
     if (config.sessionId) {
       cmd.push("--resume", config.sessionId);
@@ -42,7 +39,7 @@ export class GeminiExecutor implements Executor {
     });
 
     const resumeInfo = config.sessionId
-      ? ` (resuming session ${config.sessionId})` 
+      ? ` (resuming session ${config.sessionId})`
       : "";
     this.emitOutput({
       content: `[system] Started Gemini executor for task ${config.taskId}${resumeInfo}`,
@@ -174,10 +171,7 @@ export class GeminiExecutor implements Executor {
         msg.session_id
       ) {
         this.sessionIdExtracted = true;
-        console.log(
-          "[GeminiExecutor] Detected session_id:",
-          msg.session_id,
-        );
+        console.log("[GeminiExecutor] Detected session_id:", msg.session_id);
         this.sessionIdCallback?.(msg.session_id);
       }
 
