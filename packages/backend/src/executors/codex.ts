@@ -12,9 +12,6 @@ import type {
   SessionIdCallback,
 } from "./interface";
 
-// Codex app-server protocol types (simplified JSON-RPC without "jsonrpc" field)
-// See: codex-rs/app-server-protocol/src/jsonrpc_lite.rs
-// "We do not do true JSON-RPC 2.0, as we neither send nor expect the jsonrpc field"
 interface CodexRequest {
   id: number;
   method: string;
@@ -59,7 +56,7 @@ export class CodexExecutor implements Executor {
 
     // Use npx to run codex app-server (same version as reference implementation)
     this.process = Bun.spawn({
-      cmd: ["npx", "-y", "@openai/codex@0.60.1", "app-server"],
+      cmd: ["codex", "app-server"],
       cwd: config.workingDirectory,
       stdin: "pipe",
       stdout: "pipe",
@@ -134,13 +131,6 @@ export class CodexExecutor implements Executor {
       this.process = null;
       this.isRunning = false;
     }
-  }
-
-  async sendMessage(message: string): Promise<void> {
-    if (!this.process || !this.isRunning || !this.conversationId) {
-      throw new Error("Process is not running or conversation not started");
-    }
-    await this.sendUserMessage(message);
   }
 
   onOutput(callback: OutputCallback): void {

@@ -25,20 +25,6 @@ describe("ClaudeCodeExecutor", () => {
     });
   });
 
-  describe("sendMessage", () => {
-    test("throws error when process is not running", async () => {
-      executor = new ClaudeCodeExecutor();
-
-      try {
-        await executor.sendMessage("test message");
-        expect(true).toBe(false); // Should not reach here
-      } catch (error) {
-        expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toBe("Process is not running");
-      }
-    });
-  });
-
   describe("stop", () => {
     test("does nothing when process is not running", async () => {
       executor = new ClaudeCodeExecutor();
@@ -376,16 +362,13 @@ describe("ClaudeCodeExecutor", () => {
 
       try {
         await executor.start(config);
-        writtenMessages.length = 0; // Clear initial prompt
-
-        await executor.sendMessage("follow up message");
 
         expect(writtenMessages.length).toBe(1);
         const sentMessage = JSON.parse(writtenMessages[0].trim());
         expect(sentMessage.type).toBe("user");
         expect(sentMessage.message.role).toBe("user");
         expect(sentMessage.message.content).toEqual([
-          { type: "text", text: "follow up message" },
+          { type: "text", text: "initial prompt" },
         ]);
       } finally {
         Bun.spawn = originalSpawn;

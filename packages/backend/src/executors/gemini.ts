@@ -54,9 +54,7 @@ export class GeminiExecutor implements Executor {
     this.isRunning = true;
 
     const cmd = [
-      "npx",
-      "-y",
-      "@google/gemini-cli@0.16.0",
+      "gemini",
       "--experimental-acp",
       "--yolo",
       "--allowed-tools",

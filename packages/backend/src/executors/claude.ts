@@ -76,7 +76,16 @@ export class ClaudeCodeExecutor implements Executor {
     });
 
     // Send initial prompt
-    await this.sendMessage(config.prompt);
+    const jsonMessage = JSON.stringify({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: config.prompt }],
+      },
+    });
+
+    this.process.stdin.write(`${jsonMessage}\n`);
+    this.process.stdin.flush();
   }
 
   async stop(): Promise<void> {
@@ -89,25 +98,6 @@ export class ClaudeCodeExecutor implements Executor {
       this.process = null;
       this.isRunning = false;
     }
-  }
-
-  async sendMessage(message: string): Promise<void> {
-    if (!this.process || !this.isRunning) {
-      throw new Error("Process is not running");
-    }
-
-    const stdin = this.process.stdin;
-
-    const jsonMessage = JSON.stringify({
-      type: "user",
-      message: {
-        role: "user",
-        content: [{ type: "text", text: message }],
-      },
-    });
-
-    stdin.write(`${jsonMessage}\n`);
-    stdin.flush();
   }
 
   onOutput(callback: OutputCallback): void {
