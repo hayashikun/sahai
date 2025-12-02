@@ -39,16 +39,6 @@ describe("CodexExecutor", () => {
     });
   });
 
-  describe("sendMessage", () => {
-    test("throws error when process is not running", async () => {
-      executor = new CodexExecutor();
-
-      await expect(executor.sendMessage("hello")).rejects.toThrow(
-        "Process is not running",
-      );
-    });
-  });
-
   describe("stop", () => {
     test("does nothing when process is not running", async () => {
       executor = new CodexExecutor();
@@ -132,7 +122,7 @@ describe("CodexExecutor", () => {
       }
     });
 
-    test("spawns codex app-server with correct arguments", async () => {
+    test("spawns codex exec with correct arguments", async () => {
       executor = new CodexExecutor();
       const config: ExecutorConfig = {
         taskId: "codex-spawn-args",
@@ -195,10 +185,12 @@ describe("CodexExecutor", () => {
 
         const args = spawnArgs as { cmd: string[]; cwd: string };
         expect(args.cmd).toEqual([
-          "npx",
-          "-y",
-          "@openai/codex@0.60.1",
-          "app-server",
+          "codex",
+          "exec",
+          "--json",
+          "--sandbox",
+          "danger-full-access",
+          "prompt",
         ]);
         expect(args.cwd).toBe("/work/tree");
       } finally {
@@ -358,88 +350,6 @@ describe("CodexExecutor", () => {
     });
   });
 
-  describe("sendMessage when running", () => {
-    test("sends sendUserMessage JSON-RPC request", async () => {
-      executor = new CodexExecutor();
-      const writtenMessages: string[] = [];
-
-      const config: ExecutorConfig = {
-        taskId: "codex-send",
-        workingDirectory: "/tmp",
-        prompt: "initial",
-      };
-
-      const originalSpawn = Bun.spawn;
-      const mockStdin = {
-        write: mock((data: string) => {
-          writtenMessages.push(data);
-        }),
-        flush: mock(() => {}),
-      };
-
-      let stdoutController: ReadableStreamDefaultController<Uint8Array>;
-      const mockStdout = new ReadableStream<Uint8Array>({
-        start(controller) {
-          stdoutController = controller;
-        },
-      });
-
-      const mockStderr = new ReadableStream({
-        start(controller) {
-          controller.close();
-        },
-      });
-      const mockProcess = {
-        stdin: mockStdin,
-        stdout: mockStdout,
-        stderr: mockStderr,
-        kill: mock(() => {}),
-        exited: new Promise(() => {}),
-      };
-
-      // @ts-expect-error - mocking Bun.spawn
-      Bun.spawn = mock(() => {
-        const encoder = new TextEncoder();
-        setTimeout(() => {
-          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
-        }, 5);
-        setTimeout(() => {
-          stdoutController.enqueue(
-            encoder.encode(
-              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
-            ),
-          );
-        }, 10);
-        setTimeout(() => {
-          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
-        }, 15);
-        setTimeout(() => {
-          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
-        }, 20);
-        // Response for follow-up message
-        setTimeout(() => {
-          stdoutController.enqueue(encoder.encode('{"id":5,"result":{}}\n'));
-        }, 50);
-        return mockProcess;
-      });
-
-      try {
-        await executor.start(config);
-        writtenMessages.length = 0;
-
-        await executor.sendMessage("follow up");
-
-        // Should have sent sendUserMessage request
-        expect(writtenMessages.length).toBe(1);
-        const msg = JSON.parse(writtenMessages[0]);
-        expect(msg.method).toBe("sendUserMessage");
-        expect(msg.params.items[0].data.text).toBe("follow up");
-      } finally {
-        Bun.spawn = originalSpawn;
-      }
-    });
-  });
-
   describe("output parsing", () => {
     test("parses codex event notifications", async () => {
       executor = new CodexExecutor();
@@ -516,11 +426,19 @@ describe("CodexExecutor", () => {
         await executor.start(config);
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        const stdoutLog = outputs.find(
-          (o) => o.logType === "stdout" && o.content.includes("Hello from"),
-        );
-        expect(stdoutLog).toBeDefined();
-        expect(stdoutLog?.content).toBe("Hello from Codex!");
+        const eventLog = outputs
+          .filter((o) => o.logType === "stdout")
+          .map((o) => {
+            try {
+              return JSON.parse(o.content);
+            } catch {
+              return null;
+            }
+          })
+          .find((m) => m && m.method === "codex/event/agentMessage");
+
+        expect(eventLog).toBeDefined();
+        expect((eventLog as any).params.msg.message).toBe("Hello from Codex!");
       } finally {
         Bun.spawn = originalSpawn;
       }

@@ -29,11 +29,6 @@ export interface Executor {
   stop(): Promise<void>;
 
   /**
-   * Send a follow-up message to the agent
-   */
-  sendMessage(message: string): Promise<void>;
-
-  /**
    * Register a callback for agent output
    */
   onOutput(callback: OutputCallback): void;
