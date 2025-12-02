@@ -77,8 +77,8 @@ export class CodexExecutor implements Executor {
     });
 
     // Start reading stdout and stderr
-    this.readOutputStream(this.process.stdout);
-    this.readStderr(this.process.stderr);
+    this.readOutputStream(this.process.stdout, "stdout");
+    this.readOutputStream(this.process.stderr, "stderr");
 
     // Handle process exit
     this.process.exited.then((exitCode) => {
@@ -355,6 +355,7 @@ export class CodexExecutor implements Executor {
 
   private async readOutputStream(
     stream: ReadableStream<Uint8Array>,
+    logType: "stdout" | "stderr",
   ): Promise<void> {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
@@ -372,51 +373,27 @@ export class CodexExecutor implements Executor {
 
         for (const line of lines) {
           if (line.trim()) {
-            this.handleJsonRpcMessage(line);
+            if (logType === "stderr") {
+              this.emitOutput({ content: line, logType: "stderr" });
+            } else {
+              this.handleJsonRpcMessage(line);
+            }
           }
         }
       }
 
       if (buffer.trim()) {
-        this.handleJsonRpcMessage(buffer);
+        if (logType === "stderr") {
+          this.emitOutput({ content: buffer, logType: "stderr" });
+        } else {
+          this.handleJsonRpcMessage(buffer);
+        }
       }
     } catch (error) {
       this.emitOutput({
-        content: `[system] Error reading stdout: ${error}`,
+        content: `[system] Error reading ${logType}: ${error}`,
         logType: "system",
       });
-    } finally {
-      reader.releaseLock();
-    }
-  }
-
-  private async readStderr(stream: ReadableStream<Uint8Array>): Promise<void> {
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (line.trim()) {
-            this.emitOutput({ content: line, logType: "stderr" });
-          }
-        }
-      }
-
-      if (buffer.trim()) {
-        this.emitOutput({ content: buffer, logType: "stderr" });
-      }
-    } catch (_error) {
-      // Ignore stderr read errors
     } finally {
       reader.releaseLock();
     }

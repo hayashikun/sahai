@@ -82,8 +82,8 @@ export class GeminiExecutor implements Executor {
     });
 
     // Start reading stdout and stderr
-    this.readOutputStream(this.process.stdout);
-    this.readStderr(this.process.stderr);
+    this.readOutputStream(this.process.stdout, "stdout");
+    this.readOutputStream(this.process.stderr, "stderr");
 
     // Handle process exit
     this.process.exited.then((exitCode) => {
@@ -135,13 +135,6 @@ export class GeminiExecutor implements Executor {
       this.process = null;
       this.isRunning = false;
     }
-  }
-
-  async sendMessage(message: string): Promise<void> {
-    if (!this.process || !this.isRunning || !this.sessionId) {
-      throw new Error("Process is not running or session not started");
-    }
-    await this.sendPrompt(message);
   }
 
   onOutput(callback: OutputCallback): void {
@@ -245,6 +238,7 @@ export class GeminiExecutor implements Executor {
 
   private async readOutputStream(
     stream: ReadableStream<Uint8Array>,
+    logType: "stdout" | "stderr",
   ): Promise<void> {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
@@ -262,51 +256,27 @@ export class GeminiExecutor implements Executor {
 
         for (const line of lines) {
           if (line.trim()) {
-            this.handleAcpMessage(line);
+            if (logType === "stderr") {
+              this.emitOutput({ content: line, logType: "stderr" });
+            } else {
+              this.handleAcpMessage(line);
+            }
           }
         }
       }
 
       if (buffer.trim()) {
-        this.handleAcpMessage(buffer);
+        if (logType === "stderr") {
+          this.emitOutput({ content: buffer, logType: "stderr" });
+        } else {
+          this.handleAcpMessage(buffer);
+        }
       }
     } catch (error) {
       this.emitOutput({
-        content: `[system] Error reading stdout: ${error}`,
+        content: `[system] Error reading ${logType}: ${error}`,
         logType: "system",
       });
-    } finally {
-      reader.releaseLock();
-    }
-  }
-
-  private async readStderr(stream: ReadableStream<Uint8Array>): Promise<void> {
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (line.trim()) {
-            this.emitOutput({ content: line, logType: "stderr" });
-          }
-        }
-      }
-
-      if (buffer.trim()) {
-        this.emitOutput({ content: buffer, logType: "stderr" });
-      }
-    } catch {
-      // Ignore stderr read errors
     } finally {
       reader.releaseLock();
     }
