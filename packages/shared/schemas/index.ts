@@ -9,7 +9,7 @@ export const Status = z.enum(["TODO", "InProgress", "InReview", "Done"]);
 export type Status = z.infer<typeof Status>;
 
 // Executor enum
-export const Executor = z.enum(["ClaudeCode", "Codex"]);
+export const Executor = z.enum(["ClaudeCode", "Codex", "Gemini"]);
 export type Executor = z.infer<typeof Executor>;
 
 // LogType enum

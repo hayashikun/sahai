@@ -48,7 +48,7 @@ export const tasks = sqliteTable(
       enum: ["TODO", "InProgress", "InReview", "Done"],
     }).notNull(),
     executor: text("executor", {
-      enum: ["ClaudeCode", "Codex"],
+      enum: ["ClaudeCode", "Codex", "Gemini"],
     }).notNull(),
     branchName: text("branch_name").notNull(),
     baseBranch: text("base_branch").notNull(),
