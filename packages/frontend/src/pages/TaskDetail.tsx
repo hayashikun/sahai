@@ -863,7 +863,7 @@ interface ChatInputProps {
 }
 
 type KeyEventLike = Pick<
-  React.KeyboardEvent<HTMLInputElement>,
+  React.KeyboardEvent<HTMLTextAreaElement>,
   "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey"
 >;
 
@@ -893,7 +893,7 @@ export function ChatInput({
     task.status === "InReview" ||
     (task.status === "InProgress" && !task.isExecuting);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!shouldSubmitChatMessage(e, canSendMessage, loading)) {
       return;
     }
@@ -934,13 +934,14 @@ export function ChatInput({
     <Card>
       <CardContent className="p-4">
         <div className="flex gap-2">
-          <Input
+          <Textarea
             value={message}
             onChange={(e) => onMessageChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={getPlaceholder()}
             disabled={!canSendMessage || loading}
-            className="flex-1"
+            className="flex-1 min-h-[80px] resize-y"
+            rows={3}
           />
           <Button onClick={onSend} disabled={!canSendMessage || loading}>
             {loading ? (
