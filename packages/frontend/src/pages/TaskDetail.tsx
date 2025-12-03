@@ -875,10 +875,8 @@ export function shouldSubmitChatMessage(
   if (event.key !== "Enter" || loading) return false;
 
   const hasSubmitModifier = event.metaKey || event.ctrlKey;
-  const isPlainEnter =
-    !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey;
 
-  return canSendMessage && (hasSubmitModifier || isPlainEnter);
+  return canSendMessage && hasSubmitModifier;
 }
 
 export function ChatInput({
