@@ -16,6 +16,7 @@ import {
   invalidStateTransition,
   notFound,
 } from "../lib/errors";
+import { playSuccessSound } from "../lib/sound";
 import { createBranch, deleteBranch, getDiff } from "../services/git";
 import { createWorktree, deleteWorktree } from "../services/worktree";
 
@@ -85,6 +86,10 @@ async function handleExecutorExit(taskId: string): Promise<void> {
     };
     await db.insert(executionLogs).values(log);
     broadcastLog(log);
+
+    // Play success sound notification
+    playSuccessSound();
+
     console.log(`[handleExecutorExit] Transition complete`);
   } else {
     console.log(
