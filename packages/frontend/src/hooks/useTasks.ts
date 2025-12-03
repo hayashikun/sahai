@@ -129,9 +129,9 @@ export function useTaskWithRealtimeLogs(taskId: string) {
     }
   }
 
-  // Sort by createdAt descending (newest first)
+  // Sort by createdAt ascending (oldest first)
   allLogs.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
 
   return {
