@@ -10,6 +10,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: Number(process.env.PORT) || 49381,
+    host: process.env.HOST || "localhost",
   },
   resolve: {
     alias: {
