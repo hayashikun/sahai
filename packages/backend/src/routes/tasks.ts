@@ -17,6 +17,7 @@ import {
   notFound,
 } from "../lib/errors";
 import { createBranch, deleteBranch, getDiff } from "../services/git";
+import { playSuccessSound } from "../lib/sound";
 import { createWorktree, deleteWorktree } from "../services/worktree";
 
 // In-memory store for active executors
@@ -85,6 +86,10 @@ async function handleExecutorExit(taskId: string): Promise<void> {
     };
     await db.insert(executionLogs).values(log);
     broadcastLog(log);
+
+    // Play success sound notification
+    playSuccessSound();
+
     console.log(`[handleExecutorExit] Transition complete`);
   } else {
     console.log(
