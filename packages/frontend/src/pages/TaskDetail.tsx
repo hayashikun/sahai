@@ -14,7 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ExecutionLog, Status, Task } from "shared/schemas";
 import {
@@ -711,6 +711,28 @@ interface ExecutionLogsProps {
 }
 
 function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const prevLogsLengthRef = useRef(logs.length);
+
+  useEffect(() => {
+    if (prevLogsLengthRef.current !== logs.length) {
+      prevLogsLengthRef.current = logs.length;
+
+      const container = logsContainerRef.current;
+      if (!container || !logsEndRef.current) return;
+
+      // Check if user is at the bottom (with 50px threshold)
+      const isAtBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight <
+        50;
+
+      if (isAtBottom) {
+        logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  });
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -731,32 +753,38 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
         {error && <p className="text-xs text-yellow-600">{error}</p>}
       </CardHeader>
       <CardContent>
-        <div className="rounded-lg border border-gray-200 max-h-[500px] overflow-auto">
+        <div
+          ref={logsContainerRef}
+          className="rounded-lg border border-gray-200 max-h-[500px] overflow-auto"
+        >
           {logs.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
               No logs yet. Start the task to see execution logs.
             </div>
           ) : (
-            logs.map((log) => (
-              <div
-                key={log.id}
-                className={cn(
-                  "px-3 py-2 border-b border-gray-100 last:border-b-0 font-mono text-xs",
-                  log.logType === "stdout" && "bg-white",
-                  log.logType === "stderr" && "bg-red-50",
-                  log.logType === "system" && "bg-gray-50",
-                )}
-              >
-                <div className="flex justify-end mb-1">
-                  <span className="text-gray-400 text-[10px]">
-                    {formatTime(log.createdAt)}
-                  </span>
+            <>
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  className={cn(
+                    "px-3 py-2 border-b border-gray-100 last:border-b-0 font-mono text-xs",
+                    log.logType === "stdout" && "bg-white",
+                    log.logType === "stderr" && "bg-red-50",
+                    log.logType === "system" && "bg-gray-50",
+                  )}
+                >
+                  <div className="flex justify-end mb-1">
+                    <span className="text-gray-400 text-[10px]">
+                      {formatTime(log.createdAt)}
+                    </span>
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {parseLogContent(log.content, log.logType)}
+                  </pre>
                 </div>
-                <pre className="whitespace-pre-wrap break-words">
-                  {parseLogContent(log.content, log.logType)}
-                </pre>
-              </div>
-            ))
+              ))}
+              <div ref={logsEndRef} />
+            </>
           )}
         </div>
       </CardContent>
