@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project, "sahai," is an AI Coding Agent orchestration tool. It provides a web-based Kanban interface to manage tasks for AI agents like Claude Code and Codex. Each task is executed in an isolated Git worktree, with real-time log streaming.
+This project, "sahai," is an AI Coding Agent orchestration tool. It provides a web-based Kanban interface to manage tasks for AI agents like Claude Code, GitHub Copilot CLI, Google Gemini, and OpenAI Codex. Each task is executed in an isolated Git worktree, with real-time log streaming.
 
 The project is a TypeScript monorepo using `bun` as the package manager. It's structured into three main packages:
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-sahai is an AI Coding Agent orchestration tool that manages Claude Code and Codex agents through a web-based Kanban interface. Each task runs in an isolated Git worktree with real-time log streaming via SSE.
+sahai is an AI Coding Agent orchestration tool that manages multiple AI coding agents (Claude Code, GitHub Copilot CLI, Google Gemini, OpenAI Codex) through a web-based Kanban interface. Each task runs in an isolated Git worktree with real-time log streaming via SSE.
 
 ## Commands
 
