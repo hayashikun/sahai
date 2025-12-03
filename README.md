@@ -1,11 +1,11 @@
 # Sahai
 
-An AI Coding Agent orchestration tool that manages Claude Code and Codex agents through a web-based Kanban interface. Each task runs in an isolated Git worktree with real-time log streaming.
+An AI Coding Agent orchestration tool that manages multiple AI coding agents (Claude Code, GitHub Copilot CLI, Google Gemini, OpenAI Codex) through a web-based Kanban interface. Each task runs in an isolated Git worktree with real-time log streaming.
 
 ## Features
 
 - **Kanban Board**: Visual task management with drag-and-drop (TODO → In Progress → In Review → Done)
-- **Multi-Agent Support**: Run tasks with Claude Code or OpenAI Codex
+- **Multi-Agent Support**: Run tasks with Claude Code, GitHub Copilot CLI, Google Gemini, or OpenAI Codex
 - **Git Worktree Isolation**: Each task gets its own isolated worktree and branch
 - **Real-time Streaming**: Live execution logs via Server-Sent Events (SSE)
 - **Session Resume**: Continue interrupted agent sessions
@@ -16,8 +16,10 @@ An AI Coding Agent orchestration tool that manages Claude Code and Codex agents 
 
 At least one of the following is required:
 
-- [Claude Code](https://claude.ai/download)
-- [Codex](https://openai.com/codex/)
+- [Claude Code](https://www.claude.com/product/claude-code)
+- [GitHub Copilot CLI](https://github.com/features/copilot/cli)
+- [Google Gemini](https://geminicli.com)
+- [OpenAI Codex](https://openai.com/codex/)
 
 ## Quick Start
 
@@ -47,7 +49,7 @@ npx sahai@latest --version     # Show version
 
 1. **Create a Project**: Group related repositories together
 2. **Register Repositories**: Add Git repositories to your project
-3. **Create Tasks**: Define tasks with a title, description, and select an executor (Claude Code or Codex)
+3. **Create Tasks**: Define tasks with a title, description, and select an AI agent executor
 4. **Start Task**: Sahai creates an isolated worktree and branch, then launches the AI agent
 5. **Monitor Progress**: Watch real-time logs as the agent works
 6. **Review Changes**: View diffs, open the worktree in your editor, or resume the agent for refinements
