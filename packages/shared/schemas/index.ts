@@ -120,3 +120,74 @@ export const ApiError = z.object({
   }),
 });
 export type ApiError = z.infer<typeof ApiError>;
+
+// Notification trigger enum
+export const NotificationTrigger = z.enum(["completed", "failed", "all"]);
+export type NotificationTrigger = z.infer<typeof NotificationTrigger>;
+
+// Settings schema
+export const SettingsSchema = z.object({
+  // General > Terminal
+  "terminal.macosApp": z.string(),
+  "terminal.linuxCommand": z.string().nullable(),
+  // General > Notification
+  "notification.enabled": z.boolean(),
+  "notification.trigger": NotificationTrigger,
+  "notification.sound": z.string().nullable(),
+  // Agent
+  "agent.claudeCode.enabled": z.boolean(),
+  "agent.claudeCode.path": z.string().nullable(),
+  "agent.codex.enabled": z.boolean(),
+  "agent.codex.path": z.string().nullable(),
+  "agent.copilot.enabled": z.boolean(),
+  "agent.copilot.path": z.string().nullable(),
+  "agent.gemini.enabled": z.boolean(),
+  "agent.gemini.path": z.string().nullable(),
+});
+export type Settings = z.infer<typeof SettingsSchema>;
+
+export const SettingsResponseSchema = z.object({
+  settings: SettingsSchema,
+});
+export type SettingsResponse = z.infer<typeof SettingsResponseSchema>;
+
+// Partial update schema
+export const SettingsUpdateSchema = SettingsSchema.partial();
+export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>;
+
+// Path validation schemas
+export const ValidatePathRequestSchema = z.object({
+  path: z.string(),
+});
+export type ValidatePathRequest = z.infer<typeof ValidatePathRequestSchema>;
+
+export const ValidatePathResponseSchema = z.object({
+  valid: z.boolean(),
+  exists: z.boolean(),
+  executable: z.boolean(),
+  error: z.string().optional(),
+});
+export type ValidatePathResponse = z.infer<typeof ValidatePathResponseSchema>;
+
+// Sound schemas
+export const SoundSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+});
+export type Sound = z.infer<typeof SoundSchema>;
+
+export const SoundsResponseSchema = z.object({
+  sounds: z.array(SoundSchema),
+  platform: z.string(),
+});
+export type SoundsResponse = z.infer<typeof SoundsResponseSchema>;
+
+export const PlaySoundRequestSchema = z.object({
+  sound: z.string(),
+});
+export type PlaySoundRequest = z.infer<typeof PlaySoundRequestSchema>;
+
+export const PlaySoundResponseSchema = z.object({
+  success: z.boolean(),
+});
+export type PlaySoundResponse = z.infer<typeof PlaySoundResponseSchema>;

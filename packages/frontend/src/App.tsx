@@ -7,6 +7,7 @@ import {
   ProjectList,
   RepositoryDetail,
   RepositoryList,
+  Settings,
   TaskDetail,
 } from "./pages";
 
@@ -70,6 +71,16 @@ export function App() {
               <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                   <TaskDetail />
+                </Suspense>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <Settings />
                 </Suspense>
               </ErrorBoundary>
             }

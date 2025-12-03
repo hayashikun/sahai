@@ -1,4 +1,5 @@
 import type { Subprocess } from "bun";
+import { getAgentPath } from "../config/agent";
 import type {
   Executor,
   ExecutorConfig,
@@ -24,9 +25,12 @@ export class GeminiExecutor implements Executor {
 
     this.isRunning = true;
 
+    // Get command path from settings
+    const commandPath = await getAgentPath("gemini");
+
     // Build gemini command with optional resume and prompt
     const cmd = [
-      "gemini",
+      commandPath,
       "--sandbox",
       "true",
       "--yolo",

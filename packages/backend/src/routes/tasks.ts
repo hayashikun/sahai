@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import { isExecutorEnabled } from "../config/agent";
+import { getTerminalConfig } from "../config/terminal";
 import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
@@ -167,9 +169,12 @@ function escapeShellPath(path: string): string {
 async function openInTerminal(path: string): Promise<void> {
   const normalizedPath = resolve(path);
   const platform = process.platform;
+  const terminalConfig = await getTerminalConfig();
 
   if (platform === "darwin") {
-    const terminalApp = process.env.SAHAI_TERMINAL_APP || "Terminal";
+    // Use terminal app from settings, fallback to env var, then default
+    const terminalApp =
+      terminalConfig.macosApp || process.env.SAHAI_TERMINAL_APP || "Terminal";
     await runCommand(
       ["open", "-a", terminalApp, normalizedPath],
       `Failed to open ${terminalApp} at worktree`,
@@ -191,7 +196,9 @@ async function openInTerminal(path: string): Promise<void> {
     return;
   }
 
-  const customCommand = process.env.SAHAI_TERMINAL_COMMAND;
+  // Linux: Use custom command from settings, fallback to env var
+  const customCommand =
+    terminalConfig.linuxCommand || process.env.SAHAI_TERMINAL_COMMAND;
   if (customCommand) {
     const escapedPath = escapeShellPath(normalizedPath);
     const rendered = customCommand.replaceAll("{path}", `'${escapedPath}'`);
@@ -222,7 +229,7 @@ async function openInTerminal(path: string): Promise<void> {
 
   throw new Error(
     lastError?.message ??
-      "No supported terminal launcher found. Set SAHAI_TERMINAL_COMMAND to override.",
+      "No supported terminal launcher found. Configure in Settings or set SAHAI_TERMINAL_COMMAND.",
   );
 }
 
@@ -706,6 +713,12 @@ taskById.post("/:id/start", async (c) => {
     return invalidStateTransition(c, task.status, ["TODO"], "start");
   }
 
+  // Check if the executor/agent is enabled
+  const isEnabled = await isExecutorEnabled(task.executor);
+  if (!isEnabled) {
+    return badRequest(c, `Agent "${task.executor}" is disabled in settings`);
+  }
+
   // Get repository info
   const repoResult = await db
     .select()
@@ -896,6 +909,12 @@ taskById.post("/:id/resume", async (c) => {
 
   if (!task.worktreePath) {
     return badRequest(c, "Task has no worktree");
+  }
+
+  // Check if the executor/agent is enabled
+  const isEnabled = await isExecutorEnabled(task.executor);
+  if (!isEnabled) {
+    return badRequest(c, `Agent "${task.executor}" is disabled in settings`);
   }
 
   // Stop existing executor if running

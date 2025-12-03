@@ -1,4 +1,4 @@
-import { FolderKanban, GitFork, Github, Menu, X } from "lucide-react";
+import { FolderKanban, GitFork, Github, Menu, Settings, X } from "lucide-react";
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "../lib/utils";
@@ -10,6 +10,7 @@ export function Layout() {
   const navItems = [
     { to: "/projects", label: "Projects", icon: FolderKanban },
     { to: "/repositories", label: "Repositories", icon: GitFork },
+    { to: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (
