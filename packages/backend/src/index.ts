@@ -59,9 +59,11 @@ if (staticDir) {
 }
 
 const port = Number.parseInt(process.env.API_PORT || "49382", 10);
+const hostname = process.env.HOST || "localhost";
 
 export const server = Bun.serve({
   port,
+  hostname,
   fetch: app.fetch,
 });
 
