@@ -118,3 +118,20 @@ export async function getDiff(
 
   return [baseDiff.stdout.toString(), ...untrackedDiffs].join("\n");
 }
+
+export async function listBranches(repoPath: string): Promise<string[]> {
+  const result =
+    await $`git -C ${repoPath} branch --format=${"%(refname:short)"}`
+      .nothrow()
+      .quiet();
+
+  if (result.exitCode !== 0) {
+    throw new GitError("Failed to list branches", result.stderr.toString());
+  }
+
+  return result.stdout
+    .toString()
+    .split("\n")
+    .filter(Boolean)
+    .map((branch) => branch.trim());
+}
