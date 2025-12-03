@@ -32,7 +32,7 @@ import {
 import { Switch } from "../components/ui/switch";
 import { cn } from "../lib/utils";
 
-type Section = "general" | "terminal" | "notification" | "agents";
+type Section = "general" | "agents";
 type AgentKey = "claudeCode" | "codex" | "copilot" | "gemini";
 
 const AGENT_NAMES: Record<AgentKey, string> = {
@@ -136,8 +136,6 @@ export function Settings() {
 
   const sidebarItems = [
     { id: "general" as const, label: "General", icon: Settings2 },
-    { id: "terminal" as const, label: "Terminal", icon: Terminal },
-    { id: "notification" as const, label: "Notification", icon: Bell },
     { id: "agents" as const, label: "Agents", icon: Bot },
   ];
 
@@ -181,18 +179,8 @@ export function Settings() {
           </div>
         )}
 
-        {activeSection === "general" && <GeneralSection />}
-
-        {activeSection === "terminal" && (
-          <TerminalSection
-            settings={settings}
-            onUpdate={handleUpdate}
-            saving={saving}
-          />
-        )}
-
-        {activeSection === "notification" && (
-          <NotificationSection
+        {activeSection === "general" && (
+          <GeneralSection
             settings={settings}
             sounds={sounds}
             onUpdate={handleUpdate}
@@ -215,104 +203,7 @@ export function Settings() {
   );
 }
 
-function GeneralSection() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">
-          General Settings
-        </h2>
-        <p className="text-sm text-gray-500">
-          Configure general application settings. Select a category from the
-          sidebar to configure specific options.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function TerminalSection({
-  settings,
-  onUpdate,
-  saving,
-}: {
-  settings: SettingsData;
-  onUpdate: (update: SettingsUpdate) => Promise<void>;
-  saving: boolean;
-}) {
-  const [macosApp, setMacosApp] = useState(settings["terminal.macosApp"]);
-  const [linuxCommand, setLinuxCommand] = useState(
-    settings["terminal.linuxCommand"] ?? "",
-  );
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">
-          Terminal Settings
-        </h2>
-        <p className="text-sm text-gray-500">
-          Configure the terminal application used to open worktrees.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="macos-app">macOS Terminal App</Label>
-          <div className="flex gap-2">
-            <Input
-              id="macos-app"
-              value={macosApp}
-              onChange={(e) => setMacosApp(e.target.value)}
-              placeholder="Terminal"
-              className="flex-1"
-            />
-            <Button
-              onClick={() => onUpdate({ "terminal.macosApp": macosApp })}
-              disabled={saving}
-              size="sm"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500">
-            The macOS application to open (e.g., Terminal, iTerm, Warp)
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="linux-command">Linux Terminal Command</Label>
-          <div className="flex gap-2">
-            <Input
-              id="linux-command"
-              value={linuxCommand}
-              onChange={(e) => setLinuxCommand(e.target.value)}
-              placeholder="gnome-terminal --working-directory {path}"
-              className="flex-1"
-            />
-            <Button
-              onClick={() =>
-                onUpdate({
-                  "terminal.linuxCommand": linuxCommand || null,
-                })
-              }
-              disabled={saving}
-              size="sm"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500">
-            Custom command for Linux. Use {"{path}"} as placeholder for the
-            directory path.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NotificationSection({
+function GeneralSection({
   settings,
   sounds,
   onUpdate,
@@ -325,6 +216,10 @@ function NotificationSection({
   onTestSound: (name: string) => Promise<void>;
   saving: boolean;
 }) {
+  const [macosApp, setMacosApp] = useState(settings["terminal.macosApp"]);
+  const [linuxCommand, setLinuxCommand] = useState(
+    settings["terminal.linuxCommand"] ?? "",
+  );
   const [testingSound, setTestingSound] = useState(false);
 
   const handleTestSound = async () => {
@@ -338,104 +233,176 @@ function NotificationSection({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">
-          Notification Settings
+          General Settings
         </h2>
         <p className="text-sm text-gray-500">
-          Configure sound notifications for task completion.
+          Configure terminal and notification settings.
         </p>
       </div>
 
+      {/* Terminal Settings */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Enable Notifications</Label>
+        <div className="flex items-center gap-2">
+          <Terminal className="h-5 w-5 text-gray-500" />
+          <h3 className="font-medium text-gray-900">Terminal</h3>
+        </div>
+
+        <div className="space-y-4 pl-7">
+          <div className="space-y-2">
+            <Label htmlFor="macos-app">macOS Terminal App</Label>
+            <div className="flex gap-2">
+              <Input
+                id="macos-app"
+                value={macosApp}
+                onChange={(e) => setMacosApp(e.target.value)}
+                placeholder="Terminal"
+                className="flex-1"
+              />
+              <Button
+                onClick={() => onUpdate({ "terminal.macosApp": macosApp })}
+                disabled={saving}
+                size="sm"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
             <p className="text-xs text-gray-500">
-              Play sound when tasks complete
+              The macOS application to open (e.g., Terminal, iTerm, Warp)
             </p>
           </div>
-          <Switch
-            checked={settings["notification.enabled"]}
-            onCheckedChange={(checked) =>
-              onUpdate({ "notification.enabled": checked })
-            }
-            disabled={saving}
-          />
+
+          <div className="space-y-2">
+            <Label htmlFor="linux-command">Linux Terminal Command</Label>
+            <div className="flex gap-2">
+              <Input
+                id="linux-command"
+                value={linuxCommand}
+                onChange={(e) => setLinuxCommand(e.target.value)}
+                placeholder="gnome-terminal --working-directory {path}"
+                className="flex-1"
+              />
+              <Button
+                onClick={() =>
+                  onUpdate({
+                    "terminal.linuxCommand": linuxCommand || null,
+                  })
+                }
+                disabled={saving}
+                size="sm"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Custom command for Linux. Use {"{path}"} as placeholder for the
+              directory path.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Notification Settings */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Bell className="h-5 w-5 text-gray-500" />
+          <h3 className="font-medium text-gray-900">Notification</h3>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="trigger">Notification Trigger</Label>
-          <Select
-            value={settings["notification.trigger"]}
-            onValueChange={(value) =>
-              onUpdate({
-                "notification.trigger": value as "completed" | "failed" | "all",
-              })
-            }
-            disabled={saving || !settings["notification.enabled"]}
-          >
-            <SelectTrigger id="trigger">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="completed">Completed only</SelectItem>
-              <SelectItem value="failed">Failed only</SelectItem>
-              <SelectItem value="all">All events</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-gray-500">
-            When to play notification sounds
-          </p>
-        </div>
+        <div className="space-y-4 pl-7">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Enable Notifications</Label>
+              <p className="text-xs text-gray-500">
+                Play sound when tasks complete
+              </p>
+            </div>
+            <Switch
+              checked={settings["notification.enabled"]}
+              onCheckedChange={(checked) =>
+                onUpdate({ "notification.enabled": checked })
+              }
+              disabled={saving}
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="sound">Notification Sound</Label>
-          <div className="flex gap-2">
+          <div className="space-y-2">
+            <Label htmlFor="trigger">Notification Trigger</Label>
             <Select
-              value={settings["notification.sound"] ?? ""}
+              value={settings["notification.trigger"]}
               onValueChange={(value) =>
-                onUpdate({ "notification.sound": value || null })
+                onUpdate({
+                  "notification.trigger": value as
+                    | "completed"
+                    | "failed"
+                    | "all",
+                })
               }
               disabled={saving || !settings["notification.enabled"]}
             >
-              <SelectTrigger id="sound" className="flex-1">
-                <SelectValue placeholder="Select a sound" />
+              <SelectTrigger id="trigger">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {sounds?.sounds.map((sound) => (
-                  <SelectItem key={sound.name} value={sound.name}>
-                    {sound.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="completed">Completed only</SelectItem>
+                <SelectItem value="failed">Failed only</SelectItem>
+                <SelectItem value="all">All events</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleTestSound}
-              disabled={
-                !settings["notification.sound"] ||
-                !settings["notification.enabled"] ||
-                testingSound
-              }
-              title="Test sound"
-            >
-              {testingSound ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
+            <p className="text-xs text-gray-500">
+              When to play notification sounds
+            </p>
           </div>
-          <p className="text-xs text-gray-500">
-            {sounds?.platform === "darwin"
-              ? "macOS system sounds"
-              : sounds?.platform === "linux"
-                ? "Linux system sounds"
-                : "System sounds"}
-          </p>
+
+          <div className="space-y-2">
+            <Label htmlFor="sound">Notification Sound</Label>
+            <div className="flex gap-2">
+              <Select
+                value={settings["notification.sound"] ?? ""}
+                onValueChange={(value) =>
+                  onUpdate({ "notification.sound": value || null })
+                }
+                disabled={saving || !settings["notification.enabled"]}
+              >
+                <SelectTrigger id="sound" className="flex-1">
+                  <SelectValue placeholder="Select a sound" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sounds?.sounds.map((sound) => (
+                    <SelectItem key={sound.name} value={sound.name}>
+                      {sound.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleTestSound}
+                disabled={
+                  !settings["notification.sound"] ||
+                  !settings["notification.enabled"] ||
+                  testingSound
+                }
+                title="Test sound"
+              >
+                {testingSound ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              {sounds?.platform === "darwin"
+                ? "macOS system sounds"
+                : sounds?.platform === "linux"
+                  ? "Linux system sounds"
+                  : "System sounds"}
+            </p>
+          </div>
         </div>
       </div>
     </div>
