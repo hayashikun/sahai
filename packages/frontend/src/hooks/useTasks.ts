@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type ExecutionLog, ExecutionLogArray, Task } from "shared/schemas";
 import useSWR from "swr";
-import { fetcher, getTaskLogsStreamUrl, parseLogEvent } from "../api";
+import {
+  fetcher,
+  getRepositoryTasksStreamUrl,
+  getTaskLogsStreamUrl,
+  parseLogEvent,
+  parseTaskEvent,
+  type TaskEvent,
+} from "../api";
 
 export function useTask(taskId: string) {
   const { data, mutate } = useSWR(`/tasks/${taskId}`, fetcher, {
@@ -142,5 +149,87 @@ export function useTaskWithRealtimeLogs(taskId: string) {
     error,
     clearLogs,
     reconnect,
+  };
+}
+
+export function useRepositoryTasksStream(
+  repositoryId: string,
+  onEvent?: (event: TaskEvent) => void,
+) {
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const onEventRef = useRef(onEvent);
+
+  // Keep the ref updated
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
+
+  const connect = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const url = getRepositoryTasksStreamUrl(repositoryId);
+    const eventSource = new EventSource(url);
+    eventSourceRef.current = eventSource;
+
+    eventSource.addEventListener("connected", () => {
+      setConnected(true);
+      setError(null);
+    });
+
+    eventSource.addEventListener("task-status-changed", (event) => {
+      const taskEvent = parseTaskEvent(event.data);
+      if (taskEvent) {
+        onEventRef.current?.(taskEvent);
+      }
+    });
+
+    eventSource.addEventListener("task-created", (event) => {
+      const taskEvent = parseTaskEvent(event.data);
+      if (taskEvent) {
+        onEventRef.current?.(taskEvent);
+      }
+    });
+
+    eventSource.addEventListener("task-deleted", (event) => {
+      const taskEvent = parseTaskEvent(event.data);
+      if (taskEvent) {
+        onEventRef.current?.(taskEvent);
+      }
+    });
+
+    eventSource.addEventListener("heartbeat", () => {
+      // Keep-alive, no action needed
+    });
+
+    eventSource.onerror = () => {
+      setConnected(false);
+      setError("Connection lost. Reconnecting...");
+      // EventSource will auto-reconnect
+    };
+  }, [repositoryId]);
+
+  const disconnect = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+      setConnected(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    connect();
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect]);
+
+  return {
+    connected,
+    error,
+    reconnect: connect,
   };
 }

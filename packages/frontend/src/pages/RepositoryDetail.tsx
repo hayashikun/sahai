@@ -49,7 +49,11 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { useRepository, useRepositoryTasks } from "../hooks";
+import {
+  useRepository,
+  useRepositoryTasks,
+  useRepositoryTasksStream,
+} from "../hooks";
 
 export function RepositoryDetail() {
   const { repositoryId } = useParams<{ repositoryId: string }>();
@@ -70,6 +74,13 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const { repository, mutate: mutateRepository } = useRepository(repositoryId);
   const { tasks, mutate: mutateTasks } = useRepositoryTasks(repositoryId);
   const navigate = useNavigate();
+
+  // Subscribe to real-time task events via SSE
+  const handleTaskEvent = useCallback(() => {
+    mutateTasks();
+  }, [mutateTasks]);
+
+  useRepositoryTasksStream(repositoryId, handleTaskEvent);
 
   // Task creation state
   const [createTaskOpen, setCreateTaskOpen] = useState(false);

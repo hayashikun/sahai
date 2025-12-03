@@ -87,11 +87,52 @@ export function getTaskLogsStreamUrl(taskId: string): string {
   return `${API_BASE_URL}/tasks/${taskId}/logs/stream`;
 }
 
+// SSE stream URL for repository task events
+export function getRepositoryTasksStreamUrl(repositoryId: string): string {
+  return `${API_BASE_URL}/repositories/${repositoryId}/tasks/stream`;
+}
+
 // Parse SSE log event
 export function parseLogEvent(data: string): ExecutionLogType | null {
   try {
     const parsed = JSON.parse(data);
     return ExecutionLog.parse(parsed);
+  } catch {
+    return null;
+  }
+}
+
+// Task event types for SSE
+export type TaskStatusChangedEvent = {
+  type: "task-status-changed";
+  taskId: string;
+  oldStatus: string;
+  newStatus: string;
+  isExecuting: boolean;
+  updatedAt: string;
+};
+
+export type TaskCreatedEvent = {
+  type: "task-created";
+  task: TaskType;
+  createdAt: string;
+};
+
+export type TaskDeletedEvent = {
+  type: "task-deleted";
+  taskId: string;
+  deletedAt: string;
+};
+
+export type TaskEvent =
+  | TaskStatusChangedEvent
+  | TaskCreatedEvent
+  | TaskDeletedEvent;
+
+// Parse SSE task event
+export function parseTaskEvent(data: string): TaskEvent | null {
+  try {
+    return JSON.parse(data) as TaskEvent;
   } catch {
     return null;
   }

@@ -69,3 +69,38 @@ export interface ExecutionLog {
   logType: LogType;
   createdAt: Date;
 }
+
+// Task event types for SSE streaming
+export const TaskEventType = {
+  TaskStatusChanged: "task-status-changed",
+  TaskCreated: "task-created",
+  TaskDeleted: "task-deleted",
+} as const;
+
+export type TaskEventType = (typeof TaskEventType)[keyof typeof TaskEventType];
+
+export interface TaskStatusChangedEvent {
+  type: typeof TaskEventType.TaskStatusChanged;
+  taskId: string;
+  oldStatus: Status;
+  newStatus: Status;
+  isExecuting: boolean;
+  updatedAt: string;
+}
+
+export interface TaskCreatedEvent {
+  type: typeof TaskEventType.TaskCreated;
+  task: Task & { isExecuting: boolean };
+  createdAt: string;
+}
+
+export interface TaskDeletedEvent {
+  type: typeof TaskEventType.TaskDeleted;
+  taskId: string;
+  deletedAt: string;
+}
+
+export type TaskEvent =
+  | TaskStatusChangedEvent
+  | TaskCreatedEvent
+  | TaskDeletedEvent;

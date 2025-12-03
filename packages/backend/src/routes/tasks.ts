@@ -90,6 +90,16 @@ async function handleExecutorExit(taskId: string): Promise<void> {
     await db.insert(executionLogs).values(log);
     broadcastLog(log);
 
+    // Broadcast task status changed event for Kanban real-time updates
+    broadcastTaskEvent(task.repositoryId, {
+      type: "task-status-changed",
+      taskId,
+      oldStatus: "InProgress",
+      newStatus: "InReview",
+      isExecuting: false,
+      updatedAt: now,
+    });
+
     // Play success sound notification
     playSuccessSound();
 
@@ -216,7 +226,7 @@ async function openInTerminal(path: string): Promise<void> {
   );
 }
 
-// SSE subscribers per task
+// SSE subscribers per task (for execution logs)
 type LogSubscriber = (log: {
   id: string;
   taskId: string;
@@ -255,6 +265,59 @@ function broadcastLog(log: {
   if (subscribers) {
     for (const callback of subscribers) {
       callback(log);
+    }
+  }
+}
+
+// SSE subscribers per repository (for task events)
+type TaskEvent =
+  | {
+      type: "task-status-changed";
+      taskId: string;
+      oldStatus: string;
+      newStatus: string;
+      isExecuting: boolean;
+      updatedAt: string;
+    }
+  | {
+      type: "task-created";
+      task: ReturnType<typeof withExecutingStatus>;
+      createdAt: string;
+    }
+  | {
+      type: "task-deleted";
+      taskId: string;
+      deletedAt: string;
+    };
+
+type TaskEventSubscriber = (event: TaskEvent) => void;
+const repositoryTaskSubscribers = new Map<string, Set<TaskEventSubscriber>>();
+
+function subscribeToRepositoryTasks(
+  repositoryId: string,
+  callback: TaskEventSubscriber,
+): () => void {
+  if (!repositoryTaskSubscribers.has(repositoryId)) {
+    repositoryTaskSubscribers.set(repositoryId, new Set());
+  }
+  repositoryTaskSubscribers.get(repositoryId)?.add(callback);
+
+  return () => {
+    const subscribers = repositoryTaskSubscribers.get(repositoryId);
+    if (subscribers) {
+      subscribers.delete(callback);
+      if (subscribers.size === 0) {
+        repositoryTaskSubscribers.delete(repositoryId);
+      }
+    }
+  };
+}
+
+function broadcastTaskEvent(repositoryId: string, event: TaskEvent): void {
+  const subscribers = repositoryTaskSubscribers.get(repositoryId);
+  if (subscribers) {
+    for (const callback of subscribers) {
+      callback(event);
     }
   }
 }
@@ -319,7 +382,67 @@ repositoryTasks.post("/:repositoryId/tasks", async (c) => {
   };
 
   await db.insert(tasks).values(newTask);
+
+  // Broadcast task created event
+  broadcastTaskEvent(repositoryId, {
+    type: "task-created",
+    task: withExecutingStatus(newTask),
+    createdAt: now,
+  });
+
   return c.json(withExecutingStatus(newTask), 201);
+});
+
+// GET /v1/repositories/:repositoryId/tasks/stream - Stream task events via SSE
+repositoryTasks.get("/:repositoryId/tasks/stream", async (c) => {
+  const repositoryId = c.req.param("repositoryId");
+
+  // Check if repository exists
+  const repository = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, repositoryId));
+
+  if (repository.length === 0) {
+    return notFound(c, "Repository");
+  }
+
+  return streamSSE(c, async (stream) => {
+    let eventId = 0;
+
+    const unsubscribe = subscribeToRepositoryTasks(repositoryId, (event) => {
+      stream.writeSSE({
+        data: JSON.stringify(event),
+        event: event.type,
+        id: String(eventId++),
+      });
+    });
+
+    // Send initial connection event
+    await stream.writeSSE({
+      data: JSON.stringify({ repositoryId, status: "connected" }),
+      event: "connected",
+      id: String(eventId++),
+    });
+
+    // Keep connection alive with periodic heartbeats
+    const heartbeat = setInterval(() => {
+      stream.writeSSE({
+        data: "",
+        event: "heartbeat",
+        id: String(eventId++),
+      });
+    }, 30000);
+
+    // Clean up on disconnect
+    stream.onAbort(() => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+
+    // Keep the stream open
+    await new Promise(() => {});
+  });
 });
 
 // Routes for /v1/tasks/:id
@@ -368,6 +491,20 @@ taskById.put("/:id", async (c) => {
 
   await db.update(tasks).set(updated).where(eq(tasks.id, id));
 
+  // Broadcast task status changed event if status actually changed
+  const oldStatus = existing[0].status;
+  const newStatus = updated.status as string;
+  if (oldStatus !== newStatus) {
+    broadcastTaskEvent(existing[0].repositoryId, {
+      type: "task-status-changed",
+      taskId: id,
+      oldStatus,
+      newStatus,
+      isExecuting: activeExecutors.has(id),
+      updatedAt: now,
+    });
+  }
+
   return c.json(withExecutingStatus({ ...existing[0], ...updated }));
 });
 
@@ -381,7 +518,15 @@ taskById.delete("/:id", async (c) => {
     return notFound(c, "Task");
   }
 
+  const repositoryId = existing[0].repositoryId;
   await db.delete(tasks).where(eq(tasks.id, id));
+
+  // Broadcast task deleted event
+  broadcastTaskEvent(repositoryId, {
+    type: "task-deleted",
+    taskId: id,
+    deletedAt: new Date().toISOString(),
+  });
 
   return c.json({ message: "Task deleted" });
 });
@@ -636,6 +781,16 @@ taskById.post("/:id/start", async (c) => {
 
     activeExecutors.set(id, executor);
 
+    // Broadcast task status changed event
+    broadcastTaskEvent(task.repositoryId, {
+      type: "task-status-changed",
+      taskId: id,
+      oldStatus: "TODO",
+      newStatus: "InProgress",
+      isExecuting: true,
+      updatedAt: now,
+    });
+
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
 
     return c.json(withExecutingStatus(updatedTask[0]));
@@ -702,6 +857,16 @@ taskById.post("/:id/complete", async (c) => {
       updatedAt: now,
     })
     .where(eq(tasks.id, id));
+
+  // Broadcast task status changed event
+  broadcastTaskEvent(task.repositoryId, {
+    type: "task-status-changed",
+    taskId: id,
+    oldStatus: "InProgress",
+    newStatus: "InReview",
+    isExecuting: false,
+    updatedAt: now,
+  });
 
   const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
   return c.json(withExecutingStatus(updatedTask[0]));
@@ -796,6 +961,16 @@ taskById.post("/:id/resume", async (c) => {
           updatedAt: now,
         })
         .where(eq(tasks.id, id));
+
+      // Broadcast task status changed event
+      broadcastTaskEvent(task.repositoryId, {
+        type: "task-status-changed",
+        taskId: id,
+        oldStatus: "InReview",
+        newStatus: "InProgress",
+        isExecuting: true,
+        updatedAt: now,
+      });
     }
 
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
@@ -853,6 +1028,16 @@ taskById.post("/:id/finish", async (c) => {
       })
       .where(eq(tasks.id, id));
 
+    // Broadcast task status changed event
+    broadcastTaskEvent(task.repositoryId, {
+      type: "task-status-changed",
+      taskId: id,
+      oldStatus: "InReview",
+      newStatus: "Done",
+      isExecuting: false,
+      updatedAt: now,
+    });
+
     const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
     return c.json(withExecutingStatus(updatedTask[0]));
   } catch (error) {
@@ -891,5 +1076,13 @@ taskById.post("/:id/recreate", async (c) => {
   };
 
   await db.insert(tasks).values(newTask);
+
+  // Broadcast task created event
+  broadcastTaskEvent(task.repositoryId, {
+    type: "task-created",
+    task: withExecutingStatus(newTask),
+    createdAt: now,
+  });
+
   return c.json(withExecutingStatus(newTask), 201);
 });
