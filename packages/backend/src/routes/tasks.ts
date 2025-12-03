@@ -8,6 +8,7 @@ import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
 import { CodexExecutor } from "../executors/codex";
+import { CopilotExecutor } from "../executors/copilot";
 import { GeminiExecutor } from "../executors/gemini";
 import type { Executor } from "../executors/interface";
 import {
@@ -28,6 +29,8 @@ function createExecutor(type: string): Executor {
       return new ClaudeCodeExecutor();
     case "Codex":
       return new CodexExecutor();
+    case "Copilot":
+      return new CopilotExecutor();
     case "Gemini":
       return new GeminiExecutor();
     default:

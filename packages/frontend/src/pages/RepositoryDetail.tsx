@@ -432,6 +432,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     <SelectContent>
                       <SelectItem value="ClaudeCode">Claude Code</SelectItem>
                       <SelectItem value="Codex">Codex</SelectItem>
+                      <SelectItem value="Copilot">
+                        GitHub Copilot CLI
+                      </SelectItem>
                       <SelectItem value="Gemini">Gemini</SelectItem>
                     </SelectContent>
                   </Select>
