@@ -12,6 +12,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   createTask,
   deleteRepository,
+  getRepositoryBranches,
   startTask,
   updateRepository,
 } from "../api";
@@ -138,6 +139,8 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   );
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
 
   // Delete repository state
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -246,9 +249,22 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     }
   };
 
+  const loadBranches = async () => {
+    setBranchesLoading(true);
+    try {
+      const branchList = await getRepositoryBranches(repositoryId);
+      setBranches(branchList);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to load branches");
+    } finally {
+      setBranchesLoading(false);
+    }
+  };
+
   const resetEditForm = () => {
     setEditDefaultBranch(repository.defaultBranch);
     setEditError(null);
+    setBranches([]);
   };
 
   return (
@@ -279,7 +295,10 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
               open={editOpen}
               onOpenChange={(open) => {
                 setEditOpen(open);
-                if (open) resetEditForm();
+                if (open) {
+                  resetEditForm();
+                  loadBranches();
+                }
               }}
             >
               <DialogTrigger asChild>
@@ -302,12 +321,28 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="edit-repo-branch">Default Branch</Label>
-                  <Input
-                    id="edit-repo-branch"
-                    value={editDefaultBranch}
-                    onChange={(e) => setEditDefaultBranch(e.target.value)}
-                    placeholder="main"
-                  />
+                  {branchesLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading branches...
+                    </div>
+                  ) : (
+                    <Select
+                      value={editDefaultBranch}
+                      onValueChange={setEditDefaultBranch}
+                    >
+                      <SelectTrigger id="edit-repo-branch">
+                        <SelectValue placeholder="Select a branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch} value={branch}>
+                            {branch}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button

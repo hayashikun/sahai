@@ -47,6 +47,16 @@ export async function deleteRepository(repositoryId: string): Promise<void> {
   await apiDelete(`/repositories/${repositoryId}`);
 }
 
+export async function getRepositoryBranches(
+  repositoryId: string,
+): Promise<string[]> {
+  const data = await fetcher(`/repositories/${repositoryId}/branches`);
+  if (typeof data === "object" && data !== null && "branches" in data) {
+    return data.branches as string[];
+  }
+  return [];
+}
+
 // Task operations for repositories
 
 export interface CreateTaskInput {

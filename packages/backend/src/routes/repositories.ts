@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { db } from "../db/client";
 import { repositories } from "../db/schema";
 import { notFound } from "../lib/errors";
+import { listBranches } from "../services/git";
 
 const app = new Hono();
 
@@ -44,6 +45,34 @@ app.get("/:id", async (c) => {
   }
 
   return c.json(result[0]);
+});
+
+// GET /v1/repositories/:id/branches - List branches in a repository
+app.get("/:id/branches", async (c) => {
+  const id = c.req.param("id");
+  const result = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, id));
+
+  if (result.length === 0) {
+    return notFound(c, "Repository");
+  }
+
+  const repository = result[0];
+
+  try {
+    const branches = await listBranches(repository.path);
+    return c.json({ branches });
+  } catch (error) {
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to list branches",
+      },
+      500,
+    );
+  }
 });
 
 // PUT /v1/repositories/:id - Update a repository
