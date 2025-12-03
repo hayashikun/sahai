@@ -288,20 +288,20 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
           </Link>
         </Button>
 
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
               {repository.name}
             </h1>
-            <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-              <span className="font-mono">{repository.path}</span>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-sm text-gray-500">
+              <span className="font-mono break-all">{repository.path}</span>
               <span className="flex items-center gap-1">
                 <GitBranch className="h-4 w-4" />
                 {repository.defaultBranch}
               </span>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <Dialog
               open={editOpen}
               onOpenChange={(open) => {

@@ -26,7 +26,7 @@ export function DroppableColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-lg p-3 min-h-[200px] transition-colors border-2",
+        "rounded-lg p-3 min-h-[80px] sm:min-h-[200px] transition-colors border-2",
         !isActive && "bg-gray-100/50 border-transparent",
         isActive && !isValidDrop && "bg-gray-100/50 border-transparent",
         isActive && isValidDrop && !isOver && "bg-green-50 border-transparent",
