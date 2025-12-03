@@ -1,4 +1,4 @@
-import { FolderKanban, GitFork, LayoutDashboard } from "lucide-react";
+import { FolderKanban, GitFork, Github, LayoutDashboard } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "../lib/utils";
 
@@ -36,6 +36,17 @@ export function Layout() {
               );
             })}
           </nav>
+          <div className="ml-auto">
+            <a
+              href="https://github.com/hayashikun/sahai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+              aria-label="GitHub repository"
+            >
+              <Github className="h-5 w-5" />
+            </a>
+          </div>
         </div>
       </header>
       <main className="container mx-auto px-4 py-6">
