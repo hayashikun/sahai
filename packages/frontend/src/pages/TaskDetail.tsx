@@ -714,8 +714,15 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const prevLogsLengthRef = useRef(logs.length);
+  const hasInitialScrolledRef = useRef(false);
 
   useEffect(() => {
+    // Initial scroll to bottom on mount
+    if (!hasInitialScrolledRef.current && logsEndRef.current) {
+      hasInitialScrolledRef.current = true;
+      logsEndRef.current.scrollIntoView({ behavior: "instant" });
+    }
+
     if (prevLogsLengthRef.current !== logs.length) {
       prevLogsLengthRef.current = logs.length;
 
