@@ -713,19 +713,25 @@ interface ExecutionLogsProps {
 function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
+  const prevLogsLengthRef = useRef(logs.length);
 
   useEffect(() => {
-    const container = logsContainerRef.current;
-    if (!container || !logsEndRef.current) return;
+    if (prevLogsLengthRef.current !== logs.length) {
+      prevLogsLengthRef.current = logs.length;
 
-    // Check if user is at the bottom (with 50px threshold)
-    const isAtBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+      const container = logsContainerRef.current;
+      if (!container || !logsEndRef.current) return;
 
-    if (isAtBottom) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      // Check if user is at the bottom (with 50px threshold)
+      const isAtBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight <
+        50;
+
+      if (isAtBottom) {
+        logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     }
-  }, [logs]);
+  });
 
   return (
     <Card>
