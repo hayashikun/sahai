@@ -16,8 +16,8 @@ import {
   invalidStateTransition,
   notFound,
 } from "../lib/errors";
-import { createBranch, deleteBranch, getDiff } from "../services/git";
 import { playSuccessSound } from "../lib/sound";
+import { createBranch, deleteBranch, getDiff } from "../services/git";
 import { createWorktree, deleteWorktree } from "../services/worktree";
 
 // In-memory store for active executors
