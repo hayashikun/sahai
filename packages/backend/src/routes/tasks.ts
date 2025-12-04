@@ -1,13 +1,13 @@
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { isExecutorEnabled } from "../config/agent";
 import { getTerminalConfig } from "../config/terminal";
 import { db } from "../db/client";
-import { executionLogs, repositories, tasks } from "../db/schema";
+import { executionLogs, repositories, taskMessages, tasks } from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
 import { CodexExecutor } from "../executors/codex";
 import { CopilotExecutor } from "../executors/copilot";
@@ -51,7 +51,13 @@ function withExecutingStatus<T extends { id: string }>(
   };
 }
 
-// Handle executor completion: update task status to InReview
+// Forward declaration for circular dependency
+let startExecutorWithMessage: (
+  taskId: string,
+  message: string,
+) => Promise<void>;
+
+// Handle executor completion: process pending messages or update task status to InReview
 async function handleExecutorExit(taskId: string): Promise<void> {
   console.log(`[handleExecutorExit] Called for task ${taskId}`);
   const now = new Date().toISOString();
@@ -70,47 +76,120 @@ async function handleExecutorExit(taskId: string): Promise<void> {
   const task = taskResult[0];
   console.log(`[handleExecutorExit] Task status: ${task.status}`);
 
-  // Only transition to InReview if currently InProgress
-  if (task.status === "InProgress") {
-    console.log(`[handleExecutorExit] Transitioning to InReview`);
-    await db
-      .update(tasks)
-      .set({
-        status: "InReview",
-        updatedAt: now,
-      })
-      .where(eq(tasks.id, taskId));
+  // Only process if currently InProgress
+  if (task.status !== "InProgress") {
+    console.log(
+      `[handleExecutorExit] Not processing - status is not InProgress`,
+    );
+    return;
+  }
 
-    // Broadcast status change via logs
+  // Check for pending messages in the queue
+  const pendingMessages = await db
+    .select()
+    .from(taskMessages)
+    .where(eq(taskMessages.taskId, taskId))
+    .orderBy(asc(taskMessages.createdAt));
+
+  const nextMessage = pendingMessages.find((m) => m.status === "pending");
+
+  if (nextMessage) {
+    console.log(
+      `[handleExecutorExit] Found pending message ${nextMessage.id}, processing...`,
+    );
+
+    // Mark message as delivered
+    await db
+      .update(taskMessages)
+      .set({
+        status: "delivered",
+        deliveredAt: now,
+      })
+      .where(eq(taskMessages.id, nextMessage.id));
+
+    // Broadcast message delivered event
+    broadcastMessageEvent(taskId, {
+      type: "message-delivered",
+      taskId,
+      messageId: nextMessage.id,
+      deliveredAt: now,
+    });
+
+    // Log the message delivery
     const log = {
       id: crypto.randomUUID(),
       taskId,
-      content: "[system] Executor completed. Task moved to InReview.",
+      content: `[system] Processing queued message: ${nextMessage.content.substring(0, 100)}${nextMessage.content.length > 100 ? "..." : ""}`,
       logType: "system",
       createdAt: now,
     };
     await db.insert(executionLogs).values(log);
     broadcastLog(log);
 
-    // Broadcast task status changed event for Kanban real-time updates
-    broadcastTaskEvent(task.repositoryId, {
-      type: "task-status-changed",
-      taskId,
-      oldStatus: "InProgress",
-      newStatus: "InReview",
-      isExecuting: false,
-      updatedAt: now,
-    });
+    // Start executor with the next message
+    try {
+      await startExecutorWithMessage(taskId, nextMessage.content);
+    } catch (error) {
+      console.error(
+        `[handleExecutorExit] Failed to start executor with message: ${error}`,
+      );
+      // Mark message as failed
+      await db
+        .update(taskMessages)
+        .set({ status: "failed" })
+        .where(eq(taskMessages.id, nextMessage.id));
 
-    // Play success sound notification
-    playSuccessSound();
-
-    console.log(`[handleExecutorExit] Transition complete`);
+      // Fall through to transition to InReview
+      await transitionToInReview(taskId, task.repositoryId, now);
+    }
   } else {
-    console.log(
-      `[handleExecutorExit] Not transitioning - status is not InProgress`,
-    );
+    // No pending messages, transition to InReview
+    await transitionToInReview(taskId, task.repositoryId, now);
   }
+}
+
+// Helper function to transition task to InReview
+async function transitionToInReview(
+  taskId: string,
+  repositoryId: string,
+  now: string,
+): Promise<void> {
+  console.log(
+    `[transitionToInReview] Transitioning task ${taskId} to InReview`,
+  );
+  await db
+    .update(tasks)
+    .set({
+      status: "InReview",
+      updatedAt: now,
+    })
+    .where(eq(tasks.id, taskId));
+
+  // Broadcast status change via logs
+  const log = {
+    id: crypto.randomUUID(),
+    taskId,
+    content: "[system] Executor completed. Task moved to InReview.",
+    logType: "system",
+    createdAt: now,
+  };
+  await db.insert(executionLogs).values(log);
+  broadcastLog(log);
+
+  // Broadcast task status changed event for Kanban real-time updates
+  broadcastTaskEvent(repositoryId, {
+    type: "task-status-changed",
+    taskId,
+    oldStatus: "InProgress",
+    newStatus: "InReview",
+    isExecuting: false,
+    updatedAt: now,
+  });
+
+  // Play success sound notification
+  playSuccessSound();
+
+  console.log(`[transitionToInReview] Transition complete`);
 }
 
 async function runCommand(
@@ -320,6 +399,59 @@ function subscribeToRepositoryTasks(
 
 function broadcastTaskEvent(repositoryId: string, event: TaskEvent): void {
   const subscribers = repositoryTaskSubscribers.get(repositoryId);
+  if (subscribers) {
+    for (const callback of subscribers) {
+      callback(event);
+    }
+  }
+}
+
+// SSE subscribers per task (for message events)
+type MessageEvent =
+  | {
+      type: "message-queued";
+      taskId: string;
+      message: {
+        id: string;
+        taskId: string;
+        content: string;
+        status: string;
+        createdAt: string;
+        deliveredAt: string | null;
+      };
+    }
+  | {
+      type: "message-delivered";
+      taskId: string;
+      messageId: string;
+      deliveredAt: string;
+    };
+
+type MessageEventSubscriber = (event: MessageEvent) => void;
+const messageSubscribers = new Map<string, Set<MessageEventSubscriber>>();
+
+function subscribeToMessages(
+  taskId: string,
+  callback: MessageEventSubscriber,
+): () => void {
+  if (!messageSubscribers.has(taskId)) {
+    messageSubscribers.set(taskId, new Set());
+  }
+  messageSubscribers.get(taskId)?.add(callback);
+
+  return () => {
+    const subscribers = messageSubscribers.get(taskId);
+    if (subscribers) {
+      subscribers.delete(callback);
+      if (subscribers.size === 0) {
+        messageSubscribers.delete(taskId);
+      }
+    }
+  };
+}
+
+function broadcastMessageEvent(taskId: string, event: MessageEvent): void {
+  const subscribers = messageSubscribers.get(taskId);
   if (subscribers) {
     for (const callback of subscribers) {
       callback(event);
@@ -1102,4 +1234,309 @@ taskById.post("/:id/recreate", async (c) => {
   });
 
   return c.json(withExecutingStatus(newTask), 201);
+});
+
+// Initialize startExecutorWithMessage function
+startExecutorWithMessage = async (
+  taskId: string,
+  message: string,
+): Promise<void> => {
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
+  if (taskResult.length === 0) {
+    throw new Error("Task not found");
+  }
+
+  const task = taskResult[0];
+
+  if (!task.worktreePath) {
+    throw new Error("Task has no worktree");
+  }
+
+  // Check if the executor/agent is enabled
+  const isEnabled = await isExecutorEnabled(task.executor);
+  if (!isEnabled) {
+    throw new Error(`Agent "${task.executor}" is disabled in settings`);
+  }
+
+  // Create and start executor
+  const executor = createExecutor(task.executor);
+
+  executor.onOutput(async (output) => {
+    const log = {
+      id: crypto.randomUUID(),
+      taskId,
+      content: output.content,
+      logType: output.logType,
+      createdAt: new Date().toISOString(),
+    };
+    await db.insert(executionLogs).values(log);
+    broadcastLog(log);
+  });
+
+  executor.onExit(() => {
+    handleExecutorExit(taskId);
+  });
+
+  executor.onSessionId(async (sessionId) => {
+    console.log(
+      `[startExecutorWithMessage] Saving session ID ${sessionId} for task ${taskId}`,
+    );
+    await db
+      .update(tasks)
+      .set({ sessionId, updatedAt: new Date().toISOString() })
+      .where(eq(tasks.id, taskId));
+  });
+
+  await executor.start({
+    taskId,
+    workingDirectory: task.worktreePath,
+    prompt: message,
+    sessionId: task.sessionId ?? undefined,
+  });
+
+  activeExecutors.set(taskId, executor);
+};
+
+// GET /v1/tasks/:id/messages - Get message queue for a task
+taskById.get("/:id/messages", async (c) => {
+  const id = c.req.param("id");
+
+  // Check if task exists
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return notFound(c, "Task");
+  }
+
+  // Get messages ordered by createdAt ascending (oldest first)
+  const messages = await db
+    .select()
+    .from(taskMessages)
+    .where(eq(taskMessages.taskId, id))
+    .orderBy(asc(taskMessages.createdAt));
+
+  return c.json(messages);
+});
+
+// POST /v1/tasks/:id/messages - Queue a new message for a task
+taskById.post("/:id/messages", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json();
+  const now = new Date().toISOString();
+
+  // Validate content
+  if (
+    !body.content ||
+    typeof body.content !== "string" ||
+    body.content.trim() === ""
+  ) {
+    return badRequest(c, "Message content is required");
+  }
+
+  // Check if task exists
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return notFound(c, "Task");
+  }
+
+  const task = taskResult[0];
+
+  // Only allow queueing messages for InProgress or InReview tasks
+  if (task.status !== "InProgress" && task.status !== "InReview") {
+    return badRequest(
+      c,
+      "Messages can only be queued for tasks that are InProgress or InReview",
+    );
+  }
+
+  const messageId = crypto.randomUUID();
+  const newMessage = {
+    id: messageId,
+    taskId: id,
+    content: body.content.trim(),
+    status: "pending" as const,
+    createdAt: now,
+    deliveredAt: null,
+  };
+
+  await db.insert(taskMessages).values(newMessage);
+
+  // Broadcast message queued event
+  broadcastMessageEvent(id, {
+    type: "message-queued",
+    taskId: id,
+    message: newMessage,
+  });
+
+  // If the executor is not currently running (InReview state), start it with the message
+  if (!activeExecutors.has(id) && task.status === "InReview") {
+    try {
+      // Mark message as delivered
+      await db
+        .update(taskMessages)
+        .set({
+          status: "delivered",
+          deliveredAt: now,
+        })
+        .where(eq(taskMessages.id, messageId));
+
+      // Update task status to InProgress
+      await db
+        .update(tasks)
+        .set({
+          status: "InProgress",
+          updatedAt: now,
+        })
+        .where(eq(tasks.id, id));
+
+      // Broadcast message delivered event
+      broadcastMessageEvent(id, {
+        type: "message-delivered",
+        taskId: id,
+        messageId,
+        deliveredAt: now,
+      });
+
+      // Broadcast task status changed event
+      broadcastTaskEvent(task.repositoryId, {
+        type: "task-status-changed",
+        taskId: id,
+        oldStatus: "InReview",
+        newStatus: "InProgress",
+        isExecuting: true,
+        updatedAt: now,
+      });
+
+      // Start the executor
+      await startExecutorWithMessage(id, body.content.trim());
+
+      // Return the updated message
+      const updatedMessage = await db
+        .select()
+        .from(taskMessages)
+        .where(eq(taskMessages.id, messageId));
+
+      return c.json(updatedMessage[0], 201);
+    } catch (error) {
+      console.error(`Failed to start executor with message: ${error}`);
+      // Mark message as failed
+      await db
+        .update(taskMessages)
+        .set({ status: "failed" })
+        .where(eq(taskMessages.id, messageId));
+
+      return internalError(
+        c,
+        `Failed to start executor with message: ${error}`,
+      );
+    }
+  }
+
+  return c.json(newMessage, 201);
+});
+
+// DELETE /v1/tasks/:id/messages/:messageId - Delete a pending message
+taskById.delete("/:id/messages/:messageId", async (c) => {
+  const id = c.req.param("id");
+  const messageId = c.req.param("messageId");
+
+  // Check if task exists
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return notFound(c, "Task");
+  }
+
+  // Check if message exists
+  const messageResult = await db
+    .select()
+    .from(taskMessages)
+    .where(eq(taskMessages.id, messageId));
+
+  if (messageResult.length === 0) {
+    return notFound(c, "Message");
+  }
+
+  const message = messageResult[0];
+
+  // Only allow deleting pending messages
+  if (message.status !== "pending") {
+    return badRequest(c, "Only pending messages can be deleted");
+  }
+
+  // Verify the message belongs to this task
+  if (message.taskId !== id) {
+    return notFound(c, "Message");
+  }
+
+  await db.delete(taskMessages).where(eq(taskMessages.id, messageId));
+
+  return c.json({ message: "Message deleted" });
+});
+
+// GET /v1/tasks/:id/messages/stream - Stream message events via SSE
+taskById.get("/:id/messages/stream", async (c) => {
+  const id = c.req.param("id");
+
+  // Check if task exists
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return notFound(c, "Task");
+  }
+
+  return streamSSE(c, async (stream) => {
+    let eventId = 0;
+
+    const unsubscribe = subscribeToMessages(id, (event) => {
+      stream.writeSSE({
+        data: JSON.stringify(event),
+        event: event.type,
+        id: String(eventId++),
+      });
+    });
+
+    // Send initial connection event
+    await stream.writeSSE({
+      data: JSON.stringify({ taskId: id, status: "connected" }),
+      event: "connected",
+      id: String(eventId++),
+    });
+
+    // Keep connection alive with periodic heartbeats
+    const heartbeat = setInterval(() => {
+      stream.writeSSE({
+        data: "",
+        event: "heartbeat",
+        id: String(eventId++),
+      });
+    }, 30000);
+
+    // Clean up on disconnect
+    stream.onAbort(() => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+
+    // Keep the stream open
+    await new Promise(() => {});
+  });
+});
+
+// GET /v1/tasks/:id/messages/pending/count - Get count of pending messages
+taskById.get("/:id/messages/pending/count", async (c) => {
+  const id = c.req.param("id");
+
+  // Check if task exists
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (taskResult.length === 0) {
+    return notFound(c, "Task");
+  }
+
+  // Get pending message count
+  const messages = await db
+    .select()
+    .from(taskMessages)
+    .where(eq(taskMessages.taskId, id));
+
+  const pendingCount = messages.filter((m) => m.status === "pending").length;
+
+  return c.json({ count: pendingCount });
 });

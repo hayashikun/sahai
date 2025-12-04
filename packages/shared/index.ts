@@ -16,6 +16,10 @@ export type Executor = z.infer<typeof Executor>;
 export const LogType = z.enum(["stdout", "stderr", "system"]);
 export type LogType = z.infer<typeof LogType>;
 
+// MessageStatus enum
+export const MessageStatus = z.enum(["pending", "delivered", "failed"]);
+export type MessageStatus = z.infer<typeof MessageStatus>;
+
 // Project schema - parses API response and transforms dates
 export const Project = z.object({
   id: z.string(),
@@ -94,11 +98,27 @@ export const ExecutionLog = z.object({
 });
 export type ExecutionLog = z.infer<typeof ExecutionLog>;
 
+// TaskMessage schema (for message queue)
+export const TaskMessage = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  content: z.string(),
+  status: MessageStatus,
+  createdAt: z.coerce.date(),
+  deliveredAt: z.coerce
+    .date()
+    .nullable()
+    .transform(nullToUndefined)
+    .pipe(z.date().optional()),
+});
+export type TaskMessage = z.infer<typeof TaskMessage>;
+
 // Array schemas for parsing lists
 export const ProjectArray = z.array(Project);
 export const RepositoryArray = z.array(Repository);
 export const TaskArray = z.array(Task);
 export const ExecutionLogArray = z.array(ExecutionLog);
+export const TaskMessageArray = z.array(TaskMessage);
 
 // Error codes
 export const ErrorCode = z.enum([
@@ -212,6 +232,12 @@ export const CreateTaskInputSchema = z.object({
 });
 export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>;
 
+// Message creation input
+export const CreateMessageInputSchema = z.object({
+  content: z.string().min(1),
+});
+export type CreateMessageInput = z.infer<typeof CreateMessageInputSchema>;
+
 // Agent configuration types
 export const AgentType = z.enum(["claudeCode", "codex", "copilot", "gemini"]);
 export type AgentType = z.infer<typeof AgentType>;
@@ -271,3 +297,25 @@ export const TaskEventSchema = z.discriminatedUnion("type", [
   TaskDeletedEventSchema,
 ]);
 export type TaskEvent = z.infer<typeof TaskEventSchema>;
+
+// Message event schemas for SSE streaming
+export const MessageQueuedEventSchema = z.object({
+  type: z.literal("message-queued"),
+  taskId: z.string(),
+  message: TaskMessage,
+});
+export type MessageQueuedEvent = z.infer<typeof MessageQueuedEventSchema>;
+
+export const MessageDeliveredEventSchema = z.object({
+  type: z.literal("message-delivered"),
+  taskId: z.string(),
+  messageId: z.string(),
+  deliveredAt: z.string(),
+});
+export type MessageDeliveredEvent = z.infer<typeof MessageDeliveredEventSchema>;
+
+export const MessageEventSchema = z.discriminatedUnion("type", [
+  MessageQueuedEventSchema,
+  MessageDeliveredEventSchema,
+]);
+export type MessageEvent = z.infer<typeof MessageEventSchema>;

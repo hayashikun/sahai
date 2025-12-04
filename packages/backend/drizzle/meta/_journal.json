@@ -22,6 +22,13 @@
       "when": 1764774898360,
       "tag": "0002_greedy_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1764832561691,
+      "tag": "0003_tranquil_hardball",
+      "breakpoints": true
     }
   ]
 }

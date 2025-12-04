@@ -1,4 +1,7 @@
 import type {
+  MessageDeliveredEvent,
+  MessageEvent,
+  MessageQueuedEvent,
   TaskCreatedEvent,
   TaskDeletedEvent,
   TaskEvent,
@@ -9,6 +12,9 @@ import {
   ExecutionLogArray,
   type ExecutionLog as ExecutionLogType,
   Task,
+  TaskMessage,
+  TaskMessageArray,
+  type TaskMessage as TaskMessageType,
   type Task as TaskType,
 } from "shared";
 import { API_BASE_URL, apiDelete, apiPost, apiPut, fetcher } from "./client";
@@ -18,6 +24,9 @@ export type {
   TaskStatusChangedEvent,
   TaskCreatedEvent,
   TaskDeletedEvent,
+  MessageEvent,
+  MessageQueuedEvent,
+  MessageDeliveredEvent,
 };
 
 export async function getTask(taskId: string): Promise<TaskType> {
@@ -119,6 +128,50 @@ export function parseLogEvent(data: string): ExecutionLogType | null {
 export function parseTaskEvent(data: string): TaskEvent | null {
   try {
     return JSON.parse(data) as TaskEvent;
+  } catch {
+    return null;
+  }
+}
+
+// Message Queue API functions
+export async function getTaskMessages(
+  taskId: string,
+): Promise<TaskMessageType[]> {
+  const data = await fetcher(`/tasks/${taskId}/messages`);
+  return TaskMessageArray.parse(data);
+}
+
+export async function queueMessage(
+  taskId: string,
+  content: string,
+): Promise<TaskMessageType> {
+  const data = await apiPost(`/tasks/${taskId}/messages`, { content });
+  return TaskMessage.parse(data);
+}
+
+export async function deleteQueuedMessage(
+  taskId: string,
+  messageId: string,
+): Promise<void> {
+  await apiDelete(`/tasks/${taskId}/messages/${messageId}`);
+}
+
+export async function getPendingMessageCount(
+  taskId: string,
+): Promise<{ count: number }> {
+  const data = await fetcher(`/tasks/${taskId}/messages/pending/count`);
+  return data as { count: number };
+}
+
+// SSE stream URL for message events
+export function getTaskMessagesStreamUrl(taskId: string): string {
+  return `${API_BASE_URL}/tasks/${taskId}/messages/stream`;
+}
+
+// Parse SSE message event
+export function parseMessageEvent(data: string): MessageEvent | null {
+  try {
+    return JSON.parse(data) as MessageEvent;
   } catch {
     return null;
   }
