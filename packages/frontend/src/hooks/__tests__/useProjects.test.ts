@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { Project, ProjectArray, RepositoryArray } from "shared/schemas";
+import { Project, ProjectArray, RepositoryArray } from "shared";
 
 const originalFetch = globalThis.fetch;
 

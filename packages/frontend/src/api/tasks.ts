@@ -1,11 +1,24 @@
+import type {
+  TaskCreatedEvent,
+  TaskDeletedEvent,
+  TaskEvent,
+  TaskStatusChangedEvent,
+} from "shared";
 import {
   ExecutionLog,
   ExecutionLogArray,
   type ExecutionLog as ExecutionLogType,
   Task,
   type Task as TaskType,
-} from "shared/schemas";
+} from "shared";
 import { API_BASE_URL, apiDelete, apiPost, apiPut, fetcher } from "./client";
+
+export type {
+  TaskEvent,
+  TaskStatusChangedEvent,
+  TaskCreatedEvent,
+  TaskDeletedEvent,
+};
 
 export async function getTask(taskId: string): Promise<TaskType> {
   const data = await fetcher(`/tasks/${taskId}`);
@@ -101,33 +114,6 @@ export function parseLogEvent(data: string): ExecutionLogType | null {
     return null;
   }
 }
-
-// Task event types for SSE
-export type TaskStatusChangedEvent = {
-  type: "task-status-changed";
-  taskId: string;
-  oldStatus: string;
-  newStatus: string;
-  isExecuting: boolean;
-  updatedAt: string;
-};
-
-export type TaskCreatedEvent = {
-  type: "task-created";
-  task: TaskType;
-  createdAt: string;
-};
-
-export type TaskDeletedEvent = {
-  type: "task-deleted";
-  taskId: string;
-  deletedAt: string;
-};
-
-export type TaskEvent =
-  | TaskStatusChangedEvent
-  | TaskCreatedEvent
-  | TaskDeletedEvent;
 
 // Parse SSE task event
 export function parseTaskEvent(data: string): TaskEvent | null {

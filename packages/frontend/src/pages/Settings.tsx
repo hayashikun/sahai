@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { Settings as SettingsData, SettingsUpdate } from "shared/schemas";
+import type { Settings as SettingsData, SettingsUpdate } from "shared";
 import {
   getSettings,
   getSounds,

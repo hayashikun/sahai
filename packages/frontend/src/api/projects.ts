@@ -3,7 +3,7 @@ import {
   ProjectRepository,
   type ProjectRepository as ProjectRepositoryType,
   type Project as ProjectType,
-} from "shared/schemas";
+} from "shared";
 import { apiDelete, apiPost, apiPut } from "./client";
 
 export async function createProject(

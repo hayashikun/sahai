@@ -1,4 +1,4 @@
-import { Project, ProjectArray, RepositoryArray } from "shared/schemas";
+import { Project, ProjectArray, RepositoryArray } from "shared";
 import useSWR from "swr";
 import { fetcher } from "../api/client";
 

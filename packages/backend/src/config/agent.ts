@@ -1,22 +1,12 @@
 import { eq } from "drizzle-orm";
+import type { AgentConfig, AgentType } from "shared";
+import { executorToAgentKey } from "shared";
 import { db } from "../db/client";
 import { settings } from "../db/schema";
 import { AGENT_DEFAULTS } from "./defaults";
 
-export type AgentType = "claudeCode" | "codex" | "copilot" | "gemini";
-
-// Map executor names to agent keys
-export const executorToAgentKey: Record<string, AgentType> = {
-  ClaudeCode: "claudeCode",
-  Codex: "codex",
-  Copilot: "copilot",
-  Gemini: "gemini",
-};
-
-export interface AgentConfig {
-  enabled: boolean;
-  path: string;
-}
+export type { AgentType, AgentConfig };
+export { executorToAgentKey };
 
 export async function getAgentConfig(agent: AgentType): Promise<AgentConfig> {
   const enabledKey = `agent.${agent}.enabled`;

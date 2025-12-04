@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type ExecutionLog, ExecutionLogArray, Task } from "shared/schemas";
+import { type ExecutionLog, ExecutionLogArray, Task } from "shared";
 import useSWR from "swr";
 import {
   fetcher,
