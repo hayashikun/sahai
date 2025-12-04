@@ -1,5 +1,5 @@
-import type { NotificationTrigger } from "@anthropic/shared/schemas";
 import { eq } from "drizzle-orm";
+import type { NotificationTrigger } from "shared";
 import { db } from "../db/client";
 import { settings } from "../db/schema";
 import { NOTIFICATION_DEFAULTS } from "./defaults";
