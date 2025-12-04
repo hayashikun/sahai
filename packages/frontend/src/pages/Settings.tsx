@@ -560,7 +560,8 @@ function AgentCard({
             variant="outline"
             onClick={handleReset}
             disabled={saving || !enabled}
-            size="icon"
+            size="sm"
+            className="px-2"
             title="Reset to default"
           >
             <RefreshCw className="h-4 w-4" />
