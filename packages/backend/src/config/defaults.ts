@@ -9,7 +9,7 @@ export const TERMINAL_DEFAULTS = {
 // General > Notification
 export const NOTIFICATION_DEFAULTS = {
   enabled: true,
-  trigger: "completed" as const,
+  trigger: "all" as const,
   sound: null,
 } as const;
 
