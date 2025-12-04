@@ -7,11 +7,6 @@ import { isExecutorEnabled } from "../config/agent";
 import { getTerminalConfig } from "../config/terminal";
 import { db } from "../db/client";
 import { executionLogs, repositories, taskMessages, tasks } from "../db/schema";
-import { ClaudeCodeExecutor } from "../executors/claude";
-import { CodexExecutor } from "../executors/codex";
-import { CopilotExecutor } from "../executors/copilot";
-import { GeminiExecutor } from "../executors/gemini";
-import type { Executor } from "../executors/interface";
 import {
   badRequest,
   internalError,
@@ -25,35 +20,15 @@ import {
   createSSEStream,
 } from "../lib/sse";
 import { createBranch, deleteBranch, getDiff } from "../services/git";
+import {
+  createExecutor,
+  getExecutor,
+  isExecutorActive,
+  removeExecutor,
+  setExecutor,
+  withExecutingStatus,
+} from "../services/task";
 import { createWorktree, deleteWorktree } from "../services/worktree";
-
-// In-memory store for active executors
-const activeExecutors = new Map<string, Executor>();
-
-function createExecutor(type: string): Executor {
-  switch (type) {
-    case "ClaudeCode":
-      return new ClaudeCodeExecutor();
-    case "Codex":
-      return new CodexExecutor();
-    case "Copilot":
-      return new CopilotExecutor();
-    case "Gemini":
-      return new GeminiExecutor();
-    default:
-      throw new Error(`Unsupported executor type: ${type}`);
-  }
-}
-
-// Add isExecuting field to task based on activeExecutors
-function withExecutingStatus<T extends { id: string }>(
-  task: T,
-): T & { isExecuting: boolean } {
-  return {
-    ...task,
-    isExecuting: activeExecutors.has(task.id),
-  };
-}
 
 // Forward declaration for circular dependency
 let startExecutorWithMessage: (
@@ -67,7 +42,7 @@ async function handleExecutorExit(taskId: string): Promise<void> {
   const now = new Date().toISOString();
 
   // Remove from active executors
-  activeExecutors.delete(taskId);
+  removeExecutor(taskId);
   console.log(`[handleExecutorExit] Removed task from activeExecutors`);
 
   // Get current task status
@@ -529,7 +504,7 @@ taskById.put("/:id", async (c) => {
       taskId: id,
       oldStatus,
       newStatus,
-      isExecuting: activeExecutors.has(id),
+      isExecuting: isExecutorActive(id),
       updatedAt: now,
     });
   }
@@ -784,7 +759,7 @@ taskById.post("/:id/start", async (c) => {
       prompt: task.description ?? task.title,
     });
 
-    activeExecutors.set(id, executor);
+    setExecutor(id, executor);
 
     // Broadcast task status changed event
     broadcastTaskEvent(task.repositoryId, {
@@ -820,10 +795,10 @@ taskById.post("/:id/pause", async (c) => {
     return invalidStateTransition(c, task.status, ["InProgress"], "pause");
   }
 
-  const executor = activeExecutors.get(id);
+  const executor = getExecutor(id);
   if (executor) {
     await executor.stop();
-    activeExecutors.delete(id);
+    removeExecutor(id);
   }
 
   await db.update(tasks).set({ updatedAt: now }).where(eq(tasks.id, id));
@@ -849,10 +824,10 @@ taskById.post("/:id/complete", async (c) => {
   }
 
   // Stop executor if running
-  const executor = activeExecutors.get(id);
+  const executor = getExecutor(id);
   if (executor) {
     await executor.stop();
-    activeExecutors.delete(id);
+    removeExecutor(id);
   }
 
   await db
@@ -910,10 +885,10 @@ taskById.post("/:id/resume", async (c) => {
   }
 
   // Stop existing executor if running
-  const existingExecutor = activeExecutors.get(id);
+  const existingExecutor = getExecutor(id);
   if (existingExecutor) {
     await existingExecutor.stop();
-    activeExecutors.delete(id);
+    removeExecutor(id);
   }
 
   try {
@@ -961,7 +936,7 @@ taskById.post("/:id/resume", async (c) => {
       sessionId: task.sessionId ?? undefined,
     });
 
-    activeExecutors.set(id, executor);
+    setExecutor(id, executor);
 
     // Update status to InProgress if it was InReview
     if (task.status === "InReview") {
@@ -1156,7 +1131,7 @@ startExecutorWithMessage = async (
     sessionId: task.sessionId ?? undefined,
   });
 
-  activeExecutors.set(taskId, executor);
+  setExecutor(taskId, executor);
 };
 
 // GET /v1/tasks/:id/messages - Get message queue for a task
@@ -1230,7 +1205,7 @@ taskById.post("/:id/messages", async (c) => {
   });
 
   // If the executor is not currently running (InReview state), start it with the message
-  if (!activeExecutors.has(id) && task.status === "InReview") {
+  if (!isExecutorActive(id) && task.status === "InReview") {
     try {
       // Mark message as delivered
       await db

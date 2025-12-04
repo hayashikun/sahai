@@ -5,6 +5,7 @@ import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { runMigrations } from "./db/client";
 import filesystem from "./routes/filesystem";
+import mcp from "./routes/mcp";
 import projectRepositories from "./routes/project-repositories";
 import projects from "./routes/projects";
 import repositories from "./routes/repositories";
@@ -40,6 +41,7 @@ app.route("/v1/tasks", taskById);
 app.route("/v1/filesystem", filesystem);
 app.route("/v1/settings", settings);
 app.route("/v1/sounds", sounds);
+app.route("/v1/mcp", mcp);
 
 // Serve static files in production mode
 if (staticDir) {

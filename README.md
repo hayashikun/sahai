@@ -37,6 +37,34 @@ npx sahai@latest --help        # Show help
 npx sahai@latest --version     # Show version
 ```
 
+## MCP Server Integration
+
+Sahai includes an MCP (Model Context Protocol) server that allows AI agents like Claude Code to create and manage tasks programmatically.
+
+**Endpoint:** `http://localhost:49381/v1/mcp`
+
+Add to your Claude Code MCP settings (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "sahai": {
+      "type": "url",
+      "url": "http://localhost:49381/v1/mcp"
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `create_task` | Create a new task in a repository |
+| `start_task` | Start a task (creates worktree and spawns executor) |
+| `resume_task` | Resume a paused task with optional message |
+| `get_task` | Get details of a specific task |
+
 ## Configuration
 
 | Variable | Default | Description |
