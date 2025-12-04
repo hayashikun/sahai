@@ -264,7 +264,6 @@ function GeneralSection({
               <Button
                 onClick={() => onUpdate({ "terminal.macosApp": macosApp })}
                 disabled={saving}
-                size="sm"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
@@ -291,7 +290,6 @@ function GeneralSection({
                   })
                 }
                 disabled={saving}
-                size="sm"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
@@ -549,19 +547,14 @@ function AgentCard({
                 <X className="absolute right-2 top-2.5 h-4 w-4 text-red-500" />
               )}
           </div>
-          <Button
-            onClick={handleSavePath}
-            disabled={saving || !enabled}
-            size="sm"
-          >
+          <Button onClick={handleSavePath} disabled={saving || !enabled}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
           </Button>
           <Button
             variant="outline"
             onClick={handleReset}
             disabled={saving || !enabled}
-            size="sm"
-            className="px-2"
+            size="icon"
             title="Reset to default"
           >
             <RefreshCw className="h-4 w-4" />
