@@ -10,7 +10,7 @@ export const TERMINAL_DEFAULTS = {
 export const NOTIFICATION_DEFAULTS = {
   enabled: true,
   trigger: "all" as const,
-  sound: null,
+  sound: process.platform === "darwin" ? "Glass" : null,
 } as const;
 
 // Agent
