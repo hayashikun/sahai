@@ -719,34 +719,47 @@ interface ExecutionLogsProps {
 }
 
 function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
-  const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
-  const prevLogsLengthRef = useRef(logs.length);
+  const prevLogsLengthRef = useRef(0);
+  const userScrolledUpRef = useRef(false);
   const hasInitialScrolledRef = useRef(false);
 
+  // Handle scroll events to detect if user scrolled up
+  const handleScroll = useCallback(() => {
+    const container = logsContainerRef.current;
+    if (!container) return;
+
+    const isAtBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      50;
+
+    userScrolledUpRef.current = !isAtBottom;
+  }, []);
+
+  // Initial scroll to bottom on mount
   useEffect(() => {
-    // Initial scroll to bottom on mount
-    if (!hasInitialScrolledRef.current && logsEndRef.current) {
-      hasInitialScrolledRef.current = true;
-      logsEndRef.current.scrollIntoView({ behavior: "instant" });
+    if (hasInitialScrolledRef.current) return;
+    const container = logsContainerRef.current;
+    if (!container || logs.length === 0) return;
+
+    hasInitialScrolledRef.current = true;
+    container.scrollTop = container.scrollHeight;
+    prevLogsLengthRef.current = logs.length;
+  }, [logs.length]);
+
+  // Auto-scroll when new logs arrive
+  useEffect(() => {
+    if (!hasInitialScrolledRef.current) return;
+    const container = logsContainerRef.current;
+    if (!container) return;
+
+    // If new logs arrived and user hasn't scrolled up, scroll to bottom
+    if (logs.length > prevLogsLengthRef.current && !userScrolledUpRef.current) {
+      container.scrollTop = container.scrollHeight;
     }
 
-    if (prevLogsLengthRef.current !== logs.length) {
-      prevLogsLengthRef.current = logs.length;
-
-      const container = logsContainerRef.current;
-      if (!container || !logsEndRef.current) return;
-
-      // Check if user is at the bottom (with 50px threshold)
-      const isAtBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight <
-        50;
-
-      if (isAtBottom) {
-        logsEndRef.current.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-  });
+    prevLogsLengthRef.current = logs.length;
+  }, [logs.length]);
 
   return (
     <Card>
@@ -770,6 +783,7 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
       <CardContent>
         <div
           ref={logsContainerRef}
+          onScroll={handleScroll}
           className="rounded-lg border border-gray-200 max-h-[500px] overflow-auto"
         >
           {logs.length === 0 ? (
@@ -777,29 +791,26 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
               No logs yet. Start the task to see execution logs.
             </div>
           ) : (
-            <>
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className={cn(
-                    "px-3 py-2 border-b border-gray-100 last:border-b-0 font-mono text-xs",
-                    log.logType === "stdout" && "bg-white",
-                    log.logType === "stderr" && "bg-red-50",
-                    log.logType === "system" && "bg-gray-50",
-                  )}
-                >
-                  <div className="flex justify-end mb-1">
-                    <span className="text-gray-400 text-[10px]">
-                      {formatTime(log.createdAt)}
-                    </span>
-                  </div>
-                  <pre className="whitespace-pre-wrap break-words">
-                    {parseLogContent(log.content, log.logType)}
-                  </pre>
+            logs.map((log) => (
+              <div
+                key={log.id}
+                className={cn(
+                  "px-3 py-2 border-b border-gray-100 last:border-b-0 font-mono text-xs",
+                  log.logType === "stdout" && "bg-white",
+                  log.logType === "stderr" && "bg-red-50",
+                  log.logType === "system" && "bg-gray-50",
+                )}
+              >
+                <div className="flex justify-end mb-1">
+                  <span className="text-gray-400 text-[10px]">
+                    {formatTime(log.createdAt)}
+                  </span>
                 </div>
-              ))}
-              <div ref={logsEndRef} />
-            </>
+                <pre className="whitespace-pre-wrap break-words">
+                  {parseLogContent(log.content, log.logType)}
+                </pre>
+              </div>
+            ))
           )}
         </div>
       </CardContent>
