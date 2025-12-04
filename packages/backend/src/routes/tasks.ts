@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 import { isExecutorEnabled } from "../config/agent";
 import { getTerminalConfig } from "../config/terminal";
 import { db } from "../db/client";
@@ -20,6 +19,11 @@ import {
   notFound,
 } from "../lib/errors";
 import { playSuccessSound } from "../lib/sound";
+import {
+  createEventBus,
+  createSimpleSSEStream,
+  createSSEStream,
+} from "../lib/sse";
 import { createBranch, deleteBranch, getDiff } from "../services/git";
 import { createWorktree, deleteWorktree } from "../services/worktree";
 
@@ -310,50 +314,15 @@ async function openInTerminal(path: string): Promise<void> {
   );
 }
 
-// SSE subscribers per task (for execution logs)
-type LogSubscriber = (log: {
+// SSE Event Types
+type LogEvent = {
   id: string;
   taskId: string;
   content: string;
   logType: string;
   createdAt: string;
-}) => void;
-const logSubscribers = new Map<string, Set<LogSubscriber>>();
+};
 
-function subscribeToLogs(taskId: string, callback: LogSubscriber): () => void {
-  if (!logSubscribers.has(taskId)) {
-    logSubscribers.set(taskId, new Set());
-  }
-  logSubscribers.get(taskId)?.add(callback);
-
-  // Return unsubscribe function
-  return () => {
-    const subscribers = logSubscribers.get(taskId);
-    if (subscribers) {
-      subscribers.delete(callback);
-      if (subscribers.size === 0) {
-        logSubscribers.delete(taskId);
-      }
-    }
-  };
-}
-
-function broadcastLog(log: {
-  id: string;
-  taskId: string;
-  content: string;
-  logType: string;
-  createdAt: string;
-}): void {
-  const subscribers = logSubscribers.get(log.taskId);
-  if (subscribers) {
-    for (const callback of subscribers) {
-      callback(log);
-    }
-  }
-}
-
-// SSE subscribers per repository (for task events)
 type TaskEvent =
   | {
       type: "task-status-changed";
@@ -374,39 +343,6 @@ type TaskEvent =
       deletedAt: string;
     };
 
-type TaskEventSubscriber = (event: TaskEvent) => void;
-const repositoryTaskSubscribers = new Map<string, Set<TaskEventSubscriber>>();
-
-function subscribeToRepositoryTasks(
-  repositoryId: string,
-  callback: TaskEventSubscriber,
-): () => void {
-  if (!repositoryTaskSubscribers.has(repositoryId)) {
-    repositoryTaskSubscribers.set(repositoryId, new Set());
-  }
-  repositoryTaskSubscribers.get(repositoryId)?.add(callback);
-
-  return () => {
-    const subscribers = repositoryTaskSubscribers.get(repositoryId);
-    if (subscribers) {
-      subscribers.delete(callback);
-      if (subscribers.size === 0) {
-        repositoryTaskSubscribers.delete(repositoryId);
-      }
-    }
-  };
-}
-
-function broadcastTaskEvent(repositoryId: string, event: TaskEvent): void {
-  const subscribers = repositoryTaskSubscribers.get(repositoryId);
-  if (subscribers) {
-    for (const callback of subscribers) {
-      callback(event);
-    }
-  }
-}
-
-// SSE subscribers per task (for message events)
 type MessageEvent =
   | {
       type: "message-queued";
@@ -427,36 +363,22 @@ type MessageEvent =
       deliveredAt: string;
     };
 
-type MessageEventSubscriber = (event: MessageEvent) => void;
-const messageSubscribers = new Map<string, Set<MessageEventSubscriber>>();
+// Event Buses for SSE pub/sub
+const logEventBus = createEventBus<LogEvent>();
+const taskEventBus = createEventBus<TaskEvent>();
+const messageEventBus = createEventBus<MessageEvent>();
 
-function subscribeToMessages(
-  taskId: string,
-  callback: MessageEventSubscriber,
-): () => void {
-  if (!messageSubscribers.has(taskId)) {
-    messageSubscribers.set(taskId, new Set());
-  }
-  messageSubscribers.get(taskId)?.add(callback);
+// Helper functions for broadcasting (maintain backward compatibility)
+function broadcastLog(log: LogEvent): void {
+  logEventBus.broadcast(log.taskId, log);
+}
 
-  return () => {
-    const subscribers = messageSubscribers.get(taskId);
-    if (subscribers) {
-      subscribers.delete(callback);
-      if (subscribers.size === 0) {
-        messageSubscribers.delete(taskId);
-      }
-    }
-  };
+function broadcastTaskEvent(repositoryId: string, event: TaskEvent): void {
+  taskEventBus.broadcast(repositoryId, event);
 }
 
 function broadcastMessageEvent(taskId: string, event: MessageEvent): void {
-  const subscribers = messageSubscribers.get(taskId);
-  if (subscribers) {
-    for (const callback of subscribers) {
-      callback(event);
-    }
-  }
+  messageEventBus.broadcast(taskId, event);
 }
 
 // Routes for /v1/repositories/:repositoryId/tasks
@@ -544,41 +466,11 @@ repositoryTasks.get("/:repositoryId/tasks/stream", async (c) => {
     return notFound(c, "Repository");
   }
 
-  return streamSSE(c, async (stream) => {
-    let eventId = 0;
-
-    const unsubscribe = subscribeToRepositoryTasks(repositoryId, (event) => {
-      stream.writeSSE({
-        data: JSON.stringify(event),
-        event: event.type,
-        id: String(eventId++),
-      });
-    });
-
-    // Send initial connection event
-    await stream.writeSSE({
-      data: JSON.stringify({ repositoryId, status: "connected" }),
-      event: "connected",
-      id: String(eventId++),
-    });
-
-    // Keep connection alive with periodic heartbeats
-    const heartbeat = setInterval(() => {
-      stream.writeSSE({
-        data: "",
-        event: "heartbeat",
-        id: String(eventId++),
-      });
-    }, 30000);
-
-    // Clean up on disconnect
-    stream.onAbort(() => {
-      clearInterval(heartbeat);
-      unsubscribe();
-    });
-
-    // Keep the stream open
-    await new Promise(() => {});
+  return createSSEStream<TaskEvent>(c, {
+    subscriptionKey: repositoryId,
+    subscribe: taskEventBus.subscribe,
+    getEventType: (event) => event.type,
+    connectedData: { repositoryId },
   });
 });
 
@@ -789,41 +681,11 @@ taskById.get("/:id/logs/stream", async (c) => {
     return notFound(c, "Task");
   }
 
-  return streamSSE(c, async (stream) => {
-    let eventId = 0;
-
-    const unsubscribe = subscribeToLogs(id, (log) => {
-      stream.writeSSE({
-        data: JSON.stringify(log),
-        event: "log",
-        id: String(eventId++),
-      });
-    });
-
-    // Send initial connection event
-    await stream.writeSSE({
-      data: JSON.stringify({ taskId: id, status: "connected" }),
-      event: "connected",
-      id: String(eventId++),
-    });
-
-    // Keep connection alive with periodic heartbeats
-    const heartbeat = setInterval(() => {
-      stream.writeSSE({
-        data: "",
-        event: "heartbeat",
-        id: String(eventId++),
-      });
-    }, 30000);
-
-    // Clean up on disconnect
-    stream.onAbort(() => {
-      clearInterval(heartbeat);
-      unsubscribe();
-    });
-
-    // Keep the stream open
-    await new Promise(() => {});
+  return createSimpleSSEStream<LogEvent>(c, {
+    subscriptionKey: id,
+    subscribe: logEventBus.subscribe,
+    eventType: "log",
+    connectedData: { taskId: id },
   });
 });
 
@@ -1482,41 +1344,11 @@ taskById.get("/:id/messages/stream", async (c) => {
     return notFound(c, "Task");
   }
 
-  return streamSSE(c, async (stream) => {
-    let eventId = 0;
-
-    const unsubscribe = subscribeToMessages(id, (event) => {
-      stream.writeSSE({
-        data: JSON.stringify(event),
-        event: event.type,
-        id: String(eventId++),
-      });
-    });
-
-    // Send initial connection event
-    await stream.writeSSE({
-      data: JSON.stringify({ taskId: id, status: "connected" }),
-      event: "connected",
-      id: String(eventId++),
-    });
-
-    // Keep connection alive with periodic heartbeats
-    const heartbeat = setInterval(() => {
-      stream.writeSSE({
-        data: "",
-        event: "heartbeat",
-        id: String(eventId++),
-      });
-    }, 30000);
-
-    // Clean up on disconnect
-    stream.onAbort(() => {
-      clearInterval(heartbeat);
-      unsubscribe();
-    });
-
-    // Keep the stream open
-    await new Promise(() => {});
+  return createSSEStream<MessageEvent>(c, {
+    subscriptionKey: id,
+    subscribe: messageEventBus.subscribe,
+    getEventType: (event) => event.type,
+    connectedData: { taskId: id },
   });
 });
 
