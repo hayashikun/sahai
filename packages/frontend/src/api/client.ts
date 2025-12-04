@@ -1,4 +1,4 @@
-import type { ErrorCode } from "shared/schemas";
+import type { ErrorCode } from "shared";
 
 // Use relative URL in production browser (when served by same server),
 // absolute URL in development or non-browser environments (tests)

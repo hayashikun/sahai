@@ -16,7 +16,7 @@ import {
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { ExecutionLog, Status, Task } from "shared/schemas";
+import type { ExecutionLog, Status, Task } from "shared";
 import {
   completeTask,
   deleteTask,

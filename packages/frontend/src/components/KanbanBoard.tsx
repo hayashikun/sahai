@@ -8,7 +8,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { useState } from "react";
-import type { Status, Task } from "shared/schemas";
+import type { Status, Task } from "shared";
 import { updateTaskStatus } from "../api";
 import { DroppableColumn } from "./DroppableColumn";
 import { DraggableTaskCard, TaskCard } from "./TaskCard";

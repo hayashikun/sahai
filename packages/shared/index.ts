@@ -191,3 +191,83 @@ export const PlaySoundResponseSchema = z.object({
   success: z.boolean(),
 });
 export type PlaySoundResponse = z.infer<typeof PlaySoundResponseSchema>;
+
+// API Request/Input schemas
+
+// Repository creation input
+export const CreateRepositoryInputSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  defaultBranch: z.string().optional(),
+});
+export type CreateRepositoryInput = z.infer<typeof CreateRepositoryInputSchema>;
+
+// Task creation input
+export const CreateTaskInputSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  executor: Executor,
+  branchName: z.string(),
+  baseBranch: z.string().optional(),
+});
+export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>;
+
+// Agent configuration types
+export const AgentType = z.enum(["claudeCode", "codex", "copilot", "gemini"]);
+export type AgentType = z.infer<typeof AgentType>;
+
+// Map executor names to agent keys
+export const executorToAgentKey: Record<string, AgentType> = {
+  ClaudeCode: "claudeCode",
+  Codex: "codex",
+  Copilot: "copilot",
+  Gemini: "gemini",
+};
+
+export const AgentConfigSchema = z.object({
+  enabled: z.boolean(),
+  path: z.string(),
+});
+export type AgentConfig = z.infer<typeof AgentConfigSchema>;
+
+// Task event types for SSE streaming
+export const TaskEventType = z.enum([
+  "task-status-changed",
+  "task-created",
+  "task-deleted",
+]);
+export type TaskEventType = z.infer<typeof TaskEventType>;
+
+// Task event schemas
+export const TaskStatusChangedEventSchema = z.object({
+  type: z.literal("task-status-changed"),
+  taskId: z.string(),
+  oldStatus: Status,
+  newStatus: Status,
+  isExecuting: z.boolean(),
+  updatedAt: z.string(),
+});
+export type TaskStatusChangedEvent = z.infer<
+  typeof TaskStatusChangedEventSchema
+>;
+
+export const TaskCreatedEventSchema = z.object({
+  type: z.literal("task-created"),
+  task: Task.extend({ isExecuting: z.boolean() }),
+  createdAt: z.string(),
+});
+export type TaskCreatedEvent = z.infer<typeof TaskCreatedEventSchema>;
+
+export const TaskDeletedEventSchema = z.object({
+  type: z.literal("task-deleted"),
+  taskId: z.string(),
+  deletedAt: z.string(),
+});
+export type TaskDeletedEvent = z.infer<typeof TaskDeletedEventSchema>;
+
+export const TaskEventSchema = z.discriminatedUnion("type", [
+  TaskStatusChangedEventSchema,
+  TaskCreatedEventSchema,
+  TaskDeletedEventSchema,
+]);
+export type TaskEvent = z.infer<typeof TaskEventSchema>;

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { cleanup } from "@testing-library/react";
 import { Window } from "happy-dom";
-import type { Task } from "shared/schemas";
+import type { Task } from "shared";
 import { shouldSubmitChatMessage } from "../TaskDetail";
 
 // Set up happy-dom

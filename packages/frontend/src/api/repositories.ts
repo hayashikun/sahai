@@ -1,12 +1,16 @@
 import {
+  type CreateRepositoryInput,
+  type CreateTaskInput,
   Repository,
   RepositoryArray,
   type Repository as RepositoryType,
   type Status,
   Task,
   type Task as TaskType,
-} from "shared/schemas";
+} from "shared";
 import { apiDelete, apiPost, apiPut, fetcher } from "./client";
+
+export type { CreateRepositoryInput, CreateTaskInput };
 
 // Repository CRUD operations
 
@@ -20,12 +24,6 @@ export async function getRepository(
 ): Promise<RepositoryType> {
   const data = await fetcher(`/repositories/${repositoryId}`);
   return Repository.parse(data);
-}
-
-export interface CreateRepositoryInput {
-  name: string;
-  path: string;
-  defaultBranch?: string;
 }
 
 export async function createRepository(
@@ -58,14 +56,6 @@ export async function getRepositoryBranches(
 }
 
 // Task operations for repositories
-
-export interface CreateTaskInput {
-  title: string;
-  description?: string;
-  executor: string;
-  branchName: string;
-  baseBranch?: string;
-}
 
 export async function createTask(
   repositoryId: string,

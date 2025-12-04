@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import type { ErrorCode } from "shared/schemas";
+import type { ErrorCode } from "shared";
 
 export interface ErrorResponse {
   error: {

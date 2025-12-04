@@ -1,19 +1,11 @@
 import type {
   Settings,
+  SettingsResponse,
   SettingsUpdate,
-  Sound,
+  SoundsResponse,
   ValidatePathResponse,
-} from "shared/schemas";
+} from "shared";
 import { apiPost, apiPut, fetcher } from "./client";
-
-export interface SoundsResponse {
-  sounds: Sound[];
-  platform: string;
-}
-
-interface SettingsResponse {
-  settings: Settings;
-}
 
 export async function getSettings(): Promise<Settings> {
   const response = await fetcher<SettingsResponse>("/settings");
