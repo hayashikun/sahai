@@ -38,5 +38,5 @@ export async function getSounds(): Promise<SoundsResponse> {
 }
 
 export async function playSound(name: string): Promise<void> {
-  await apiPost("/sounds/play", { name });
+  await apiPost("/sounds/play", { sound: name });
 }
