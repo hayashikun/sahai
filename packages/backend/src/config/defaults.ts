@@ -1,4 +1,4 @@
-import type { Settings } from "@anthropic/shared/schemas";
+import type { Settings } from "shared";
 
 // General > Terminal
 export const TERMINAL_DEFAULTS = {

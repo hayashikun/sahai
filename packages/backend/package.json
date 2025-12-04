@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.44.7",
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "shared": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",
