@@ -1,6 +1,6 @@
 import { access, constants } from "node:fs/promises";
-import type { Settings, SettingsUpdate } from "@anthropic/shared/schemas";
 import { Hono } from "hono";
+import type { Settings, SettingsUpdate } from "shared";
 import { SETTING_KEYS, SETTINGS_DEFAULTS } from "../config/defaults";
 import { db } from "../db/client";
 import { settings } from "../db/schema";
