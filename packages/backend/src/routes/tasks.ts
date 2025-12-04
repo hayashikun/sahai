@@ -172,9 +172,8 @@ async function openInTerminal(path: string): Promise<void> {
   const terminalConfig = await getTerminalConfig();
 
   if (platform === "darwin") {
-    // Use terminal app from settings, fallback to env var, then default
-    const terminalApp =
-      terminalConfig.macosApp || process.env.SAHAI_TERMINAL_APP || "Terminal";
+    // Use terminal app from settings, fallback to default
+    const terminalApp = terminalConfig.macosApp || "Terminal";
     await runCommand(
       ["open", "-a", terminalApp, normalizedPath],
       `Failed to open ${terminalApp} at worktree`,
@@ -196,9 +195,8 @@ async function openInTerminal(path: string): Promise<void> {
     return;
   }
 
-  // Linux: Use custom command from settings, fallback to env var
-  const customCommand =
-    terminalConfig.linuxCommand || process.env.SAHAI_TERMINAL_COMMAND;
+  // Linux: Use custom command from settings
+  const customCommand = terminalConfig.linuxCommand;
   if (customCommand) {
     const escapedPath = escapeShellPath(normalizedPath);
     const rendered = customCommand.replaceAll("{path}", `'${escapedPath}'`);
@@ -229,7 +227,7 @@ async function openInTerminal(path: string): Promise<void> {
 
   throw new Error(
     lastError?.message ??
-      "No supported terminal launcher found. Configure in Settings or set SAHAI_TERMINAL_COMMAND.",
+      "No supported terminal launcher found. Configure in Settings.",
   );
 }
 
