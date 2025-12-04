@@ -4,6 +4,7 @@ import {
   CheckCircle,
   GitBranch,
   Loader2,
+  MessageSquare,
   MoreVertical,
   Pause,
   Play,
@@ -19,6 +20,7 @@ import {
   pauseTask,
   startTask,
 } from "../api";
+import { usePendingMessageCount } from "../hooks";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -161,9 +163,28 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
             <GitBranch className="h-3 w-3" />
             {task.branchName}
           </span>
+          {(task.status === "InProgress" || task.status === "InReview") && (
+            <MessageQueueIndicator taskId={task.id} />
+          )}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function MessageQueueIndicator({ taskId }: { taskId: string }) {
+  const { count } = usePendingMessageCount(taskId);
+
+  if (count === 0) return null;
+
+  return (
+    <span
+      className="flex items-center gap-1 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded"
+      title={`${count} queued message${count === 1 ? "" : "s"}`}
+    >
+      <MessageSquare className="h-3 w-3" />
+      {count}
+    </span>
   );
 }
 

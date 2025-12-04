@@ -86,3 +86,23 @@ export const settings = sqliteTable("settings", {
   value: text("value").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const taskMessages = sqliteTable(
+  "task_messages",
+  {
+    id: text("id").primaryKey(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    status: text("status", {
+      enum: ["pending", "delivered", "failed"],
+    }).notNull(),
+    createdAt: text("created_at").notNull(),
+    deliveredAt: text("delivered_at"),
+  },
+  (table) => [
+    index("idx_task_messages_task_id").on(table.taskId),
+    index("idx_task_messages_status").on(table.status),
+  ],
+);

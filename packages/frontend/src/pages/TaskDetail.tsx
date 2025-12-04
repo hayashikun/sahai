@@ -6,25 +6,29 @@ import {
   FolderOpen,
   GitBranch,
   Loader2,
+  MessageSquare,
   Pause,
   Pencil,
   Play,
   Send,
   Terminal,
   Trash2,
+  X,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { ExecutionLog, Status, Task } from "shared";
+import type { ExecutionLog, Status, Task, TaskMessage } from "shared";
 import {
   completeTask,
+  deleteQueuedMessage,
   deleteTask,
   finishTask,
   getTaskDiff,
   openWorktreeInExplorer,
   openWorktreeInTerminal,
   pauseTask,
+  queueMessage,
   resumeTask,
   startTask,
   updateTask,
@@ -365,10 +369,14 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
 
       <ChatInput
         task={task}
+        taskId={taskId}
         message={resumeMessage}
         loading={resumeLoading}
         onMessageChange={setResumeMessage}
         onSend={handleResume}
+        onQueueMessage={async (content) => {
+          await queueMessage(taskId, content);
+        }}
       />
     </div>
   );
@@ -863,10 +871,12 @@ function formatTime(date: Date): string {
 
 interface ChatInputProps {
   task: Task;
+  taskId: string;
   message: string;
   loading: boolean;
   onMessageChange: (message: string) => void;
   onSend: () => void;
+  onQueueMessage: (content: string) => Promise<void>;
 }
 
 type KeyEventLike = Pick<
@@ -888,25 +898,156 @@ export function shouldSubmitChatMessage(
 
 export function ChatInput({
   task,
+  taskId,
   message,
   loading,
   onMessageChange,
   onSend,
+  onQueueMessage,
 }: ChatInputProps) {
-  // Can only send messages when:
-  // - Status is InReview (executor not running, waiting for input)
-  // - Status is InProgress but executor is NOT running (paused state)
-  const canSendMessage =
-    task.status === "InReview" ||
-    (task.status === "InProgress" && !task.isExecuting);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [messages, setMessages] = useState<TaskMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!shouldSubmitChatMessage(e, canSendMessage, loading)) {
+  const apiBaseUrl =
+    import.meta.env.VITE_API_URL || "http://localhost:49382/v1";
+
+  // Fetch messages
+  const fetchMessages = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/tasks/${taskId}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [taskId]);
+
+  // Refresh messages when task status changes
+  const shouldFetchMessages = task.status !== "TODO" && task.status !== "Done";
+
+  useEffect(() => {
+    if (shouldFetchMessages) {
+      fetchMessages();
+    } else {
+      setMessagesLoading(false);
+      setMessages([]);
+    }
+  }, [shouldFetchMessages, fetchMessages]);
+
+  // SSE for real-time message updates
+  useEffect(() => {
+    if (!shouldFetchMessages) {
       return;
     }
 
+    const eventSource = new EventSource(
+      `${apiBaseUrl}/tasks/${taskId}/messages/stream`,
+    );
+
+    eventSource.addEventListener("message-queued", (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.message) {
+          setMessages((prev) => [...prev, data.message]);
+        }
+      } catch (e) {
+        console.error("Failed to parse message-queued event:", e);
+      }
+    });
+
+    eventSource.addEventListener("message-delivered", (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.messageId) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === data.messageId
+                ? {
+                    ...m,
+                    status: "delivered" as const,
+                    deliveredAt: data.deliveredAt,
+                  }
+                : m,
+            ),
+          );
+        }
+      } catch (e) {
+        console.error("Failed to parse message-delivered event:", e);
+      }
+    });
+
+    eventSource.onerror = () => {
+      // Will auto-reconnect
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [taskId, shouldFetchMessages]);
+
+  // Can send messages directly when:
+  // - Status is InReview (executor not running, waiting for input)
+  // - Status is InProgress but executor is NOT running (paused state)
+  const canSendDirectly =
+    task.status === "InReview" ||
+    (task.status === "InProgress" && !task.isExecuting);
+
+  // Can queue messages when:
+  // - Status is InProgress and executor IS running
+  const canQueueMessage = task.status === "InProgress" && task.isExecuting;
+
+  // Can interact with chat at all
+  const canInteract =
+    task.status !== "TODO" &&
+    task.status !== "Done" &&
+    !loading &&
+    !queueLoading;
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter" || loading || queueLoading) return;
+
+    const hasSubmitModifier = e.metaKey || e.ctrlKey;
+    if (!hasSubmitModifier) return;
+
     e.preventDefault();
-    onSend();
+
+    if (canSendDirectly) {
+      onSend();
+    } else if (canQueueMessage && message.trim()) {
+      handleQueueMessage();
+    }
+  };
+
+  const handleQueueMessage = async () => {
+    if (!message.trim() || queueLoading) return;
+    try {
+      setQueueLoading(true);
+      await onQueueMessage(message.trim());
+      onMessageChange("");
+      // Refresh messages after queueing
+      await fetchMessages();
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    await deleteQueuedMessage(taskId, messageId);
+    // Refresh messages after deletion
+    await fetchMessages();
+  };
+
+  const handleSendOrQueue = () => {
+    if (canSendDirectly) {
+      onSend();
+    } else if (canQueueMessage && message.trim()) {
+      handleQueueMessage();
+    }
   };
 
   const getPlaceholder = () => {
@@ -917,7 +1058,7 @@ export function ChatInput({
       return "Task is completed";
     }
     if (task.isExecuting) {
-      return "Waiting for agent to complete...";
+      return "Type a message to queue for the agent...";
     }
     return "Send additional instructions to the agent...";
   };
@@ -930,36 +1071,149 @@ export function ChatInput({
       return "This task is completed. No further instructions can be sent.";
     }
     if (task.isExecuting) {
-      return "The agent is currently running. Wait for it to complete before sending new instructions.";
+      return "The agent is currently running. Messages will be queued and delivered when the agent completes.";
     }
     return null;
   };
 
   const hintText = getHintText();
+  const buttonDisabled = !canInteract || (!canSendDirectly && !canQueueMessage);
 
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex gap-2">
+      <CardContent className="p-4 space-y-3">
+        {/* Message Queue Display - above input field */}
+        {!messagesLoading && (
+          <MessageQueueDisplay
+            taskId={taskId}
+            task={task}
+            messages={messages}
+            onDelete={handleDeleteMessage}
+          />
+        )}
+
+        {/* Input area */}
+        <div className="flex gap-2 items-end">
           <Textarea
             value={message}
             onChange={(e) => onMessageChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={getPlaceholder()}
-            disabled={!canSendMessage || loading}
+            disabled={!canInteract}
             className="flex-1 min-h-[80px] resize-y"
             rows={3}
           />
-          <Button onClick={onSend} disabled={!canSendMessage || loading}>
-            {loading ? (
+          <Button
+            onClick={handleSendOrQueue}
+            disabled={buttonDisabled || !message.trim()}
+            className="h-10"
+          >
+            {loading || queueLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
+            ) : canQueueMessage ? (
+              <MessageSquare className="h-4 w-4" />
             ) : (
               <Send className="h-4 w-4" />
             )}
           </Button>
         </div>
-        {hintText && <p className="text-xs text-gray-500 mt-2">{hintText}</p>}
+        {hintText && <p className="text-xs text-gray-500">{hintText}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+interface MessageQueueDisplayProps {
+  taskId: string;
+  task: Task;
+  messages: TaskMessage[];
+  onDelete: (messageId: string) => Promise<void>;
+}
+
+function MessageQueueDisplay({
+  task,
+  messages,
+  onDelete,
+}: MessageQueueDisplayProps) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Only show if there are pending messages and task is in progress
+  const pendingMessages = messages.filter((m) => m.status === "pending");
+
+  if (
+    pendingMessages.length === 0 ||
+    task.status === "TODO" ||
+    task.status === "Done"
+  ) {
+    return null;
+  }
+
+  const handleDelete = async (messageId: string) => {
+    try {
+      setDeletingId(messageId);
+      await onDelete(messageId);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-sm text-gray-500">
+        <MessageSquare className="h-4 w-4" />
+        <span>Queued Messages ({pendingMessages.length})</span>
+      </div>
+      <div className="space-y-2">
+        {pendingMessages.map((msg, index) => (
+          <QueuedMessageItem
+            key={msg.id}
+            message={msg}
+            index={index}
+            deleting={deletingId === msg.id}
+            onDelete={() => handleDelete(msg.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface QueuedMessageItemProps {
+  message: TaskMessage;
+  index: number;
+  deleting: boolean;
+  onDelete: () => void;
+}
+
+function QueuedMessageItem({
+  message,
+  index,
+  deleting,
+  onDelete,
+}: QueuedMessageItemProps) {
+  return (
+    <div className="flex items-start gap-2 p-2 rounded-md bg-blue-50 border border-blue-200">
+      <span className="text-xs text-blue-600 font-medium mt-0.5">
+        #{index + 1}
+      </span>
+      <p className="flex-1 text-sm text-blue-800 break-words">
+        {message.content.length > 200
+          ? `${message.content.substring(0, 200)}...`
+          : message.content}
+      </p>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onDelete}
+        disabled={deleting}
+        className="h-6 w-6 p-0 text-blue-600 hover:text-red-600 hover:bg-red-50"
+      >
+        {deleting ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <X className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
   );
 }
