@@ -71,7 +71,7 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { Textarea } from "../components/ui/textarea";
-import { useTaskWithRealtimeLogs } from "../hooks";
+import { useTaskMessagesStream, useTaskWithRealtimeLogs } from "../hooks";
 import { cn } from "../lib/utils";
 
 // Parse Claude Code stream-json output to human-readable format
@@ -906,19 +906,25 @@ export function ChatInput({
   onQueueMessage,
 }: ChatInputProps) {
   const [queueLoading, setQueueLoading] = useState(false);
-  const [messages, setMessages] = useState<TaskMessage[]>([]);
+  const [initialMessages, setInitialMessages] = useState<TaskMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
 
   const apiBaseUrl =
     import.meta.env.VITE_API_URL || "http://localhost:49382/v1";
 
-  // Fetch messages
+  // Whether to enable message fetching and streaming
+  const shouldFetchMessages = task.status !== "TODO" && task.status !== "Done";
+
+  // Use SSE hook for real-time message updates
+  const { messages: streamMessages } = useTaskMessagesStream(taskId);
+
+  // Fetch initial messages
   const fetchMessages = useCallback(async () => {
     try {
       const response = await fetch(`${apiBaseUrl}/tasks/${taskId}/messages`);
       if (response.ok) {
         const data = await response.json();
-        setMessages(data);
+        setInitialMessages(data);
       }
     } catch (error) {
       console.error("Failed to fetch messages:", error);
@@ -927,68 +933,29 @@ export function ChatInput({
     }
   }, [taskId]);
 
-  // Refresh messages when task status changes
-  const shouldFetchMessages = task.status !== "TODO" && task.status !== "Done";
-
   useEffect(() => {
     if (shouldFetchMessages) {
       fetchMessages();
     } else {
       setMessagesLoading(false);
-      setMessages([]);
+      setInitialMessages([]);
     }
   }, [shouldFetchMessages, fetchMessages]);
 
-  // SSE for real-time message updates
-  useEffect(() => {
-    if (!shouldFetchMessages) {
-      return;
+  // Merge initial messages with stream messages
+  const messages = [...initialMessages];
+  for (const msg of streamMessages) {
+    const existingIndex = messages.findIndex((m) => m.id === msg.id);
+    if (existingIndex === -1) {
+      messages.push(msg);
+    } else {
+      // Update existing message with stream data
+      messages[existingIndex] = msg;
     }
-
-    const eventSource = new EventSource(
-      `${apiBaseUrl}/tasks/${taskId}/messages/stream`,
-    );
-
-    eventSource.addEventListener("message-queued", (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.message) {
-          setMessages((prev) => [...prev, data.message]);
-        }
-      } catch (e) {
-        console.error("Failed to parse message-queued event:", e);
-      }
-    });
-
-    eventSource.addEventListener("message-delivered", (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.messageId) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === data.messageId
-                ? {
-                    ...m,
-                    status: "delivered" as const,
-                    deliveredAt: data.deliveredAt,
-                  }
-                : m,
-            ),
-          );
-        }
-      } catch (e) {
-        console.error("Failed to parse message-delivered event:", e);
-      }
-    });
-
-    eventSource.onerror = () => {
-      // Will auto-reconnect
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [taskId, shouldFetchMessages]);
+  }
+  messages.sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
 
   // Can send messages directly when:
   // - Status is InReview (executor not running, waiting for input)

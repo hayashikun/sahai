@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type ExecutionLog,
   ExecutionLogArray,
@@ -18,6 +18,7 @@ import {
   parseTaskEvent,
   type TaskEvent,
 } from "../api";
+import { type EventHandler, useEventSource } from "./useEventSource";
 
 export function useTask(taskId: string) {
   const { data, mutate } = useSWR(`/tasks/${taskId}`, fetcher, {
@@ -41,71 +42,37 @@ export function useTaskLogs(taskId: string) {
 
 export function useTaskLogsStream(taskId: string, onStatusChange?: () => void) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const onStatusChangeRef = useRef(onStatusChange);
 
-  // Keep the ref updated
   useEffect(() => {
     onStatusChangeRef.current = onStatusChange;
   }, [onStatusChange]);
 
-  const connect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
+  const handleLog = useCallback((data: string) => {
+    const log = parseLogEvent(data);
+    if (log) {
+      setLogs((prev) => [log, ...prev]);
 
-    const url = getTaskLogsStreamUrl(taskId);
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
-
-    eventSource.addEventListener("connected", () => {
-      setConnected(true);
-      setError(null);
-    });
-
-    eventSource.addEventListener("log", (event) => {
-      const log = parseLogEvent(event.data);
-      if (log) {
-        setLogs((prev) => [log, ...prev]);
-
-        // Detect status change from system logs
-        if (
-          log.logType === "system" &&
-          (log.content.includes("Task moved to") ||
-            log.content.includes("task completed"))
-        ) {
-          onStatusChangeRef.current?.();
-        }
+      // Detect status change from system logs
+      if (
+        log.logType === "system" &&
+        (log.content.includes("Task moved to") ||
+          log.content.includes("task completed"))
+      ) {
+        onStatusChangeRef.current?.();
       }
-    });
-
-    eventSource.addEventListener("heartbeat", () => {
-      // Keep-alive, no action needed
-    });
-
-    eventSource.onerror = () => {
-      setConnected(false);
-      setError("Connection lost. Reconnecting...");
-      // EventSource will auto-reconnect
-    };
-  }, [taskId]);
-
-  const disconnect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      setConnected(false);
     }
   }, []);
 
-  useEffect(() => {
-    connect();
-    return () => {
-      disconnect();
-    };
-  }, [connect, disconnect]);
+  const eventHandlers: EventHandler[] = useMemo(
+    () => [{ event: "log", handler: handleLog }],
+    [handleLog],
+  );
+
+  const { connected, error, reconnect } = useEventSource(
+    { url: getTaskLogsStreamUrl(taskId) },
+    eventHandlers,
+  );
 
   const clearLogs = useCallback(() => {
     setLogs([]);
@@ -116,7 +83,7 @@ export function useTaskLogsStream(taskId: string, onStatusChange?: () => void) {
     connected,
     error,
     clearLogs,
-    reconnect: connect,
+    reconnect,
   };
 }
 
@@ -165,81 +132,37 @@ export function useRepositoryTasksStream(
   repositoryId: string,
   onEvent?: (event: TaskEvent) => void,
 ) {
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const onEventRef = useRef(onEvent);
 
-  // Keep the ref updated
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
 
-  const connect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-
-    const url = getRepositoryTasksStreamUrl(repositoryId);
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
-
-    eventSource.addEventListener("connected", () => {
-      setConnected(true);
-      setError(null);
-    });
-
-    eventSource.addEventListener("task-status-changed", (event) => {
-      const taskEvent = parseTaskEvent(event.data);
-      if (taskEvent) {
-        onEventRef.current?.(taskEvent);
-      }
-    });
-
-    eventSource.addEventListener("task-created", (event) => {
-      const taskEvent = parseTaskEvent(event.data);
-      if (taskEvent) {
-        onEventRef.current?.(taskEvent);
-      }
-    });
-
-    eventSource.addEventListener("task-deleted", (event) => {
-      const taskEvent = parseTaskEvent(event.data);
-      if (taskEvent) {
-        onEventRef.current?.(taskEvent);
-      }
-    });
-
-    eventSource.addEventListener("heartbeat", () => {
-      // Keep-alive, no action needed
-    });
-
-    eventSource.onerror = () => {
-      setConnected(false);
-      setError("Connection lost. Reconnecting...");
-      // EventSource will auto-reconnect
-    };
-  }, [repositoryId]);
-
-  const disconnect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      setConnected(false);
+  const handleTaskEvent = useCallback((data: string) => {
+    const taskEvent = parseTaskEvent(data);
+    if (taskEvent) {
+      onEventRef.current?.(taskEvent);
     }
   }, []);
 
-  useEffect(() => {
-    connect();
-    return () => {
-      disconnect();
-    };
-  }, [connect, disconnect]);
+  const eventHandlers: EventHandler[] = useMemo(
+    () => [
+      { event: "task-status-changed", handler: handleTaskEvent },
+      { event: "task-created", handler: handleTaskEvent },
+      { event: "task-deleted", handler: handleTaskEvent },
+    ],
+    [handleTaskEvent],
+  );
+
+  const { connected, error, reconnect } = useEventSource(
+    { url: getRepositoryTasksStreamUrl(repositoryId) },
+    eventHandlers,
+  );
 
   return {
     connected,
     error,
-    reconnect: connect,
+    reconnect,
   };
 }
 
@@ -273,81 +196,50 @@ export function useTaskMessagesStream(
   onEvent?: (event: MessageEvent) => void,
 ) {
   const [messages, setMessages] = useState<TaskMessage[]>([]);
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const onEventRef = useRef(onEvent);
 
-  // Keep the ref updated
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
 
-  const connect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-
-    const url = getTaskMessagesStreamUrl(taskId);
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
-
-    eventSource.addEventListener("connected", () => {
-      setConnected(true);
-      setError(null);
-    });
-
-    eventSource.addEventListener("message-queued", (event) => {
-      const messageEvent = parseMessageEvent(event.data);
-      if (messageEvent && messageEvent.type === "message-queued") {
-        setMessages((prev) => [...prev, messageEvent.message]);
-        onEventRef.current?.(messageEvent);
-      }
-    });
-
-    eventSource.addEventListener("message-delivered", (event) => {
-      const messageEvent = parseMessageEvent(event.data);
-      if (messageEvent && messageEvent.type === "message-delivered") {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageEvent.messageId
-              ? {
-                  ...m,
-                  status: "delivered" as const,
-                  deliveredAt: new Date(messageEvent.deliveredAt),
-                }
-              : m,
-          ),
-        );
-        onEventRef.current?.(messageEvent);
-      }
-    });
-
-    eventSource.addEventListener("heartbeat", () => {
-      // Keep-alive, no action needed
-    });
-
-    eventSource.onerror = () => {
-      setConnected(false);
-      setError("Connection lost. Reconnecting...");
-      // EventSource will auto-reconnect
-    };
-  }, [taskId]);
-
-  const disconnect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      setConnected(false);
+  const handleMessageQueued = useCallback((data: string) => {
+    const messageEvent = parseMessageEvent(data);
+    if (messageEvent && messageEvent.type === "message-queued") {
+      setMessages((prev) => [...prev, messageEvent.message]);
+      onEventRef.current?.(messageEvent);
     }
   }, []);
 
-  useEffect(() => {
-    connect();
-    return () => {
-      disconnect();
-    };
-  }, [connect, disconnect]);
+  const handleMessageDelivered = useCallback((data: string) => {
+    const messageEvent = parseMessageEvent(data);
+    if (messageEvent && messageEvent.type === "message-delivered") {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageEvent.messageId
+            ? {
+                ...m,
+                status: "delivered" as const,
+                deliveredAt: new Date(messageEvent.deliveredAt),
+              }
+            : m,
+        ),
+      );
+      onEventRef.current?.(messageEvent);
+    }
+  }, []);
+
+  const eventHandlers: EventHandler[] = useMemo(
+    () => [
+      { event: "message-queued", handler: handleMessageQueued },
+      { event: "message-delivered", handler: handleMessageDelivered },
+    ],
+    [handleMessageQueued, handleMessageDelivered],
+  );
+
+  const { connected, error, reconnect } = useEventSource(
+    { url: getTaskMessagesStreamUrl(taskId) },
+    eventHandlers,
+  );
 
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -358,7 +250,7 @@ export function useTaskMessagesStream(
     connected,
     error,
     clearMessages,
-    reconnect: connect,
+    reconnect,
   };
 }
 
