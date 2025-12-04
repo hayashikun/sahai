@@ -25,11 +25,15 @@ const COLUMNS: { status: Status; label: string }[] = [
   { status: "Done", label: "Done" },
 ];
 
+// Only manual transitions allowed via drag-and-drop:
+// - TODO → InProgress: User starts working on a task
+// - InReview → Done: User approves a completed task
+// All other transitions are handled automatically by the system
 const VALID_TRANSITIONS: Record<Status, Status[]> = {
   TODO: ["InProgress"],
-  InProgress: ["TODO", "InReview"],
-  InReview: ["InProgress", "Done"],
-  Done: ["InReview"],
+  InProgress: [],
+  InReview: ["Done"],
+  Done: [],
 };
 
 export function canTransition(from: Status, to: Status): boolean {
