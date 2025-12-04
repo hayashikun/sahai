@@ -11,14 +11,20 @@ export interface SoundsResponse {
   platform: string;
 }
 
+interface SettingsResponse {
+  settings: Settings;
+}
+
 export async function getSettings(): Promise<Settings> {
-  return fetcher<Settings>("/settings");
+  const response = await fetcher<SettingsResponse>("/settings");
+  return response.settings;
 }
 
 export async function updateSettings(
   settings: SettingsUpdate,
 ): Promise<Settings> {
-  return apiPut<Settings>("/settings", settings);
+  const response = await apiPut<SettingsResponse>("/settings", settings);
+  return response.settings;
 }
 
 export async function validatePath(
