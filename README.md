@@ -42,8 +42,6 @@ npx sahai@latest --version     # Show version
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `49831` | Server port |
-| `SAHAI_TERMINAL_APP` | `Terminal` | macOS terminal app name |
-| `SAHAI_TERMINAL_COMMAND` | - | Linux custom terminal command (use `{path}` placeholder) |
 
 ## How It Works
 

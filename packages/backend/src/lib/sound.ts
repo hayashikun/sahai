@@ -1,82 +1,40 @@
 /**
  * Cross-platform sound notification utility
- * Supports macOS, Linux, and Windows
+ * Now uses settings for notification configuration
  */
 
-import { platform } from "node:os";
-
-type SoundType = "success" | "error";
-
-interface PlatformSoundConfig {
-  command: string[];
-  successSound: string;
-  errorSound: string;
-}
-
-function getPlatformConfig(): PlatformSoundConfig | null {
-  const os = platform();
-
-  switch (os) {
-    case "darwin":
-      // macOS: use afplay with system sounds
-      return {
-        command: ["afplay"],
-        successSound: "/System/Library/Sounds/Glass.aiff",
-        errorSound: "/System/Library/Sounds/Basso.aiff",
-      };
-    case "linux":
-      // Linux: use paplay (PulseAudio) with freedesktop sounds
-      return {
-        command: ["paplay"],
-        successSound: "/usr/share/sounds/freedesktop/stereo/complete.oga",
-        errorSound: "/usr/share/sounds/freedesktop/stereo/dialog-error.oga",
-      };
-    case "win32":
-      // Windows: use PowerShell to play system sounds
-      return {
-        command: ["powershell", "-c"],
-        successSound: "[System.Media.SystemSounds]::Asterisk.Play()",
-        errorSound: "[System.Media.SystemSounds]::Hand.Play()",
-      };
-    default:
-      return null;
-  }
-}
+import { getNotificationConfig } from "../config/notification";
+import { playSound as playSoundByName } from "../config/sounds";
 
 /**
- * Play a system sound asynchronously
- * @param type - The type of sound to play ('success' or 'error')
+ * Play notification sound based on settings
+ * @param trigger - The event trigger type ('completed' or 'failed')
  */
-export async function playSound(type: SoundType): Promise<void> {
-  const config = getPlatformConfig();
-  if (!config) {
-    // Unsupported platform - silently skip
-    return;
-  }
-
+export async function playNotificationSound(
+  trigger: "completed" | "failed",
+): Promise<void> {
   try {
-    const sound = type === "success" ? config.successSound : config.errorSound;
-    const os = platform();
+    const config = await getNotificationConfig();
 
-    let cmd: string[];
-    if (os === "win32") {
-      // Windows: PowerShell command is the sound itself
-      cmd = [...config.command, sound];
-    } else {
-      // macOS/Linux: command followed by sound file path
-      cmd = [...config.command, sound];
+    // Check if notifications are enabled
+    if (!config.enabled) {
+      return;
     }
 
-    const process = Bun.spawn(cmd, {
-      stdout: "ignore",
-      stderr: "ignore",
-    });
-    // Don't await - let sound play in background without blocking
-    process.exited.catch(() => {
-      // Ignore errors (e.g., sound file not found, command not available)
-    });
-  } catch {
-    // Ignore errors silently - sound notification is not critical
+    // Check if this trigger should play sound
+    const shouldPlay = config.trigger === "all" || config.trigger === trigger;
+
+    if (!shouldPlay) {
+      return;
+    }
+
+    // Play the configured sound
+    if (config.sound) {
+      await playSoundByName(config.sound);
+    }
+  } catch (error) {
+    // Silently ignore errors - sound notification is not critical
+    console.error("Failed to play notification sound:", error);
   }
 }
 
@@ -84,12 +42,12 @@ export async function playSound(type: SoundType): Promise<void> {
  * Play success sound (task completed)
  */
 export function playSuccessSound(): void {
-  playSound("success");
+  playNotificationSound("completed");
 }
 
 /**
  * Play error sound
  */
 export function playErrorSound(): void {
-  playSound("error");
+  playNotificationSound("failed");
 }

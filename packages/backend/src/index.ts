@@ -8,6 +8,8 @@ import filesystem from "./routes/filesystem";
 import projectRepositories from "./routes/project-repositories";
 import projects from "./routes/projects";
 import repositories from "./routes/repositories";
+import settings from "./routes/settings";
+import sounds from "./routes/sounds";
 import { repositoryTasks, taskById } from "./routes/tasks";
 
 runMigrations();
@@ -36,6 +38,8 @@ app.route("/v1/repositories", repositories);
 app.route("/v1/repositories", repositoryTasks);
 app.route("/v1/tasks", taskById);
 app.route("/v1/filesystem", filesystem);
+app.route("/v1/settings", settings);
+app.route("/v1/sounds", sounds);
 
 // Serve static files in production mode
 if (staticDir) {

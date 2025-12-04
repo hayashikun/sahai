@@ -2,6 +2,7 @@ import { mkdir, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
+import { getAgentPath } from "../config/agent";
 import type {
   Executor,
   ExecutorConfig,
@@ -34,9 +35,12 @@ export class CopilotExecutor implements Executor {
     const logDir = join(tmpdir(), "sahai", `copilot-${config.taskId}`);
     await mkdir(logDir, { recursive: true });
 
+    // Get command path from settings
+    const commandPath = await getAgentPath("copilot");
+
     // Build command
     const cmd = [
-      "copilot",
+      commandPath,
       "--no-color",
       "--log-level",
       "debug",

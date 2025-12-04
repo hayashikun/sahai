@@ -1,4 +1,5 @@
 import type { Subprocess } from "bun";
+import { getAgentPath } from "../config/agent";
 import type {
   Executor,
   ExecutorConfig,
@@ -24,9 +25,12 @@ export class ClaudeCodeExecutor implements Executor {
 
     this.isRunning = true;
 
+    // Get command path from settings
+    const commandPath = await getAgentPath("claudeCode");
+
     // Build command with optional resume flag
     const cmd = [
-      "claude",
+      commandPath,
       "-p",
       "--output-format",
       "stream-json",

@@ -80,3 +80,9 @@ export const executionLogs = sqliteTable(
   },
   (table) => [index("idx_execution_logs_task_id").on(table.taskId)],
 );
+
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

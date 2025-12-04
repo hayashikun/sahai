@@ -1,6 +1,23 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { CodexExecutor } from "../codex";
 import type { ExecutorConfig, ExecutorOutput } from "../interface";
+
+// Mock config/agent to avoid database dependency
+mock.module("../../config/agent", () => ({
+  getAgentPath: async () => "codex",
+  getAgentConfig: async () => ({ enabled: true, path: "codex" }),
+  isAgentEnabled: async () => true,
+  getExecutorPath: async () => "codex",
+  isExecutorEnabled: async () => true,
+  executorToAgentKey: {
+    ClaudeCode: "claudeCode",
+    Codex: "codex",
+    Copilot: "copilot",
+    Gemini: "gemini",
+  },
+}));
+
+// Import after mocking
+const { CodexExecutor } = await import("../codex");
 
 describe("CodexExecutor", () => {
   let executor: CodexExecutor;

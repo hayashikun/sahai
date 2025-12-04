@@ -1,4 +1,5 @@
 import type { Subprocess } from "bun";
+import { getAgentPath } from "../config/agent";
 import type {
   Executor,
   ExecutorConfig,
@@ -7,6 +8,7 @@ import type {
   OutputCallback,
   SessionIdCallback,
 } from "./interface";
+
 export class CodexExecutor implements Executor {
   private process: Subprocess<"pipe", "pipe", "pipe"> | null = null;
   private outputCallback: OutputCallback | null = null;
@@ -23,9 +25,12 @@ export class CodexExecutor implements Executor {
 
     this.isRunning = true;
 
+    // Get command path from settings
+    const commandPath = await getAgentPath("codex");
+
     // Build codex exec command with optional resume
     const cmd = [
-      "codex",
+      commandPath,
       "exec",
       "--json",
       "--sandbox",
