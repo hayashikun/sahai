@@ -81,6 +81,7 @@ export const Task = z.object({
   epicId: z
     .string()
     .nullable()
+    .optional()
     .transform(nullToUndefined)
     .pipe(z.string().optional()),
   title: z.string(),
