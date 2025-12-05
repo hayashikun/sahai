@@ -22,9 +22,9 @@ const { CodexExecutor } = await import("../codex");
 describe("CodexExecutor", () => {
   let executor: CodexExecutor;
 
-  afterEach(async () => {
+  afterEach(() => {
     if (executor) {
-      await executor.stop().catch(() => {});
+      executor.stop();
     }
   });
 
