@@ -10,7 +10,7 @@ describe("projects API", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -32,7 +32,7 @@ describe("projects API", () => {
           ok: true,
           json: () => Promise.resolve(mockProject),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const project = await createProject("Test Project");
 
@@ -65,7 +65,7 @@ describe("projects API", () => {
           ok: true,
           json: () => Promise.resolve(mockProject),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const project = await createProject("My Project", "A test project");
 
@@ -96,7 +96,7 @@ describe("projects API", () => {
               error: { code: "BAD_REQUEST", message: "Name is required" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(createProject("")).rejects.toThrow("Name is required");
     });

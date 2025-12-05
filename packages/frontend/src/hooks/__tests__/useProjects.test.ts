@@ -10,7 +10,7 @@ describe("useProjects hooks", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -130,7 +130,7 @@ describe("useProjects hooks", () => {
           ok: true,
           json: () => Promise.resolve(mockProjects),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const { fetcher } = await import("../../api/client");
       const data = await fetcher("/projects");
@@ -154,7 +154,7 @@ describe("useProjects hooks", () => {
           ok: true,
           json: () => Promise.resolve(mockProject),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const { fetcher } = await import("../../api/client");
       const data = await fetcher("/projects/proj-1");
@@ -181,7 +181,7 @@ describe("useProjects hooks", () => {
           ok: true,
           json: () => Promise.resolve(mockRepositories),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const { fetcher } = await import("../../api/client");
       const data = await fetcher("/projects/proj-1/repositories");

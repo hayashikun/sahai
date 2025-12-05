@@ -84,7 +84,7 @@ describe("GET /:projectId/repositories", () => {
 
     const res = await app.request("/project-1/repositories");
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as Array<{ name: string }>;
     expect(data).toHaveLength(2);
     expect(data[0].name).toBe("Repo 1");
     expect(data[1].name).toBe("Repo 2");
@@ -93,7 +93,7 @@ describe("GET /:projectId/repositories", () => {
   test("returns 404 for non-existent project", async () => {
     const res = await app.request("/non-existent/repositories");
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Project not found");
   });
 });
@@ -108,7 +108,11 @@ describe("POST /:projectId/repositories/:repositoryId", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      projectId: string;
+      repositoryId: string;
+      createdAt: string;
+    };
     expect(data.projectId).toBe("project-1");
     expect(data.repositoryId).toBe("repo-1");
     expect(data.createdAt).toBeDefined();
@@ -122,7 +126,7 @@ describe("POST /:projectId/repositories/:repositoryId", () => {
     });
 
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Project not found");
   });
 
@@ -134,7 +138,7 @@ describe("POST /:projectId/repositories/:repositoryId", () => {
     });
 
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Repository not found");
   });
 
@@ -154,7 +158,7 @@ describe("POST /:projectId/repositories/:repositoryId", () => {
     });
 
     expect(res.status).toBe(409);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Association already exists");
   });
 });
@@ -176,7 +180,7 @@ describe("DELETE /:projectId/repositories/:repositoryId", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { message: string };
     expect(data.message).toBe("Association deleted");
 
     // Verify it's deleted
@@ -195,7 +199,7 @@ describe("DELETE /:projectId/repositories/:repositoryId", () => {
     });
 
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Association not found");
   });
 });

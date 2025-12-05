@@ -87,14 +87,14 @@ describe("GET /:repositoryId/tasks", () => {
 
     const res = await repositoryTasks.request("/repo-1/tasks");
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as unknown[];
     expect(data).toHaveLength(2);
   });
 
   test("returns 404 for non-existent repository", async () => {
     const res = await repositoryTasks.request("/non-existent/tasks");
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Repository not found");
   });
 });
@@ -115,7 +115,16 @@ describe("POST /:repositoryId/tasks", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      id: string;
+      title: string;
+      description: string;
+      status: string;
+      executor: string;
+      branchName: string;
+      baseBranch: string;
+      repositoryId: string;
+    };
     expect(data.title).toBe("New Task");
     expect(data.description).toBe("Task description");
     expect(data.status).toBe("TODO");
@@ -141,7 +150,7 @@ describe("POST /:repositoryId/tasks", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as { baseBranch: string; executor: string };
     expect(data.baseBranch).toBe("develop");
     expect(data.executor).toBe("Gemini");
   });
@@ -168,7 +177,7 @@ describe("GET /:id", () => {
 
     const res = await taskById.request("/task-1");
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { id: string; title: string };
     expect(data.id).toBe("task-1");
     expect(data.title).toBe("Task 1");
   });
@@ -176,7 +185,7 @@ describe("GET /:id", () => {
   test("returns 404 for non-existent task", async () => {
     const res = await taskById.request("/non-existent");
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task not found");
   });
 });
@@ -196,7 +205,7 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { title: string; description: string };
     expect(data.title).toBe("Updated Title");
     expect(data.description).toBe("Updated description");
   });
@@ -212,7 +221,7 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { title: string };
     expect(data.title).toBe("Updated Title");
   });
 
@@ -237,7 +246,10 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      status: string;
+      startedAt: string | null;
+    };
     expect(data.status).toBe("InProgress");
     expect(data.startedAt).toBeDefined();
   });
@@ -253,7 +265,10 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      status: string;
+      completedAt: string | null;
+    };
     expect(data.status).toBe("Done");
     expect(data.completedAt).toBeDefined();
   });
@@ -266,7 +281,7 @@ describe("DELETE /:id", () => {
 
     const res = await taskById.request("/task-1", { method: "DELETE" });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { message: string };
     expect(data.message).toBe("Task deleted");
 
     // Verify it's deleted
@@ -346,7 +361,7 @@ describe("GET /:id/logs", () => {
   test("returns 404 for non-existent task", async () => {
     const res = await taskById.request("/non-existent/logs");
     expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task not found");
   });
 });
@@ -357,7 +372,7 @@ describe("POST /:id/start", () => {
       method: "POST",
     });
     expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task not found");
   });
 
@@ -404,7 +419,7 @@ describe("POST /:id/pause", () => {
       method: "POST",
     });
     expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task not found");
   });
 
@@ -437,7 +452,7 @@ describe("POST /:id/resume", () => {
       method: "POST",
     });
     expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task not found");
   });
 
@@ -477,7 +492,7 @@ describe("POST /:id/resume", () => {
 
     const res = await taskById.request("/task-1/resume", { method: "POST" });
     expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task has no worktree");
   });
 });
@@ -488,7 +503,7 @@ describe("POST /:id/finish", () => {
       method: "POST",
     });
     expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task not found");
   });
 
@@ -634,7 +649,7 @@ describe("GET /:id/diff", () => {
   test("returns 404 for non-existent task", async () => {
     const res = await taskById.request("/non-existent/diff");
     expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Task not found");
   });
 
@@ -659,7 +674,7 @@ describe("GET /:id/diff", () => {
 
     const res = await taskById.request("/orphan-task/diff");
     expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Repository not found");
   });
 

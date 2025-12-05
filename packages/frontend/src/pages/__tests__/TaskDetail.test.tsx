@@ -5,10 +5,11 @@ import type { Task } from "shared";
 import { shouldSubmitChatMessage } from "../TaskDetail";
 
 // Set up happy-dom
-const window = new Window();
-globalThis.document = window.document as unknown as Document;
-globalThis.window = window as unknown as Window & typeof globalThis;
-globalThis.navigator = window.navigator as unknown as Navigator;
+const happyDomWindow = new Window();
+globalThis.document = happyDomWindow.document as unknown as Document;
+// biome-ignore lint/suspicious/noExplicitAny: happy-dom Window differs from browser Window
+globalThis.window = happyDomWindow as any;
+globalThis.navigator = happyDomWindow.navigator as unknown as Navigator;
 
 // Mock EventSource
 class MockEventSource {
@@ -52,7 +53,7 @@ describe("TaskDetail", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { desc, eq } from "drizzle-orm";
+import type { Context } from "hono";
 import { Hono } from "hono";
 import { getTerminalConfig } from "../config/terminal";
 import { db } from "../db/client";
@@ -191,7 +192,7 @@ setGlobalEventHandler(eventHandler);
 // ============================================================================
 
 function handleServiceError(
-  c: Parameters<Parameters<typeof repositoryTasks.get>[1]>[0],
+  c: Context,
   error: NonNullable<Awaited<ReturnType<typeof getTaskById>>["error"]>,
 ) {
   switch (error.type) {

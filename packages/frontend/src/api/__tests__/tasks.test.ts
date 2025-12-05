@@ -23,7 +23,7 @@ describe("tasks API", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -53,7 +53,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const task = await getTask("task-1");
 
@@ -76,7 +76,7 @@ describe("tasks API", () => {
               error: { code: "NOT_FOUND", message: "Task not found" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(getTask("non-existent")).rejects.toThrow("Task not found");
     });
@@ -99,7 +99,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockLogs),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const logs = await getTaskLogs("task-1");
 
@@ -134,7 +134,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const task = await startTask("task-1");
 
@@ -173,7 +173,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await pauseTask("task-1");
 
@@ -195,7 +195,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve({}),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await openWorktreeInExplorer("task-1");
 
@@ -217,7 +217,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve({}),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await openWorktreeInTerminal("task-1");
 
@@ -255,7 +255,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await resumeTask("task-1", "Please continue with tests");
 
@@ -291,7 +291,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await resumeTask("task-1");
 
@@ -329,7 +329,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const task = await finishTask("task-1");
 
@@ -354,7 +354,7 @@ describe("tasks API", () => {
           ok: true,
           json: () => Promise.resolve(mockDiff),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const { getTaskDiff } = await import("../tasks");
       const diff = await getTaskDiff("task-1");
@@ -376,7 +376,7 @@ describe("tasks API", () => {
               error: { code: "NOT_FOUND", message: "Task not found" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const { getTaskDiff } = await import("../tasks");
       await expect(getTaskDiff("non-existent")).rejects.toThrow(

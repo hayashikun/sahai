@@ -92,7 +92,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [executor, setExecutor] = useState<string>("Gemini");
+  const [executor, setExecutor] = useState<
+    "ClaudeCode" | "Codex" | "Copilot" | "Gemini"
+  >("Gemini");
   const [branchName, setBranchName] = useState("");
   const [branchNameEdited, setBranchNameEdited] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -730,7 +732,14 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="task-executor">Executor</Label>
-                  <Select value={executor} onValueChange={setExecutor}>
+                  <Select
+                    value={executor}
+                    onValueChange={(value) =>
+                      setExecutor(
+                        value as "ClaudeCode" | "Codex" | "Copilot" | "Gemini",
+                      )
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select executor" />
                     </SelectTrigger>

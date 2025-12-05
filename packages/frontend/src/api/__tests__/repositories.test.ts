@@ -10,7 +10,7 @@ describe("repositories API", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -40,7 +40,7 @@ describe("repositories API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const task = await createTask("repo-1", {
         title: "Implement feature",
@@ -87,7 +87,7 @@ describe("repositories API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const task = await createTask("repo-1", {
         title: "Fix bug",
@@ -113,7 +113,7 @@ describe("repositories API", () => {
               error: { code: "BAD_REQUEST", message: "Title is required" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(
         createTask("repo-1", {
@@ -148,7 +148,7 @@ describe("repositories API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const task = await updateTaskStatus("task-1", "InProgress");
 
@@ -185,7 +185,7 @@ describe("repositories API", () => {
           ok: true,
           json: () => Promise.resolve(mockTask),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const task = await updateTaskStatus("task-1", "Done");
 
@@ -203,7 +203,7 @@ describe("repositories API", () => {
               error: { code: "NOT_FOUND", message: "Task not found" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(updateTaskStatus("task-999", "Done")).rejects.toThrow(
         "Task not found",

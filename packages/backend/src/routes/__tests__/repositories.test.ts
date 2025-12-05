@@ -77,7 +77,14 @@ describe("POST /", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      id: string;
+      name: string;
+      path: string;
+      defaultBranch: string;
+      createdAt: string;
+      updatedAt: string;
+    };
     expect(data.name).toBe("New Repo");
     expect(data.path).toBe("/path/to/new-repo");
     expect(data.defaultBranch).toBe("develop");
@@ -97,7 +104,7 @@ describe("POST /", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as { name: string; defaultBranch: string };
     expect(data.name).toBe("Default Branch Repo");
     expect(data.defaultBranch).toBe("main");
   });
@@ -117,7 +124,11 @@ describe("GET /:id", () => {
 
     const res = await app.request("/test-id");
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      id: string;
+      name: string;
+      path: string;
+    };
     expect(data.id).toBe("test-id");
     expect(data.name).toBe("Test Repo");
     expect(data.path).toBe("/path/to/test-repo");
@@ -126,7 +137,7 @@ describe("GET /:id", () => {
   test("returns 404 for non-existent repository", async () => {
     const res = await app.request("/non-existent-id");
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Repository not found");
   });
 });
@@ -154,7 +165,11 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      name: string;
+      path: string;
+      defaultBranch: string;
+    };
     expect(data.name).toBe("Updated Name");
     expect(data.path).toBe("/updated/path");
     expect(data.defaultBranch).toBe("develop");
@@ -178,7 +193,11 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      name: string;
+      path: string;
+      defaultBranch: string;
+    };
     expect(data.name).toBe("Updated Name");
     expect(data.path).toBe("/original/path");
     expect(data.defaultBranch).toBe("main");
@@ -209,7 +228,7 @@ describe("DELETE /:id", () => {
 
     const res = await app.request("/test-id", { method: "DELETE" });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { message: string };
     expect(data.message).toBe("Repository deleted");
 
     // Verify it's deleted

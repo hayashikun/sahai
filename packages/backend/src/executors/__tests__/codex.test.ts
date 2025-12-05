@@ -20,7 +20,7 @@ mock.module("../../config/agent", () => ({
 const { CodexExecutor } = await import("../codex");
 
 describe("CodexExecutor", () => {
-  let executor: CodexExecutor;
+  let executor: InstanceType<typeof CodexExecutor>;
 
   afterEach(() => {
     if (executor) {
@@ -218,7 +218,7 @@ describe("CodexExecutor", () => {
     test("emits system log on start", async () => {
       executor = new CodexExecutor();
       const outputs: ExecutorOutput[] = [];
-      executor.onOutput((output) => outputs.push(output));
+      executor.onOutput((output: ExecutorOutput) => outputs.push(output));
 
       const config: ExecutorConfig = {
         taskId: "codex-system-log",
@@ -291,7 +291,7 @@ describe("CodexExecutor", () => {
     test("kills the process and emits system log", async () => {
       executor = new CodexExecutor();
       const outputs: ExecutorOutput[] = [];
-      executor.onOutput((output) => outputs.push(output));
+      executor.onOutput((output: ExecutorOutput) => outputs.push(output));
 
       const config: ExecutorConfig = {
         taskId: "codex-stop",
@@ -371,7 +371,7 @@ describe("CodexExecutor", () => {
     test("parses codex event notifications", async () => {
       executor = new CodexExecutor();
       const outputs: ExecutorOutput[] = [];
-      executor.onOutput((output) => outputs.push(output));
+      executor.onOutput((output: ExecutorOutput) => outputs.push(output));
 
       const config: ExecutorConfig = {
         taskId: "codex-parse",
@@ -467,7 +467,7 @@ describe("CodexExecutor", () => {
     test("handles stderr output", async () => {
       executor = new CodexExecutor();
       const outputs: ExecutorOutput[] = [];
-      executor.onOutput((output) => outputs.push(output));
+      executor.onOutput((output: ExecutorOutput) => outputs.push(output));
 
       const config: ExecutorConfig = {
         taskId: "codex-stderr",
@@ -544,7 +544,7 @@ describe("CodexExecutor", () => {
     test("handles non-JSON stdout output", async () => {
       executor = new CodexExecutor();
       const outputs: ExecutorOutput[] = [];
-      executor.onOutput((output) => outputs.push(output));
+      executor.onOutput((output: ExecutorOutput) => outputs.push(output));
 
       const config: ExecutorConfig = {
         taskId: "codex-non-json",

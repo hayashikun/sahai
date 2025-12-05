@@ -93,7 +93,7 @@ export interface EpicEventHandler {
     id: string;
     epicId: string;
     content: string;
-    logType: string;
+    logType: "stdout" | "stderr" | "system";
     createdAt: string;
   }) => void;
   onExecutorExit?: (epicId: string) => void;
@@ -178,7 +178,7 @@ export async function startEpicExecution(
       id: crypto.randomUUID(),
       epicId,
       content: output.content,
-      logType: output.logType,
+      logType: output.logType as "stdout" | "stderr" | "system",
       createdAt: new Date().toISOString(),
     };
     await db.insert(epicLogs).values(log);
@@ -205,7 +205,7 @@ export async function startEpicExecution(
       id: crypto.randomUUID(),
       epicId,
       content: "Epic execution started",
-      logType: "system",
+      logType: "system" as const,
       createdAt: new Date().toISOString(),
     };
     await db.insert(epicLogs).values(startLog);

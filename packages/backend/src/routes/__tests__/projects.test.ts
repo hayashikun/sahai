@@ -74,7 +74,13 @@ describe("POST /", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      id: string;
+      name: string;
+      description: string | null;
+      createdAt: string;
+      updatedAt: string;
+    };
     expect(data.name).toBe("New Project");
     expect(data.description).toBe("A new project");
     expect(data.id).toBeDefined();
@@ -90,7 +96,10 @@ describe("POST /", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      name: string;
+      description: string | null;
+    };
     expect(data.name).toBe("No Description Project");
     expect(data.description).toBeNull();
   });
@@ -109,7 +118,7 @@ describe("GET /:id", () => {
 
     const res = await app.request("/test-id");
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { id: string; name: string };
     expect(data.id).toBe("test-id");
     expect(data.name).toBe("Test Project");
   });
@@ -117,7 +126,7 @@ describe("GET /:id", () => {
   test("returns 404 for non-existent project", async () => {
     const res = await app.request("/non-existent-id");
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toBe("Project not found");
   });
 });
@@ -143,7 +152,7 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { name: string; description: string };
     expect(data.name).toBe("Updated Name");
     expect(data.description).toBe("Updated Description");
   });
@@ -165,7 +174,7 @@ describe("PUT /:id", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { name: string; description: string };
     expect(data.name).toBe("Updated Name");
     expect(data.description).toBe("Original Description");
   });
@@ -194,7 +203,7 @@ describe("DELETE /:id", () => {
 
     const res = await app.request("/test-id", { method: "DELETE" });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as { message: string };
     expect(data.message).toBe("Project deleted");
 
     // Verify it's deleted
