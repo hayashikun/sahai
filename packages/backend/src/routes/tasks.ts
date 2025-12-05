@@ -137,6 +137,38 @@ async function transitionToInReview(
   console.log(
     `[transitionToInReview] Transitioning task ${taskId} to InReview`,
   );
+
+  // Get task to find worktreePath
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
+  const task = taskResult[0];
+
+  // Run complete script if configured
+  const repoResult = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, repositoryId));
+
+  if (repoResult.length > 0) {
+    const repo = repoResult[0];
+    if (repo.completeScript && task?.worktreePath) {
+      console.log(
+        `[transitionToInReview] Running complete script for task ${taskId}`,
+      );
+      runLifecycleScript(repo.completeScript, task.worktreePath)
+        .then(() =>
+          console.log(
+            `[transitionToInReview] Complete script completed for task ${taskId}`,
+          ),
+        )
+        .catch((e) =>
+          console.error(
+            `[transitionToInReview] Complete script failed for task ${taskId}:`,
+            e instanceof Error ? e.message : e,
+          ),
+        );
+    }
+  }
+
   await db
     .update(tasks)
     .set({
@@ -509,31 +541,6 @@ taskById.put("/:id", async (c) => {
       isExecuting: isExecutorActive(id),
       updatedAt: now,
     });
-
-    // Run complete script when transitioning from InProgress to InReview
-    if (oldStatus === "InProgress" && newStatus === "InReview") {
-      const repoResult = await db
-        .select()
-        .from(repositories)
-        .where(eq(repositories.id, existing[0].repositoryId));
-
-      if (repoResult.length > 0) {
-        const repo = repoResult[0];
-        if (repo.completeScript && existing[0].worktreePath) {
-          console.log(`[tasks] Running complete script for task ${id} (async)`);
-          runLifecycleScript(repo.completeScript, existing[0].worktreePath)
-            .then(() =>
-              console.log(`[tasks] Complete script completed for task ${id}`),
-            )
-            .catch((e) =>
-              console.error(
-                `[tasks] Complete script failed for task ${id}:`,
-                e instanceof Error ? e.message : e,
-              ),
-            );
-        }
-      }
-    }
   }
 
   return c.json(withExecutingStatus({ ...existing[0], ...updated }));
