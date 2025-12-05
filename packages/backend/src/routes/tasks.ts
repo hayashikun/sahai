@@ -1,208 +1,46 @@
 import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { asc, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { isExecutorEnabled } from "../config/agent";
 import { getTerminalConfig } from "../config/terminal";
 import { db } from "../db/client";
-import { executionLogs, repositories, taskMessages, tasks } from "../db/schema";
+import { executionLogs, repositories, tasks } from "../db/schema";
 import {
   badRequest,
   internalError,
   invalidStateTransition,
   notFound,
 } from "../lib/errors";
-import { playSuccessSound } from "../lib/sound";
 import {
   createEventBus,
   createSimpleSSEStream,
   createSSEStream,
 } from "../lib/sse";
-import { createBranch, deleteBranch, getDiff } from "../services/git";
-import { copyFilesToWorktree, runLifecycleScript } from "../services/lifecycle";
+import { getDiff } from "../services/git";
 import {
-  createExecutor,
-  getExecutor,
-  isExecutorActive,
-  removeExecutor,
-  setExecutor,
-  withExecutingStatus,
+  createTask,
+  deleteMessage,
+  deleteTask,
+  finishTask,
+  getMessages,
+  getPendingMessageCount,
+  getTaskById,
+  getTasksByRepositoryId,
+  type LogEvent,
+  type MessageEvent,
+  pauseTask,
+  queueMessage,
+  resumeTask,
+  setGlobalEventHandler,
+  startTask,
+  type TaskEvent,
+  type TaskEventHandler,
+  updateTask,
 } from "../services/task";
-import { createWorktree, deleteWorktree } from "../services/worktree";
 
-// Forward declaration for circular dependency
-let startExecutorWithMessage: (
-  taskId: string,
-  message: string,
-) => Promise<void>;
-
-// Handle executor completion: process pending messages or update task status to InReview
-export async function handleExecutorExit(taskId: string): Promise<void> {
-  console.log(`[handleExecutorExit] Called for task ${taskId}`);
-  const now = new Date().toISOString();
-
-  // Remove from active executors
-  removeExecutor(taskId);
-  console.log(`[handleExecutorExit] Removed task from activeExecutors`);
-
-  // Get current task status
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
-  if (taskResult.length === 0) {
-    console.log(`[handleExecutorExit] Task not found`);
-    return;
-  }
-
-  const task = taskResult[0];
-  console.log(`[handleExecutorExit] Task status: ${task.status}`);
-
-  // Only process if currently InProgress
-  if (task.status !== "InProgress") {
-    console.log(
-      `[handleExecutorExit] Not processing - status is not InProgress`,
-    );
-    return;
-  }
-
-  // Check for pending messages in the queue
-  const pendingMessages = await db
-    .select()
-    .from(taskMessages)
-    .where(eq(taskMessages.taskId, taskId))
-    .orderBy(asc(taskMessages.createdAt));
-
-  const nextMessage = pendingMessages.find((m) => m.status === "pending");
-
-  if (nextMessage) {
-    console.log(
-      `[handleExecutorExit] Found pending message ${nextMessage.id}, processing...`,
-    );
-
-    // Mark message as delivered
-    await db
-      .update(taskMessages)
-      .set({
-        status: "delivered",
-        deliveredAt: now,
-      })
-      .where(eq(taskMessages.id, nextMessage.id));
-
-    // Broadcast message delivered event
-    broadcastMessageEvent(taskId, {
-      type: "message-delivered",
-      taskId,
-      messageId: nextMessage.id,
-      deliveredAt: now,
-    });
-
-    // Log the message delivery
-    const log = {
-      id: crypto.randomUUID(),
-      taskId,
-      content: `[system] Processing queued message: ${nextMessage.content.substring(0, 100)}${nextMessage.content.length > 100 ? "..." : ""}`,
-      logType: "system",
-      createdAt: now,
-    };
-    await db.insert(executionLogs).values(log);
-    broadcastLog(log);
-
-    // Start executor with the next message
-    try {
-      await startExecutorWithMessage(taskId, nextMessage.content);
-    } catch (error) {
-      console.error(
-        `[handleExecutorExit] Failed to start executor with message: ${error}`,
-      );
-      // Mark message as failed
-      await db
-        .update(taskMessages)
-        .set({ status: "failed" })
-        .where(eq(taskMessages.id, nextMessage.id));
-
-      // Fall through to transition to InReview
-      await transitionToInReview(taskId, task.repositoryId, now);
-    }
-  } else {
-    // No pending messages, transition to InReview
-    await transitionToInReview(taskId, task.repositoryId, now);
-  }
-}
-
-// Helper function to transition task to InReview
-async function transitionToInReview(
-  taskId: string,
-  repositoryId: string,
-  now: string,
-): Promise<void> {
-  console.log(
-    `[transitionToInReview] Transitioning task ${taskId} to InReview`,
-  );
-
-  // Get task to find worktreePath
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
-  const task = taskResult[0];
-
-  // Run complete script if configured
-  const repoResult = await db
-    .select()
-    .from(repositories)
-    .where(eq(repositories.id, repositoryId));
-
-  if (repoResult.length > 0) {
-    const repo = repoResult[0];
-    if (repo.completeScript && task?.worktreePath) {
-      console.log(
-        `[transitionToInReview] Running complete script for task ${taskId}`,
-      );
-      runLifecycleScript(repo.completeScript, task.worktreePath)
-        .then(() =>
-          console.log(
-            `[transitionToInReview] Complete script completed for task ${taskId}`,
-          ),
-        )
-        .catch((e) =>
-          console.error(
-            `[transitionToInReview] Complete script failed for task ${taskId}:`,
-            e instanceof Error ? e.message : e,
-          ),
-        );
-    }
-  }
-
-  await db
-    .update(tasks)
-    .set({
-      status: "InReview",
-      updatedAt: now,
-    })
-    .where(eq(tasks.id, taskId));
-
-  // Broadcast status change via logs
-  const log = {
-    id: crypto.randomUUID(),
-    taskId,
-    content: "[system] Executor completed. Task moved to InReview.",
-    logType: "system",
-    createdAt: now,
-  };
-  await db.insert(executionLogs).values(log);
-  broadcastLog(log);
-
-  // Broadcast task status changed event for Kanban real-time updates
-  broadcastTaskEvent(repositoryId, {
-    type: "task-status-changed",
-    taskId,
-    oldStatus: "InProgress",
-    newStatus: "InReview",
-    isExecuting: false,
-    updatedAt: now,
-  });
-
-  // Play success sound notification
-  playSuccessSound();
-
-  console.log(`[transitionToInReview] Transition complete`);
-}
+// ============================================================================
+// Utility Functions
+// ============================================================================
 
 async function runCommand(
   command: string[],
@@ -263,7 +101,6 @@ async function openInTerminal(path: string): Promise<void> {
   const terminalConfig = await getTerminalConfig();
 
   if (platform === "darwin") {
-    // Use terminal app from settings, fallback to default
     const terminalApp = terminalConfig.macosApp || "Terminal";
     await runCommand(
       ["open", "-a", terminalApp, normalizedPath],
@@ -286,7 +123,6 @@ async function openInTerminal(path: string): Promise<void> {
     return;
   }
 
-  // Linux: Use custom command from settings
   const customCommand = terminalConfig.linuxCommand;
   if (customCommand) {
     const escapedPath = escapeShellPath(normalizedPath);
@@ -322,61 +158,14 @@ async function openInTerminal(path: string): Promise<void> {
   );
 }
 
-// SSE Event Types
-type LogEvent = {
-  id: string;
-  taskId: string;
-  content: string;
-  logType: string;
-  createdAt: string;
-};
+// ============================================================================
+// SSE Event Buses
+// ============================================================================
 
-type TaskEvent =
-  | {
-      type: "task-status-changed";
-      taskId: string;
-      oldStatus: string;
-      newStatus: string;
-      isExecuting: boolean;
-      updatedAt: string;
-    }
-  | {
-      type: "task-created";
-      task: ReturnType<typeof withExecutingStatus>;
-      createdAt: string;
-    }
-  | {
-      type: "task-deleted";
-      taskId: string;
-      deletedAt: string;
-    };
-
-type MessageEvent =
-  | {
-      type: "message-queued";
-      taskId: string;
-      message: {
-        id: string;
-        taskId: string;
-        content: string;
-        status: string;
-        createdAt: string;
-        deliveredAt: string | null;
-      };
-    }
-  | {
-      type: "message-delivered";
-      taskId: string;
-      messageId: string;
-      deliveredAt: string;
-    };
-
-// Event Buses for SSE pub/sub
 const logEventBus = createEventBus<LogEvent>();
 const taskEventBus = createEventBus<TaskEvent>();
 const messageEventBus = createEventBus<MessageEvent>();
 
-// Helper functions for broadcasting (maintain backward compatibility)
 function broadcastLog(log: LogEvent): void {
   logEventBus.broadcast(log.taskId, log);
 }
@@ -389,83 +178,86 @@ function broadcastMessageEvent(taskId: string, event: MessageEvent): void {
   messageEventBus.broadcast(taskId, event);
 }
 
+// Set up global event handler for service callbacks
+const eventHandler: TaskEventHandler = {
+  onLog: broadcastLog,
+  onTaskEvent: broadcastTaskEvent,
+  onMessageEvent: broadcastMessageEvent,
+};
+setGlobalEventHandler(eventHandler);
+
+// ============================================================================
+// Helper: Convert service error to HTTP response
+// ============================================================================
+
+function handleServiceError(
+  c: Parameters<Parameters<typeof repositoryTasks.get>[1]>[0],
+  error: NonNullable<Awaited<ReturnType<typeof getTaskById>>["error"]>,
+) {
+  switch (error.type) {
+    case "NOT_FOUND":
+      return notFound(c, error.message.replace(" not found", ""));
+    case "BAD_REQUEST":
+      return badRequest(c, error.message);
+    case "INVALID_STATE_TRANSITION":
+      return invalidStateTransition(
+        c,
+        error.message.split(" ")[4] ?? "unknown",
+        error.allowedStates ?? [],
+        error.operation ?? "unknown",
+      );
+    case "INTERNAL_ERROR":
+      return internalError(c, error.message);
+  }
+}
+
+// ============================================================================
 // Routes for /v1/repositories/:repositoryId/tasks
+// ============================================================================
+
 export const repositoryTasks = new Hono();
 
 // GET /v1/repositories/:repositoryId/tasks - List tasks for a repository
 repositoryTasks.get("/:repositoryId/tasks", async (c) => {
   const repositoryId = c.req.param("repositoryId");
+  const result = await getTasksByRepositoryId(repositoryId);
 
-  // Check if repository exists
-  const repository = await db
-    .select()
-    .from(repositories)
-    .where(eq(repositories.id, repositoryId));
-
-  if (repository.length === 0) {
-    return notFound(c, "Repository");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const result = await db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.repositoryId, repositoryId));
-
-  return c.json(result.map(withExecutingStatus));
+  return c.json(result.data);
 });
 
 // POST /v1/repositories/:repositoryId/tasks - Create a new task
 repositoryTasks.post("/:repositoryId/tasks", async (c) => {
   const repositoryId = c.req.param("repositoryId");
+  const body = await c.req.json();
 
-  // Check if repository exists
-  const repository = await db
-    .select()
-    .from(repositories)
-    .where(eq(repositories.id, repositoryId));
+  const result = await createTask(
+    {
+      repositoryId,
+      epicId: body.epicId,
+      title: body.title,
+      description: body.description,
+      executor: body.executor,
+      branchName: body.branchName,
+      baseBranch: body.baseBranch,
+    },
+    eventHandler,
+  );
 
-  if (repository.length === 0) {
-    return notFound(c, "Repository");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const body = await c.req.json();
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-
-  const newTask = {
-    id,
-    repositoryId,
-    epicId: body.epicId ?? null,
-    title: body.title,
-    description: body.description ?? null,
-    status: "TODO" as const,
-    executor: body.executor,
-    branchName: body.branchName,
-    baseBranch: body.baseBranch ?? repository[0].defaultBranch,
-    worktreePath: null,
-    createdAt: now,
-    updatedAt: now,
-    startedAt: null,
-    completedAt: null,
-  };
-
-  await db.insert(tasks).values(newTask);
-
-  // Broadcast task created event
-  broadcastTaskEvent(repositoryId, {
-    type: "task-created",
-    task: withExecutingStatus(newTask),
-    createdAt: now,
-  });
-
-  return c.json(withExecutingStatus(newTask), 201);
+  return c.json(result.data, 201);
 });
 
 // GET /v1/repositories/:repositoryId/tasks/stream - Stream task events via SSE
 repositoryTasks.get("/:repositoryId/tasks/stream", async (c) => {
   const repositoryId = c.req.param("repositoryId");
 
-  // Check if repository exists
   const repository = await db
     .select()
     .from(repositories)
@@ -483,103 +275,67 @@ repositoryTasks.get("/:repositoryId/tasks/stream", async (c) => {
   });
 });
 
+// ============================================================================
 // Routes for /v1/tasks/:id
+// ============================================================================
+
 export const taskById = new Hono();
 
 // GET /v1/tasks/:id - Get a task by ID
 taskById.get("/:id", async (c) => {
   const id = c.req.param("id");
-  const result = await db.select().from(tasks).where(eq(tasks.id, id));
+  const result = await getTaskById(id);
 
-  if (result.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  return c.json(withExecutingStatus(result[0]));
+  return c.json(result.data);
 });
 
 // PUT /v1/tasks/:id - Update a task
 taskById.put("/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const now = new Date().toISOString();
 
-  const existing = await db.select().from(tasks).where(eq(tasks.id, id));
+  const result = await updateTask(
+    id,
+    {
+      title: body.title,
+      description: body.description,
+      status: body.status,
+    },
+    eventHandler,
+  );
 
-  if (existing.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const updated: Record<string, unknown> = {
-    title: body.title ?? existing[0].title,
-    description: body.description ?? existing[0].description,
-    status: body.status ?? existing[0].status,
-    updatedAt: now,
-  };
-
-  // Set startedAt when transitioning to InProgress
-  if (body.status === "InProgress" && !existing[0].startedAt) {
-    updated.startedAt = now;
-  }
-
-  // Set completedAt when transitioning to Done
-  if (body.status === "Done" && !existing[0].completedAt) {
-    updated.completedAt = now;
-  }
-
-  await db.update(tasks).set(updated).where(eq(tasks.id, id));
-
-  // Broadcast task status changed event if status actually changed
-  const oldStatus = existing[0].status;
-  const newStatus = updated.status as string;
-  if (oldStatus !== newStatus) {
-    broadcastTaskEvent(existing[0].repositoryId, {
-      type: "task-status-changed",
-      taskId: id,
-      oldStatus,
-      newStatus,
-      isExecuting: isExecutorActive(id),
-      updatedAt: now,
-    });
-  }
-
-  return c.json(withExecutingStatus({ ...existing[0], ...updated }));
+  return c.json(result.data);
 });
 
 // DELETE /v1/tasks/:id - Delete a task
 taskById.delete("/:id", async (c) => {
   const id = c.req.param("id");
+  const result = await deleteTask(id, eventHandler);
 
-  const existing = await db.select().from(tasks).where(eq(tasks.id, id));
-
-  if (existing.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const repositoryId = existing[0].repositoryId;
-  await db.delete(tasks).where(eq(tasks.id, id));
-
-  // Broadcast task deleted event
-  broadcastTaskEvent(repositoryId, {
-    type: "task-deleted",
-    taskId: id,
-    deletedAt: new Date().toISOString(),
-  });
-
-  return c.json({ message: "Task deleted" });
+  return c.json(result.data);
 });
 
 // GET /v1/tasks/:id/logs - Get execution logs for a task
 taskById.get("/:id/logs", async (c) => {
   const id = c.req.param("id");
 
-  // Check if task exists
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
     return notFound(c, "Task");
   }
 
-  // Get logs ordered by createdAt descending (newest first)
   const logs = await db
     .select()
     .from(executionLogs)
@@ -593,7 +349,6 @@ taskById.get("/:id/logs", async (c) => {
 taskById.get("/:id/diff", async (c) => {
   const id = c.req.param("id");
 
-  // Get task
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
     return notFound(c, "Task");
@@ -601,7 +356,6 @@ taskById.get("/:id/diff", async (c) => {
 
   const task = taskResult[0];
 
-  // Get repository info
   const repoResult = await db
     .select()
     .from(repositories)
@@ -684,7 +438,6 @@ taskById.post("/:id/worktree/open-terminal", async (c) => {
 taskById.get("/:id/logs/stream", async (c) => {
   const id = c.req.param("id");
 
-  // Check if task exists
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
     return notFound(c, "Task");
@@ -701,618 +454,77 @@ taskById.get("/:id/logs/stream", async (c) => {
 // POST /v1/tasks/:id/start - Create worktree, start executor
 taskById.post("/:id/start", async (c) => {
   const id = c.req.param("id");
-  const now = new Date().toISOString();
+  const result = await startTask(id, eventHandler);
 
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const task = taskResult[0];
-
-  if (task.status !== "TODO") {
-    return invalidStateTransition(c, task.status, ["TODO"], "start");
-  }
-
-  // Check if the executor/agent is enabled
-  const isEnabled = await isExecutorEnabled(task.executor);
-  if (!isEnabled) {
-    return badRequest(c, `Agent "${task.executor}" is disabled in settings`);
-  }
-
-  // Get repository info
-  const repoResult = await db
-    .select()
-    .from(repositories)
-    .where(eq(repositories.id, task.repositoryId));
-
-  if (repoResult.length === 0) {
-    return notFound(c, "Repository");
-  }
-
-  const repo = repoResult[0];
-  const worktreePath = `${tmpdir()}/sahai-worktrees/${task.id}`;
-
-  try {
-    // Create branch from base branch
-    await createBranch(repo.path, task.branchName, task.baseBranch);
-
-    // Create worktree
-    await createWorktree(repo.path, worktreePath, task.branchName);
-
-    // Copy files from repository to worktree if configured
-    if (repo.copyFiles) {
-      console.log(`[tasks] Copying files to worktree for task ${id}`);
-      const { copied, errors } = await copyFilesToWorktree(
-        repo.copyFiles,
-        repo.path,
-        worktreePath,
-      );
-      if (copied.length > 0) {
-        console.log(`[tasks] Copied files: ${copied.join(", ")}`);
-      }
-      if (errors.length > 0) {
-        console.warn(`[tasks] Copy errors: ${errors.join("; ")}`);
-      }
-    }
-
-    // Run setup script asynchronously (only runs on first start, startedAt is null here)
-    if (repo.setupScript) {
-      console.log(`[tasks] Running setup script for task ${id} (async)`);
-      runLifecycleScript(repo.setupScript, worktreePath)
-        .then(() =>
-          console.log(`[tasks] Setup script completed for task ${id}`),
-        )
-        .catch((e) =>
-          console.error(
-            `[tasks] Setup script failed for task ${id}:`,
-            e instanceof Error ? e.message : e,
-          ),
-        );
-    }
-
-    // Run start script asynchronously
-    if (repo.startScript) {
-      console.log(`[tasks] Running start script for task ${id} (async)`);
-      runLifecycleScript(repo.startScript, worktreePath)
-        .then(() =>
-          console.log(`[tasks] Start script completed for task ${id}`),
-        )
-        .catch((e) =>
-          console.error(
-            `[tasks] Start script failed for task ${id}:`,
-            e instanceof Error ? e.message : e,
-          ),
-        );
-    }
-
-    // Update task status
-    await db
-      .update(tasks)
-      .set({
-        status: "InProgress",
-        worktreePath,
-        startedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(tasks.id, id));
-
-    // Create and start executor
-    let executor: Executor;
-    try {
-      executor = createExecutor(task.executor);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return badRequest(c, message);
-    }
-
-    executor.onOutput(async (output) => {
-      // Save output to execution_logs
-      const log = {
-        id: crypto.randomUUID(),
-        taskId: id,
-        content: output.content,
-        logType: output.logType,
-        createdAt: new Date().toISOString(),
-      };
-      await db.insert(executionLogs).values(log);
-      // Broadcast to SSE subscribers
-      broadcastLog(log);
-    });
-
-    executor.onExit(() => {
-      handleExecutorExit(id);
-    });
-
-    executor.onSessionId(async (sessionId) => {
-      // Save session ID to task for later resume
-      console.log(`[tasks] Saving session ID ${sessionId} for task ${id}`);
-      await db
-        .update(tasks)
-        .set({ sessionId, updatedAt: new Date().toISOString() })
-        .where(eq(tasks.id, id));
-    });
-
-    await executor.start({
-      taskId: id,
-      workingDirectory: worktreePath,
-      prompt: task.description ?? task.title,
-    });
-
-    setExecutor(id, executor);
-
-    // Broadcast task status changed event
-    broadcastTaskEvent(task.repositoryId, {
-      type: "task-status-changed",
-      taskId: id,
-      oldStatus: "TODO",
-      newStatus: "InProgress",
-      isExecuting: true,
-      updatedAt: now,
-    });
-
-    const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-
-    return c.json(withExecutingStatus(updatedTask[0]));
-  } catch (error) {
-    return internalError(c, `Failed to start task: ${error}`);
-  }
+  return c.json(result.data);
 });
 
 // POST /v1/tasks/:id/pause - Stop executor
 taskById.post("/:id/pause", async (c) => {
   const id = c.req.param("id");
-  const now = new Date().toISOString();
+  const result = await pauseTask(id);
 
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const task = taskResult[0];
-
-  if (task.status !== "InProgress") {
-    return invalidStateTransition(c, task.status, ["InProgress"], "pause");
-  }
-
-  const executor = getExecutor(id);
-  if (executor) {
-    await executor.stop();
-    removeExecutor(id);
-  }
-
-  await db.update(tasks).set({ updatedAt: now }).where(eq(tasks.id, id));
-
-  const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-  return c.json(withExecutingStatus(updatedTask[0]));
+  return c.json(result.data);
 });
 
 // POST /v1/tasks/:id/resume - Restart executor
 taskById.post("/:id/resume", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
-  const now = new Date().toISOString();
 
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
+  const result = await resumeTask(id, body.message, eventHandler);
+
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const task = taskResult[0];
-
-  if (task.status !== "InProgress" && task.status !== "InReview") {
-    return invalidStateTransition(
-      c,
-      task.status,
-      ["InProgress", "InReview"],
-      "resume",
-    );
-  }
-
-  if (!task.worktreePath) {
-    return badRequest(c, "Task has no worktree");
-  }
-
-  // Check if the executor/agent is enabled
-  const isEnabled = await isExecutorEnabled(task.executor);
-  if (!isEnabled) {
-    return badRequest(c, `Agent "${task.executor}" is disabled in settings`);
-  }
-
-  // Stop existing executor if running
-  const existingExecutor = getExecutor(id);
-  if (existingExecutor) {
-    await existingExecutor.stop();
-    removeExecutor(id);
-  }
-
-  // Get repository info for lifecycle scripts
-  const repoResult = await db
-    .select()
-    .from(repositories)
-    .where(eq(repositories.id, task.repositoryId));
-
-  if (repoResult.length === 0) {
-    return notFound(c, "Repository");
-  }
-
-  const repo = repoResult[0];
-
-  try {
-    // Run start script asynchronously before resuming
-    if (repo.startScript && task.worktreePath) {
-      console.log(
-        `[tasks] Running start script for task ${id} (resume, async)`,
-      );
-      runLifecycleScript(repo.startScript, task.worktreePath)
-        .then(() =>
-          console.log(`[tasks] Start script completed for task ${id}`),
-        )
-        .catch((e) =>
-          console.error(
-            `[tasks] Start script failed for task ${id}:`,
-            e instanceof Error ? e.message : e,
-          ),
-        );
-    }
-
-    // Create and start executor
-    let executor: Executor;
-    try {
-      executor = createExecutor(task.executor);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return badRequest(c, message);
-    }
-
-    executor.onOutput(async (output) => {
-      const log = {
-        id: crypto.randomUUID(),
-        taskId: id,
-        content: output.content,
-        logType: output.logType,
-        createdAt: new Date().toISOString(),
-      };
-      await db.insert(executionLogs).values(log);
-      // Broadcast to SSE subscribers
-      broadcastLog(log);
-    });
-
-    executor.onExit(() => {
-      handleExecutorExit(id);
-    });
-
-    executor.onSessionId(async (sessionId) => {
-      // Save session ID to task for later resume
-      console.log(`[tasks] Saving session ID ${sessionId} for task ${id}`);
-      await db
-        .update(tasks)
-        .set({ sessionId, updatedAt: new Date().toISOString() })
-        .where(eq(tasks.id, id));
-    });
-
-    const prompt = body.message ?? task.description ?? task.title;
-
-    await executor.start({
-      taskId: id,
-      workingDirectory: task.worktreePath,
-      prompt,
-      sessionId: task.sessionId ?? undefined,
-    });
-
-    setExecutor(id, executor);
-
-    // Update status to InProgress if it was InReview
-    if (task.status === "InReview") {
-      await db
-        .update(tasks)
-        .set({
-          status: "InProgress",
-          updatedAt: now,
-        })
-        .where(eq(tasks.id, id));
-
-      // Broadcast task status changed event
-      broadcastTaskEvent(task.repositoryId, {
-        type: "task-status-changed",
-        taskId: id,
-        oldStatus: "InReview",
-        newStatus: "InProgress",
-        isExecuting: true,
-        updatedAt: now,
-      });
-    }
-
-    const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-    return c.json(withExecutingStatus(updatedTask[0]));
-  } catch (error) {
-    return internalError(c, `Failed to resume task: ${error}`);
-  }
+  return c.json(result.data);
 });
 
 // POST /v1/tasks/:id/finish - Delete worktree and branch, mark as Done
 taskById.post("/:id/finish", async (c) => {
   const id = c.req.param("id");
-  const now = new Date().toISOString();
+  const result = await finishTask(id, eventHandler);
 
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  const task = taskResult[0];
-
-  if (task.status !== "InReview") {
-    return invalidStateTransition(c, task.status, ["InReview"], "finish");
-  }
-
-  // Get repository info
-  const repoResult = await db
-    .select()
-    .from(repositories)
-    .where(eq(repositories.id, task.repositoryId));
-
-  if (repoResult.length === 0) {
-    return notFound(c, "Repository");
-  }
-
-  const repo = repoResult[0];
-
-  // Update task status immediately
-  await db
-    .update(tasks)
-    .set({
-      status: "Done",
-      worktreePath: null,
-      completedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(tasks.id, id));
-
-  // Broadcast task status changed event
-  broadcastTaskEvent(task.repositoryId, {
-    type: "task-status-changed",
-    taskId: id,
-    oldStatus: "InReview",
-    newStatus: "Done",
-    isExecuting: false,
-    updatedAt: now,
-  });
-
-  // Run cleanup asynchronously (cleanup script must complete before worktree deletion)
-  const cleanupAsync = async () => {
-    try {
-      // Run cleanup script before deleting worktree
-      if (repo.cleanupScript && task.worktreePath) {
-        console.log(`[tasks] Running cleanup script for task ${id} (async)`);
-        try {
-          await runLifecycleScript(repo.cleanupScript, task.worktreePath);
-          console.log(`[tasks] Cleanup script completed for task ${id}`);
-        } catch (e) {
-          console.error(
-            `[tasks] Cleanup script failed for task ${id}:`,
-            e instanceof Error ? e.message : e,
-          );
-        }
-      }
-
-      // Delete worktree if exists
-      if (task.worktreePath) {
-        await deleteWorktree(repo.path, task.worktreePath, true);
-        console.log(`[tasks] Worktree deleted for task ${id}`);
-      }
-
-      // Delete branch
-      await deleteBranch(repo.path, task.branchName, true);
-      console.log(`[tasks] Branch deleted for task ${id}`);
-    } catch (error) {
-      console.error(`[tasks] Cleanup failed for task ${id}:`, error);
-    }
-  };
-
-  // Start cleanup in background
-  cleanupAsync();
-
-  const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-  return c.json(withExecutingStatus(updatedTask[0]));
+  return c.json(result.data);
 });
-
-// Initialize startExecutorWithMessage function
-startExecutorWithMessage = async (
-  taskId: string,
-  message: string,
-): Promise<void> => {
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
-  if (taskResult.length === 0) {
-    throw new Error("Task not found");
-  }
-
-  const task = taskResult[0];
-
-  if (!task.worktreePath) {
-    throw new Error("Task has no worktree");
-  }
-
-  // Check if the executor/agent is enabled
-  const isEnabled = await isExecutorEnabled(task.executor);
-  if (!isEnabled) {
-    throw new Error(`Agent "${task.executor}" is disabled in settings`);
-  }
-
-  // Create and start executor
-  const executor = createExecutor(task.executor);
-
-  executor.onOutput(async (output) => {
-    const log = {
-      id: crypto.randomUUID(),
-      taskId,
-      content: output.content,
-      logType: output.logType,
-      createdAt: new Date().toISOString(),
-    };
-    await db.insert(executionLogs).values(log);
-    broadcastLog(log);
-  });
-
-  executor.onExit(() => {
-    handleExecutorExit(taskId);
-  });
-
-  executor.onSessionId(async (sessionId) => {
-    console.log(
-      `[startExecutorWithMessage] Saving session ID ${sessionId} for task ${taskId}`,
-    );
-    await db
-      .update(tasks)
-      .set({ sessionId, updatedAt: new Date().toISOString() })
-      .where(eq(tasks.id, taskId));
-  });
-
-  await executor.start({
-    taskId,
-    workingDirectory: task.worktreePath,
-    prompt: message,
-    sessionId: task.sessionId ?? undefined,
-  });
-
-  setExecutor(taskId, executor);
-};
 
 // GET /v1/tasks/:id/messages - Get message queue for a task
 taskById.get("/:id/messages", async (c) => {
   const id = c.req.param("id");
+  const result = await getMessages(id);
 
-  // Check if task exists
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  // Get messages ordered by createdAt ascending (oldest first)
-  const messages = await db
-    .select()
-    .from(taskMessages)
-    .where(eq(taskMessages.taskId, id))
-    .orderBy(asc(taskMessages.createdAt));
-
-  return c.json(messages);
+  return c.json(result.data);
 });
 
 // POST /v1/tasks/:id/messages - Queue a new message for a task
 taskById.post("/:id/messages", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const now = new Date().toISOString();
 
-  // Validate content
-  if (
-    !body.content ||
-    typeof body.content !== "string" ||
-    body.content.trim() === ""
-  ) {
-    return badRequest(c, "Message content is required");
+  const result = await queueMessage(id, body.content, eventHandler);
+
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  // Check if task exists
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
-  }
-
-  const task = taskResult[0];
-
-  // Only allow queueing messages for InProgress or InReview tasks
-  if (task.status !== "InProgress" && task.status !== "InReview") {
-    return badRequest(
-      c,
-      "Messages can only be queued for tasks that are InProgress or InReview",
-    );
-  }
-
-  const messageId = crypto.randomUUID();
-  const newMessage = {
-    id: messageId,
-    taskId: id,
-    content: body.content.trim(),
-    status: "pending" as const,
-    createdAt: now,
-    deliveredAt: null,
-  };
-
-  await db.insert(taskMessages).values(newMessage);
-
-  // Broadcast message queued event
-  broadcastMessageEvent(id, {
-    type: "message-queued",
-    taskId: id,
-    message: newMessage,
-  });
-
-  // If the executor is not currently running (InReview state), start it with the message
-  if (!isExecutorActive(id) && task.status === "InReview") {
-    try {
-      // Mark message as delivered
-      await db
-        .update(taskMessages)
-        .set({
-          status: "delivered",
-          deliveredAt: now,
-        })
-        .where(eq(taskMessages.id, messageId));
-
-      // Update task status to InProgress
-      await db
-        .update(tasks)
-        .set({
-          status: "InProgress",
-          updatedAt: now,
-        })
-        .where(eq(tasks.id, id));
-
-      // Broadcast message delivered event
-      broadcastMessageEvent(id, {
-        type: "message-delivered",
-        taskId: id,
-        messageId,
-        deliveredAt: now,
-      });
-
-      // Broadcast task status changed event
-      broadcastTaskEvent(task.repositoryId, {
-        type: "task-status-changed",
-        taskId: id,
-        oldStatus: "InReview",
-        newStatus: "InProgress",
-        isExecuting: true,
-        updatedAt: now,
-      });
-
-      // Start the executor
-      await startExecutorWithMessage(id, body.content.trim());
-
-      // Return the updated message
-      const updatedMessage = await db
-        .select()
-        .from(taskMessages)
-        .where(eq(taskMessages.id, messageId));
-
-      return c.json(updatedMessage[0], 201);
-    } catch (error) {
-      console.error(`Failed to start executor with message: ${error}`);
-      // Mark message as failed
-      await db
-        .update(taskMessages)
-        .set({ status: "failed" })
-        .where(eq(taskMessages.id, messageId));
-
-      return internalError(
-        c,
-        `Failed to start executor with message: ${error}`,
-      );
-    }
-  }
-
-  return c.json(newMessage, 201);
+  return c.json(result.data, 201);
 });
 
 // DELETE /v1/tasks/:id/messages/:messageId - Delete a pending message
@@ -1320,44 +532,19 @@ taskById.delete("/:id/messages/:messageId", async (c) => {
   const id = c.req.param("id");
   const messageId = c.req.param("messageId");
 
-  // Check if task exists
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
+  const result = await deleteMessage(id, messageId);
+
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  // Check if message exists
-  const messageResult = await db
-    .select()
-    .from(taskMessages)
-    .where(eq(taskMessages.id, messageId));
-
-  if (messageResult.length === 0) {
-    return notFound(c, "Message");
-  }
-
-  const message = messageResult[0];
-
-  // Only allow deleting pending messages
-  if (message.status !== "pending") {
-    return badRequest(c, "Only pending messages can be deleted");
-  }
-
-  // Verify the message belongs to this task
-  if (message.taskId !== id) {
-    return notFound(c, "Message");
-  }
-
-  await db.delete(taskMessages).where(eq(taskMessages.id, messageId));
-
-  return c.json({ message: "Message deleted" });
+  return c.json(result.data);
 });
 
 // GET /v1/tasks/:id/messages/stream - Stream message events via SSE
 taskById.get("/:id/messages/stream", async (c) => {
   const id = c.req.param("id");
 
-  // Check if task exists
   const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
   if (taskResult.length === 0) {
     return notFound(c, "Task");
@@ -1374,20 +561,11 @@ taskById.get("/:id/messages/stream", async (c) => {
 // GET /v1/tasks/:id/messages/pending/count - Get count of pending messages
 taskById.get("/:id/messages/pending/count", async (c) => {
   const id = c.req.param("id");
+  const result = await getPendingMessageCount(id);
 
-  // Check if task exists
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
+  if (result.error) {
+    return handleServiceError(c, result.error);
   }
 
-  // Get pending message count
-  const messages = await db
-    .select()
-    .from(taskMessages)
-    .where(eq(taskMessages.taskId, id));
-
-  const pendingCount = messages.filter((m) => m.status === "pending").length;
-
-  return c.json({ count: pendingCount });
+  return c.json(result.data);
 });

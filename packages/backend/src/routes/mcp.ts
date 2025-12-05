@@ -5,12 +5,7 @@ import { streamSSE } from "hono/streaming";
 import { Task } from "shared";
 import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
-import {
-  resumeTaskExecution,
-  startTaskExecution,
-  withExecutingStatus,
-} from "../services/task";
-import { handleExecutorExit } from "./tasks";
+import { resumeTask, startTask, withExecutingStatus } from "../services/task";
 
 // Session storage for MCP
 interface McpSession {
@@ -479,20 +474,22 @@ async function executeToolCall(
 
     case "start_task": {
       const taskId = args.taskId as string;
-      const { task, error } = await startTaskExecution(taskId, {
-        onExecutorExit: handleExecutorExit,
-      });
-      if (error) {
+      const result = await startTask(taskId);
+      if (result.error) {
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify({ error }),
+              text: JSON.stringify({
+                error: result.error.type,
+                message: result.error.message,
+              }),
             },
           ],
           isError: true,
         };
       }
+      const task = Task.parse(result.data);
       return {
         content: [{ type: "text", text: formatTask(task) }],
       };
@@ -501,20 +498,22 @@ async function executeToolCall(
     case "resume_task": {
       const taskId = args.taskId as string;
       const message = args.message as string | undefined;
-      const { task, error } = await resumeTaskExecution(taskId, message, {
-        onExecutorExit: handleExecutorExit,
-      });
-      if (error) {
+      const result = await resumeTask(taskId, message);
+      if (result.error) {
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify({ error }),
+              text: JSON.stringify({
+                error: result.error.type,
+                message: result.error.message,
+              }),
             },
           ],
           isError: true,
         };
       }
+      const task = Task.parse(result.data);
       return {
         content: [{ type: "text", text: formatTask(task) }],
       };
