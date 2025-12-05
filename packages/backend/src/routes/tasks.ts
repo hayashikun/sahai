@@ -37,7 +37,7 @@ let startExecutorWithMessage: (
 ) => Promise<void>;
 
 // Handle executor completion: process pending messages or update task status to InReview
-async function handleExecutorExit(taskId: string): Promise<void> {
+export async function handleExecutorExit(taskId: string): Promise<void> {
   console.log(`[handleExecutorExit] Called for task ${taskId}`);
   const now = new Date().toISOString();
 
