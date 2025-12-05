@@ -1,9 +1,9 @@
 import {
   ArrowLeft,
   ClipboardList,
-  ExternalLink,
   FolderOpen,
   GitBranch,
+  Github,
   Loader2,
   Pencil,
   Plus,
@@ -405,6 +405,18 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
             <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
               <GitBranch className="h-4 w-4" />
               {repository.defaultBranch}
+              {githubUrl && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  title="Open in GitHub"
+                >
+                  <a href={githubUrl} target="_blank" rel="noopener noreferrer">
+                    <Github className="h-4 w-4" />
+                  </a>
+                </Button>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-500">
               <span className="font-mono break-all">{repository.path}</span>
@@ -426,14 +438,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                   <Terminal className="h-4 w-4" />
                 </Button>
               </div>
-              {githubUrl && (
-                <Button variant="outline" size="sm" asChild>
-                  <a href={githubUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    GitHub
-                  </a>
-                </Button>
-              )}
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
