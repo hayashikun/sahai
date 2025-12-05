@@ -146,7 +146,7 @@ function parseLogContent(content: string, logType: string): string {
               // Truncate long tool results
               const result = String(c.content);
               if (result.length > 500) {
-                return result.slice(0, 500) + "... (truncated)";
+                return `${result.slice(0, 500)}... (truncated)`;
               }
               return result;
             }
@@ -217,7 +217,9 @@ function EpicDetailContent({ epicId }: { epicId: string }) {
   }, [tasks]);
 
   const handleEdit = async () => {
-    if (!editTitle.trim()) return;
+    if (!editTitle.trim()) {
+      return;
+    }
 
     try {
       setEditLoading(true);
@@ -342,9 +344,13 @@ function EpicDetailContent({ epicId }: { epicId: string }) {
             <Dialog
               open={editOpen}
               onOpenChange={(open) => {
-                if (isExecuting) return;
+                if (isExecuting) {
+                  return;
+                }
                 setEditOpen(open);
-                if (open) resetEditForm();
+                if (open) {
+                  resetEditForm();
+                }
               }}
             >
               <DialogTrigger asChild>
@@ -574,7 +580,9 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
   // Handle scroll events to detect if user scrolled up
   const handleScroll = useCallback(() => {
     const container = logsContainerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const isAtBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight <
@@ -585,9 +593,13 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
 
   // Initial scroll to bottom on mount
   useEffect(() => {
-    if (hasInitialScrolledRef.current) return;
+    if (hasInitialScrolledRef.current) {
+      return;
+    }
     const container = logsContainerRef.current;
-    if (!container || logs.length === 0) return;
+    if (!container || logs.length === 0) {
+      return;
+    }
 
     hasInitialScrolledRef.current = true;
     container.scrollTop = container.scrollHeight;
@@ -596,9 +608,13 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
 
   // Auto-scroll when new logs arrive
   useEffect(() => {
-    if (!hasInitialScrolledRef.current) return;
+    if (!hasInitialScrolledRef.current) {
+      return;
+    }
     const container = logsContainerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     // If new logs arrived and user hasn't scrolled up, scroll to bottom
     if (logs.length > prevLogsLengthRef.current && !userScrolledUpRef.current) {

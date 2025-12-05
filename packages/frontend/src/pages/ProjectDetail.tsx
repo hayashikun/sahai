@@ -202,7 +202,9 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
   };
 
   const handleCreateEpic = async () => {
-    if (!epicTitle.trim()) return;
+    if (!epicTitle.trim()) {
+      return;
+    }
 
     try {
       setCreateEpicLoading(true);
@@ -510,7 +512,9 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
             open={createEpicOpen}
             onOpenChange={(open) => {
               setCreateEpicOpen(open);
-              if (open) resetCreateEpicForm();
+              if (open) {
+                resetCreateEpicForm();
+              }
             }}
           >
             <DialogTrigger asChild>
