@@ -210,7 +210,9 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   };
 
   const handleResume = async () => {
-    if (resumeLoading) return;
+    if (resumeLoading) {
+      return;
+    }
     try {
       setResumeLoading(true);
       setActionError(null);
@@ -227,8 +229,12 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   };
 
   const handleCopyWorktreePath = async () => {
-    if (!task.worktreePath) return;
-    if (worktreeActionLoading) return;
+    if (!task.worktreePath) {
+      return;
+    }
+    if (worktreeActionLoading) {
+      return;
+    }
     try {
       setWorktreeActionLoading("copy");
       await navigator.clipboard.writeText(task.worktreePath);
@@ -245,7 +251,9 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   const handleWorktreeAction = async (
     action: "explorer" | "terminal",
   ): Promise<void> => {
-    if (!task.worktreePath || worktreeActionLoading) return;
+    if (!task.worktreePath || worktreeActionLoading) {
+      return;
+    }
     try {
       setWorktreeActionLoading(action);
       setActionError(null);
@@ -264,7 +272,9 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
   };
 
   const handleEditTask = async () => {
-    if (!editTitle.trim()) return;
+    if (!editTitle.trim()) {
+      return;
+    }
 
     try {
       setEditLoading(true);
@@ -438,7 +448,9 @@ function TaskInfo({
                 open={editOpen}
                 onOpenChange={(open) => {
                   setEditOpen(open);
-                  if (open) resetEditForm();
+                  if (open) {
+                    resetEditForm();
+                  }
                 }}
               >
                 <DialogTrigger asChild>
@@ -727,7 +739,9 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
   // Handle scroll events to detect if user scrolled up
   const handleScroll = useCallback(() => {
     const container = logsContainerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const isAtBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight <
@@ -738,9 +752,13 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
 
   // Initial scroll to bottom on mount
   useEffect(() => {
-    if (hasInitialScrolledRef.current) return;
+    if (hasInitialScrolledRef.current) {
+      return;
+    }
     const container = logsContainerRef.current;
-    if (!container || logs.length === 0) return;
+    if (!container || logs.length === 0) {
+      return;
+    }
 
     hasInitialScrolledRef.current = true;
     container.scrollTop = container.scrollHeight;
@@ -749,9 +767,13 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
 
   // Auto-scroll when new logs arrive
   useEffect(() => {
-    if (!hasInitialScrolledRef.current) return;
+    if (!hasInitialScrolledRef.current) {
+      return;
+    }
     const container = logsContainerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     // If new logs arrived and user hasn't scrolled up, scroll to bottom
     if (logs.length > prevLogsLengthRef.current && !userScrolledUpRef.current) {
@@ -900,7 +922,9 @@ export function shouldSubmitChatMessage(
   canSendMessage: boolean,
   loading: boolean,
 ): boolean {
-  if (event.key !== "Enter" || loading) return false;
+  if (event.key !== "Enter" || loading) {
+    return false;
+  }
 
   const hasSubmitModifier = event.metaKey || event.ctrlKey;
 
@@ -987,10 +1011,14 @@ export function ChatInput({
     !queueLoading;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key !== "Enter" || loading || queueLoading) return;
+    if (e.key !== "Enter" || loading || queueLoading) {
+      return;
+    }
 
     const hasSubmitModifier = e.metaKey || e.ctrlKey;
-    if (!hasSubmitModifier) return;
+    if (!hasSubmitModifier) {
+      return;
+    }
 
     e.preventDefault();
 
@@ -1002,7 +1030,9 @@ export function ChatInput({
   };
 
   const handleQueueMessage = async () => {
-    if (!message.trim() || queueLoading) return;
+    if (!message.trim() || queueLoading) {
+      return;
+    }
     try {
       setQueueLoading(true);
       await onQueueMessage(message.trim());
@@ -1055,7 +1085,7 @@ export function ChatInput({
   };
 
   const hintText = getHintText();
-  const buttonDisabled = !canInteract || (!canSendDirectly && !canQueueMessage);
+  const buttonDisabled = !(canInteract && (canSendDirectly || canQueueMessage));
 
   return (
     <Card>

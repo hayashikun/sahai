@@ -21,12 +21,12 @@ export interface GitInfo {
   branches: string[];
 }
 
-export async function browseDirectory(path?: string): Promise<BrowseResult> {
+export function browseDirectory(path?: string): Promise<BrowseResult> {
   const query = path ? `?path=${encodeURIComponent(path)}` : "";
   return fetcher<BrowseResult>(`/filesystem/browse${query}`);
 }
 
-export async function getGitInfo(path: string): Promise<GitInfo> {
+export function getGitInfo(path: string): Promise<GitInfo> {
   return fetcher<GitInfo>(
     `/filesystem/git-info?path=${encodeURIComponent(path)}`,
   );

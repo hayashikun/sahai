@@ -105,7 +105,9 @@ export function RepositoryList() {
 
   const handleCreateRepository = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPath.trim()) return;
+    if (!selectedPath.trim()) {
+      return;
+    }
 
     // Derive name from path (last directory name)
     const name = selectedPath.split("/").filter(Boolean).pop() || "repository";
@@ -144,10 +146,10 @@ export function RepositoryList() {
   }, [branches, defaultBranch]);
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      resetAndClose();
-    } else {
+    if (newOpen) {
       setOpen(true);
+    } else {
+      resetAndClose();
     }
   };
 

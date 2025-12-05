@@ -37,7 +37,9 @@ const VALID_TRANSITIONS: Record<Status, Status[]> = {
 };
 
 export function canTransition(from: Status, to: Status): boolean {
-  if (from === to) return false;
+  if (from === to) {
+    return false;
+  }
   return VALID_TRANSITIONS[from].includes(to);
 }
 
@@ -67,14 +69,20 @@ export function KanbanBoard({ tasks, onTaskUpdate }: KanbanBoardProps) {
     const { active, over } = event;
     setActiveTask(null);
 
-    if (!over || updating) return;
+    if (!over || updating) {
+      return;
+    }
 
     const taskId = active.id as string;
     const newStatus = over.id as Status;
     const task = tasks.find((t) => t.id === taskId);
 
-    if (!task || task.status === newStatus) return;
-    if (!canTransition(task.status, newStatus)) return;
+    if (!task || task.status === newStatus) {
+      return;
+    }
+    if (!canTransition(task.status, newStatus)) {
+      return;
+    }
 
     try {
       setUpdating(true);

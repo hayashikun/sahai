@@ -79,8 +79,12 @@ export class CopilotExecutor implements Executor {
     });
 
     // Start reading stdout and stderr (intentionally not awaited)
-    void this.readOutputStream(this.process.stdout, "stdout");
-    void this.readOutputStream(this.process.stderr, "stderr");
+    this.readOutputStream(this.process.stdout, "stdout").catch(() => {
+      // Error handling is done inside readOutputStream
+    });
+    this.readOutputStream(this.process.stderr, "stderr").catch(() => {
+      // Error handling is done inside readOutputStream
+    });
 
     // Start watching for session ID in log directory
     this.watchForSessionId(logDir);
@@ -102,7 +106,7 @@ export class CopilotExecutor implements Executor {
     this.process.stdin.end();
   }
 
-  async stop(): Promise<void> {
+  stop(): void {
     if (this.process) {
       this.process.kill();
       this.emitOutput({
@@ -160,7 +164,9 @@ export class CopilotExecutor implements Executor {
       const startTime = Date.now();
 
       while (!signal.aborted && Date.now() - startTime < timeout) {
-        if (this.sessionIdExtracted) return;
+        if (this.sessionIdExtracted) {
+          return;
+        }
 
         const sessionId = await checkForSessionId();
         if (sessionId) {
@@ -173,14 +179,16 @@ export class CopilotExecutor implements Executor {
         await new Promise((resolve) => setTimeout(resolve, interval));
       }
 
-      if (!this.sessionIdExtracted && !signal.aborted) {
+      if (!(this.sessionIdExtracted || signal.aborted)) {
         console.log(
           "[CopilotExecutor] Timeout waiting for session ID in log directory",
         );
       }
     };
 
-    void poll();
+    poll().catch(() => {
+      // Errors are handled inside poll
+    });
   }
 
   private async readOutputStream(
@@ -194,7 +202,9 @@ export class CopilotExecutor implements Executor {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 

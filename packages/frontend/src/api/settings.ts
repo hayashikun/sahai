@@ -19,13 +19,11 @@ export async function updateSettings(
   return response.settings;
 }
 
-export async function validatePath(
-  path: string,
-): Promise<ValidatePathResponse> {
+export function validatePath(path: string): Promise<ValidatePathResponse> {
   return apiPost<ValidatePathResponse>("/settings/validate-path", { path });
 }
 
-export async function getSounds(): Promise<SoundsResponse> {
+export function getSounds(): Promise<SoundsResponse> {
   return fetcher<SoundsResponse>("/sounds");
 }
 

@@ -39,7 +39,9 @@ app.get("/browse", async (c) => {
 
     for (const entry of entries) {
       // Skip hidden files/directories except .git check
-      if (entry.name.startsWith(".")) continue;
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
 
       if (entry.isDirectory()) {
         const fullPath = join(targetPath, entry.name);
@@ -55,8 +57,12 @@ app.get("/browse", async (c) => {
 
     // Sort: git repos first, then alphabetically
     directories.sort((a, b) => {
-      if (a.isGitRepo && !b.isGitRepo) return -1;
-      if (!a.isGitRepo && b.isGitRepo) return 1;
+      if (a.isGitRepo && !b.isGitRepo) {
+        return -1;
+      }
+      if (!a.isGitRepo && b.isGitRepo) {
+        return 1;
+      }
       return a.name.localeCompare(b.name);
     });
 
