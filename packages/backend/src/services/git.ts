@@ -135,3 +135,59 @@ export async function listBranches(repoPath: string): Promise<string[]> {
     .filter(Boolean)
     .map((branch) => branch.trim());
 }
+
+export async function getRemoteUrl(
+  repoPath: string,
+  remoteName = "origin",
+): Promise<string | null> {
+  const result = await $`git -C ${repoPath} remote get-url ${remoteName}`
+    .nothrow()
+    .quiet();
+
+  if (result.exitCode !== 0) {
+    return null;
+  }
+
+  const url = result.stdout.toString().trim();
+  return url || null;
+}
+
+export function convertToGitHubUrl(remoteUrl: string): string | null {
+  // Handle SSH format: git@github.com:user/repo.git
+  const sshMatch = remoteUrl.match(/^git@github\.com:(.+?)(?:\.git)?$/);
+  if (sshMatch) {
+    return `https://github.com/${sshMatch[1]}`;
+  }
+
+  // Handle HTTPS format: https://github.com/user/repo.git
+  const httpsMatch = remoteUrl.match(
+    /^https:\/\/github\.com\/(.+?)(?:\.git)?$/,
+  );
+  if (httpsMatch) {
+    return `https://github.com/${httpsMatch[1]}`;
+  }
+
+  return null;
+}
+
+export async function openInFinder(path: string): Promise<void> {
+  const result = await $`open ${path}`.nothrow().quiet();
+
+  if (result.exitCode !== 0) {
+    throw new GitError(
+      `Failed to open Finder at '${path}'`,
+      result.stderr.toString(),
+    );
+  }
+}
+
+export async function openInTerminal(path: string): Promise<void> {
+  const result = await $`open -a Terminal ${path}`.nothrow().quiet();
+
+  if (result.exitCode !== 0) {
+    throw new GitError(
+      `Failed to open Terminal at '${path}'`,
+      result.stderr.toString(),
+    );
+  }
+}

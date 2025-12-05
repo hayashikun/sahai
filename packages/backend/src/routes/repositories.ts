@@ -3,7 +3,13 @@ import { Hono } from "hono";
 import { db } from "../db/client";
 import { repositories } from "../db/schema";
 import { notFound } from "../lib/errors";
-import { listBranches } from "../services/git";
+import {
+  convertToGitHubUrl,
+  getRemoteUrl,
+  listBranches,
+  openInFinder,
+  openInTerminal,
+} from "../services/git";
 
 const app = new Hono();
 
@@ -123,6 +129,84 @@ app.delete("/:id", async (c) => {
   await db.delete(repositories).where(eq(repositories.id, id));
 
   return c.json({ message: "Repository deleted" });
+});
+
+// GET /v1/repositories/:id/github-url - Get GitHub URL for the repository
+app.get("/:id/github-url", async (c) => {
+  const id = c.req.param("id");
+  const result = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, id));
+
+  if (result.length === 0) {
+    return notFound(c, "Repository");
+  }
+
+  const repository = result[0];
+
+  const remoteUrl = await getRemoteUrl(repository.path);
+  if (!remoteUrl) {
+    return c.json({ url: null });
+  }
+
+  const githubUrl = convertToGitHubUrl(remoteUrl);
+  return c.json({ url: githubUrl });
+});
+
+// POST /v1/repositories/:id/open-finder - Open repository in Finder
+app.post("/:id/open-finder", async (c) => {
+  const id = c.req.param("id");
+  const result = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, id));
+
+  if (result.length === 0) {
+    return notFound(c, "Repository");
+  }
+
+  const repository = result[0];
+
+  try {
+    await openInFinder(repository.path);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to open Finder",
+      },
+      500,
+    );
+  }
+});
+
+// POST /v1/repositories/:id/open-terminal - Open repository in Terminal
+app.post("/:id/open-terminal", async (c) => {
+  const id = c.req.param("id");
+  const result = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, id));
+
+  if (result.length === 0) {
+    return notFound(c, "Repository");
+  }
+
+  const repository = result[0];
+
+  try {
+    await openInTerminal(repository.path);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to open Terminal",
+      },
+      500,
+    );
+  }
 });
 
 export default app;

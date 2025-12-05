@@ -1,10 +1,13 @@
 import {
   ArrowLeft,
   ClipboardList,
+  ExternalLink,
+  FolderOpen,
   GitBranch,
   Loader2,
   Pencil,
   Plus,
+  TerminalSquare,
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -13,6 +16,9 @@ import {
   createTask,
   deleteRepository,
   getRepositoryBranches,
+  getRepositoryGitHubUrl,
+  openRepositoryInFinder,
+  openRepositoryInTerminal,
   startTask,
   updateRepository,
 } from "../api";
@@ -161,6 +167,31 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   // Delete repository state
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Quick actions state
+  const [githubUrl, setGithubUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    getRepositoryGitHubUrl(repositoryId)
+      .then(setGithubUrl)
+      .catch(console.error);
+  }, [repositoryId]);
+
+  const handleOpenFinder = async () => {
+    try {
+      await openRepositoryInFinder(repositoryId);
+    } catch (e) {
+      console.error("Failed to open Finder:", e);
+    }
+  };
+
+  const handleOpenTerminal = async () => {
+    try {
+      await openRepositoryInTerminal(repositoryId);
+    } catch (e) {
+      console.error("Failed to open Terminal:", e);
+    }
+  };
 
   const resetTaskForm = useCallback(() => {
     setTitle("");
@@ -317,6 +348,24 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                 <GitBranch className="h-4 w-4" />
                 {repository.defaultBranch}
               </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              {githubUrl && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={githubUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    GitHub
+                  </a>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleOpenFinder}>
+                <FolderOpen className="mr-2 h-4 w-4" />
+                Finder
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleOpenTerminal}>
+                <TerminalSquare className="mr-2 h-4 w-4" />
+                Terminal
+              </Button>
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
