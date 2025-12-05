@@ -292,7 +292,7 @@ export function RepositoryList() {
                     id="repo-description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe the role of this repository (used in Epic prompts)"
+                    placeholder="Describe the role of this repository"
                     rows={2}
                   />
                 </div>

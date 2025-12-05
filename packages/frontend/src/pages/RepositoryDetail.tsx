@@ -345,7 +345,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                       id="edit-repo-description"
                       value={editDescription}
                       onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder="Describe the role of this repository (used in Epic prompts)"
+                      placeholder="Describe the role of this repository"
                       rows={2}
                     />
                   </div>
