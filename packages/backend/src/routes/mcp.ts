@@ -152,7 +152,7 @@ mcp.post("/", async (c) => {
 });
 
 // Handle MCP GET requests (SSE stream for server-to-client notifications)
-mcp.get("/", async (c) => {
+mcp.get("/", (c) => {
   const sessionId = c.req.header("mcp-session-id");
   if (!sessionId) {
     return c.text("Missing session ID", 400);
@@ -168,12 +168,10 @@ mcp.get("/", async (c) => {
     await stream.writeSSE({ event: "connected", data: "connected" });
 
     // Keep connection alive with heartbeat
-    const heartbeat = setInterval(async () => {
-      try {
-        await stream.writeSSE({ event: "heartbeat", data: "" });
-      } catch {
+    const heartbeat = setInterval(() => {
+      stream.writeSSE({ event: "heartbeat", data: "" }).catch(() => {
         clearInterval(heartbeat);
-      }
+      });
     }, 30000);
 
     // Clean up on close
@@ -184,7 +182,7 @@ mcp.get("/", async (c) => {
 });
 
 // Handle MCP DELETE requests (session termination)
-mcp.delete("/", async (c) => {
+mcp.delete("/", (c) => {
   const sessionId = c.req.header("mcp-session-id");
   if (!sessionId) {
     return c.text("Missing session ID", 400);

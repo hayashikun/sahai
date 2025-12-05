@@ -126,7 +126,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
-    if (!slug) return "";
+    if (!slug) {
+      return "";
+    }
     const timestamp = base62Encode(Math.floor(Date.now() / 1000));
     return `sahai/${timestamp}-${slug}`;
   };
@@ -170,8 +172,12 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   }, []);
 
   const handleCreateTask = useCallback(async () => {
-    if (creating) return;
-    if (!title.trim() || !branchName.trim()) return;
+    if (creating) {
+      return;
+    }
+    if (!(title.trim() && branchName.trim())) {
+      return;
+    }
 
     try {
       setCreating(true);
@@ -216,7 +222,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   ]);
 
   useEffect(() => {
-    if (!createTaskOpen) return;
+    if (!createTaskOpen) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -230,7 +238,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   }, [createTaskOpen, handleCreateTask]);
 
   const handleEditRepository = async () => {
-    if (!editDefaultBranch.trim()) return;
+    if (!editDefaultBranch.trim()) {
+      return;
+    }
 
     try {
       setEditLoading(true);
@@ -446,7 +456,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
           open={createTaskOpen}
           onOpenChange={(open) => {
             setCreateTaskOpen(open);
-            if (open) resetTaskForm();
+            if (open) {
+              resetTaskForm();
+            }
           }}
         >
           <DialogTrigger asChild>

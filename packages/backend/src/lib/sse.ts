@@ -106,8 +106,10 @@ export function createSSEStream<T>(
       unsubscribe();
     });
 
-    // Keep the stream open
-    await new Promise(() => {});
+    // Keep the stream open indefinitely
+    await new Promise(() => {
+      // This promise intentionally never resolves to keep SSE connection alive
+    });
   });
 }
 
@@ -175,7 +177,9 @@ export function createSimpleSSEStream<T>(
       unsubscribe();
     });
 
-    // Keep the stream open
-    await new Promise(() => {});
+    // Keep the stream open indefinitely
+    await new Promise(() => {
+      // This promise intentionally never resolves to keep SSE connection alive
+    });
   });
 }

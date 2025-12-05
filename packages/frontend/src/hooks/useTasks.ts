@@ -266,14 +266,14 @@ export function useTaskMessagesWithStream(taskId: string) {
   // Merge initial messages with stream messages, removing duplicates
   const allMessages = [...initialMessages];
   for (const msg of streamMessages) {
-    if (!allMessages.some((m) => m.id === msg.id)) {
-      allMessages.push(msg);
-    } else {
+    if (allMessages.some((m) => m.id === msg.id)) {
       // Update existing message with stream data (e.g., status change)
       const index = allMessages.findIndex((m) => m.id === msg.id);
       if (index !== -1) {
         allMessages[index] = msg;
       }
+    } else {
+      allMessages.push(msg);
     }
   }
 

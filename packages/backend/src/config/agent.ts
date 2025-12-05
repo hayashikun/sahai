@@ -42,23 +42,19 @@ export async function getAgentPath(agent: AgentType): Promise<string> {
 }
 
 // Get path by executor name (for use in executor files)
-export async function getExecutorPath(
-  executorName: string,
-): Promise<string | null> {
+export function getExecutorPath(executorName: string): Promise<string | null> {
   const agentKey = executorToAgentKey[executorName];
   if (!agentKey) {
-    return null;
+    return Promise.resolve(null);
   }
   return getAgentPath(agentKey);
 }
 
 // Check if executor is enabled by executor name
-export async function isExecutorEnabled(
-  executorName: string,
-): Promise<boolean> {
+export function isExecutorEnabled(executorName: string): Promise<boolean> {
   const agentKey = executorToAgentKey[executorName];
   if (!agentKey) {
-    return false;
+    return Promise.resolve(false);
   }
   return isAgentEnabled(agentKey);
 }

@@ -122,7 +122,9 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
   );
 
   const handleEdit = async () => {
-    if (!editName.trim()) return;
+    if (!editName.trim()) {
+      return;
+    }
 
     try {
       setEditLoading(true);
@@ -155,7 +157,9 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
   };
 
   const handleAddRepository = async () => {
-    if (!selectedRepoId) return;
+    if (!selectedRepoId) {
+      return;
+    }
 
     try {
       setAddRepoLoading(true);
@@ -253,7 +257,9 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
               open={editOpen}
               onOpenChange={(open) => {
                 setEditOpen(open);
-                if (open) resetEditForm();
+                if (open) {
+                  resetEditForm();
+                }
               }}
             >
               <DialogTrigger asChild>
@@ -364,7 +370,9 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
             open={addRepoOpen}
             onOpenChange={(open) => {
               setAddRepoOpen(open);
-              if (open) resetAddRepoForm();
+              if (open) {
+                resetAddRepoForm();
+              }
             }}
           >
             <DialogTrigger asChild>

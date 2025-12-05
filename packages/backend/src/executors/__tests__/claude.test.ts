@@ -22,10 +22,10 @@ const { ClaudeCodeExecutor } = await import("../claude");
 describe("ClaudeCodeExecutor", () => {
   let executor: ClaudeCodeExecutor;
 
-  afterEach(async () => {
+  afterEach(() => {
     // Ensure executor is stopped after each test
     if (executor) {
-      await executor.stop().catch(() => {});
+      executor.stop();
     }
   });
 
