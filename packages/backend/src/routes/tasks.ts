@@ -887,75 +887,6 @@ taskById.post("/:id/pause", async (c) => {
   return c.json(withExecutingStatus(updatedTask[0]));
 });
 
-// POST /v1/tasks/:id/complete - Transition to InReview
-taskById.post("/:id/complete", async (c) => {
-  const id = c.req.param("id");
-  const now = new Date().toISOString();
-
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
-  }
-
-  const task = taskResult[0];
-
-  if (task.status !== "InProgress") {
-    return invalidStateTransition(c, task.status, ["InProgress"], "complete");
-  }
-
-  // Stop executor if running
-  const executor = getExecutor(id);
-  if (executor) {
-    await executor.stop();
-    removeExecutor(id);
-  }
-
-  // Get repository info for lifecycle scripts
-  const repoResult = await db
-    .select()
-    .from(repositories)
-    .where(eq(repositories.id, task.repositoryId));
-
-  if (repoResult.length > 0) {
-    const repo = repoResult[0];
-    // Run complete script asynchronously
-    if (repo.completeScript && task.worktreePath) {
-      console.log(`[tasks] Running complete script for task ${id} (async)`);
-      runLifecycleScript(repo.completeScript, task.worktreePath)
-        .then(() =>
-          console.log(`[tasks] Complete script completed for task ${id}`),
-        )
-        .catch((e) =>
-          console.error(
-            `[tasks] Complete script failed for task ${id}:`,
-            e instanceof Error ? e.message : e,
-          ),
-        );
-    }
-  }
-
-  await db
-    .update(tasks)
-    .set({
-      status: "InReview",
-      updatedAt: now,
-    })
-    .where(eq(tasks.id, id));
-
-  // Broadcast task status changed event
-  broadcastTaskEvent(task.repositoryId, {
-    type: "task-status-changed",
-    taskId: id,
-    oldStatus: "InProgress",
-    newStatus: "InReview",
-    isExecuting: false,
-    updatedAt: now,
-  });
-
-  const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-  return c.json(withExecutingStatus(updatedTask[0]));
-});
-
 // POST /v1/tasks/:id/resume - Restart executor
 taskById.post("/:id/resume", async (c) => {
   const id = c.req.param("id");
@@ -1184,49 +1115,6 @@ taskById.post("/:id/finish", async (c) => {
 
   const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
   return c.json(withExecutingStatus(updatedTask[0]));
-});
-
-// POST /v1/tasks/:id/recreate - Create new task from existing one
-taskById.post("/:id/recreate", async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json().catch(() => ({}));
-  const now = new Date().toISOString();
-
-  const taskResult = await db.select().from(tasks).where(eq(tasks.id, id));
-  if (taskResult.length === 0) {
-    return notFound(c, "Task");
-  }
-
-  const task = taskResult[0];
-  const newId = crypto.randomUUID();
-
-  const newTask = {
-    id: newId,
-    repositoryId: task.repositoryId,
-    epicId: task.epicId,
-    title: body.title ?? task.title,
-    description: body.description ?? task.description,
-    status: "TODO" as const,
-    executor: body.executor ?? task.executor,
-    branchName: body.branchName ?? `${task.branchName}-retry`,
-    baseBranch: body.baseBranch ?? task.baseBranch,
-    worktreePath: null,
-    createdAt: now,
-    updatedAt: now,
-    startedAt: null,
-    completedAt: null,
-  };
-
-  await db.insert(tasks).values(newTask);
-
-  // Broadcast task created event
-  broadcastTaskEvent(task.repositoryId, {
-    type: "task-created",
-    task: withExecutingStatus(newTask),
-    createdAt: now,
-  });
-
-  return c.json(withExecutingStatus(newTask), 201);
 });
 
 // Initialize startExecutorWithMessage function

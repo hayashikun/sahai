@@ -431,39 +431,6 @@ describe("POST /:id/pause", () => {
   });
 });
 
-describe("POST /:id/complete", () => {
-  test("returns 404 for non-existent task", async () => {
-    const res = await taskById.request("/non-existent/complete", {
-      method: "POST",
-    });
-    expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
-    expect(data.error.message).toBe("Task not found");
-  });
-
-  test("returns 400 if task is not in InProgress status", async () => {
-    await createRepository("repo-1", "Repo 1");
-    await createTaskWithStatus("task-1", "repo-1", "Task 1", "TODO");
-
-    const res = await taskById.request("/task-1/complete", { method: "POST" });
-    expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: { message: string } };
-    expect(data.error.message).toBe(
-      "Cannot complete: task is in TODO status, but must be in InProgress status",
-    );
-  });
-
-  test("completes a task in InProgress status", async () => {
-    await createRepository("repo-1", "Repo 1");
-    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress");
-
-    const res = await taskById.request("/task-1/complete", { method: "POST" });
-    expect(res.status).toBe(200);
-    const data = (await res.json()) as { status: string };
-    expect(data.status).toBe("InReview");
-  });
-});
-
 describe("POST /:id/resume", () => {
   test("returns 404 for non-existent task", async () => {
     const res = await taskById.request("/non-existent/resume", {
@@ -705,63 +672,5 @@ describe("GET /:id/diff", () => {
     expect(res.status).toBe(500);
     const data = (await res.json()) as { error: { message: string } };
     expect(data.error.message).toContain("Failed to get diff");
-  });
-});
-
-describe("POST /:id/recreate", () => {
-  test("returns 404 for non-existent task", async () => {
-    const res = await taskById.request("/non-existent/recreate", {
-      method: "POST",
-    });
-    expect(res.status).toBe(404);
-    const data = (await res.json()) as { error: string };
-    expect(data.error.message).toBe("Task not found");
-  });
-
-  test("creates a new task from existing task", async () => {
-    await createRepository("repo-1", "Repo 1");
-    await createTaskWithStatus("task-1", "repo-1", "Original Task", "Done");
-
-    const res = await taskById.request("/task-1/recreate", { method: "POST" });
-    expect(res.status).toBe(201);
-    const data = (await res.json()) as {
-      id: string;
-      title: string;
-      status: string;
-      branchName: string;
-    };
-    expect(data.id).not.toBe("task-1");
-    expect(data.title).toBe("Original Task");
-    expect(data.status).toBe("TODO");
-    expect(data.branchName).toBe("feature/task-1-retry");
-  });
-
-  test("creates a new task with custom properties", async () => {
-    await createRepository("repo-1", "Repo 1");
-    await createTaskWithStatus("task-1", "repo-1", "Original Task", "Done");
-
-    const res = await taskById.request("/task-1/recreate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "New Title",
-        branchName: "feature/new-branch",
-      }),
-    });
-    expect(res.status).toBe(201);
-    const data = (await res.json()) as {
-      title: string;
-      branchName: string;
-    };
-    expect(data.title).toBe("New Title");
-    expect(data.branchName).toBe("feature/new-branch");
-  });
-
-  test("can recreate from any status", async () => {
-    await createRepository("repo-1", "Repo 1");
-    await createTaskWithStatus("task-1", "repo-1", "Task 1", "InProgress");
-
-    const res = await taskById.request("/task-1/recreate", { method: "POST" });
-    expect(res.status).toBe(201);
   });
 });

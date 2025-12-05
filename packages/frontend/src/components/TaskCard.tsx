@@ -14,13 +14,7 @@ import {
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Task } from "shared";
-import {
-  completeTask,
-  deleteTask,
-  finishTask,
-  pauseTask,
-  startTask,
-} from "../api";
+import { deleteTask, finishTask, pauseTask, startTask } from "../api";
 import { usePendingMessageCount } from "../hooks";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
@@ -115,22 +109,12 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
                 </DropdownMenuItem>
               )}
               {task.status === "InProgress" && (
-                <>
-                  <DropdownMenuItem
-                    onClick={(e) => handleAction(() => pauseTask(task.id), e)}
-                  >
-                    <Pause className="mr-2 h-4 w-4" />
-                    Pause
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) =>
-                      handleAction(() => completeTask(task.id), e)
-                    }
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Complete
-                  </DropdownMenuItem>
-                </>
+                <DropdownMenuItem
+                  onClick={(e) => handleAction(() => pauseTask(task.id), e)}
+                >
+                  <Pause className="mr-2 h-4 w-4" />
+                  Pause
+                </DropdownMenuItem>
               )}
               {task.status === "InReview" && (
                 <DropdownMenuItem

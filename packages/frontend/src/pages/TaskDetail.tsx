@@ -1,7 +1,6 @@
 import {
   ArrowLeft,
   Calendar,
-  CheckCircle,
   Clipboard,
   FolderOpen,
   GitBranch,
@@ -20,7 +19,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ExecutionLog, Status, Task, TaskMessage } from "shared";
 import {
-  completeTask,
   deleteQueuedMessage,
   deleteTask,
   finishTask,
@@ -352,9 +350,6 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
         deleteError={deleteError}
         onStart={() => handleAction(() => startTask(taskId), "start task")}
         onPause={() => handleAction(() => pauseTask(taskId), "pause task")}
-        onComplete={() =>
-          handleAction(() => completeTask(taskId), "complete task")
-        }
         onFinish={() => handleAction(() => finishTask(taskId), "finish task")}
         onDelete={handleDeleteTask}
       />
@@ -622,7 +617,6 @@ interface TaskActionsProps {
   deleteError: string | null;
   onStart: () => void;
   onPause: () => void;
-  onComplete: () => void;
   onFinish: () => void;
   onDelete: () => void;
 }
@@ -634,7 +628,6 @@ function TaskActions({
   deleteError,
   onStart,
   onPause,
-  onComplete,
   onFinish,
   onDelete,
 }: TaskActionsProps) {
@@ -657,21 +650,10 @@ function TaskActions({
           )}
 
           {task.status === "InProgress" && (
-            <>
-              <Button variant="secondary" onClick={onPause} disabled={loading}>
-                <Pause className="mr-2 h-4 w-4" />
-                Pause
-              </Button>
-              <Button
-                variant="default"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={onComplete}
-                disabled={loading}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Mark Complete
-              </Button>
-            </>
+            <Button variant="secondary" onClick={onPause} disabled={loading}>
+              <Pause className="mr-2 h-4 w-4" />
+              Pause
+            </Button>
           )}
 
           {task.status === "InReview" && (
