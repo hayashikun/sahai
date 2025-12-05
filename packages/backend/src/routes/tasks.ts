@@ -402,6 +402,7 @@ repositoryTasks.post("/:repositoryId/tasks", async (c) => {
   const newTask = {
     id,
     repositoryId,
+    epicId: body.epicId ?? null,
     title: body.title,
     description: body.description ?? null,
     status: "TODO" as const,
@@ -1048,6 +1049,7 @@ taskById.post("/:id/recreate", async (c) => {
   const newTask = {
     id: newId,
     repositoryId: task.repositoryId,
+    epicId: task.epicId,
     title: body.title ?? task.title,
     description: body.description ?? task.description,
     status: "TODO" as const,

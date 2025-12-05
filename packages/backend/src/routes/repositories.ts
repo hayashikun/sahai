@@ -22,6 +22,7 @@ app.post("/", async (c) => {
   const newRepository = {
     id,
     name: body.name,
+    description: body.description ?? null,
     path: body.path,
     defaultBranch: body.defaultBranch ?? "main",
     createdAt: now,
@@ -92,6 +93,10 @@ app.put("/:id", async (c) => {
 
   const updated = {
     name: body.name ?? existing[0].name,
+    description:
+      body.description !== undefined
+        ? body.description
+        : existing[0].description,
     path: body.path ?? existing[0].path,
     defaultBranch: body.defaultBranch ?? existing[0].defaultBranch,
     updatedAt: now,

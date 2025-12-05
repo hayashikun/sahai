@@ -26,6 +26,7 @@ function formatTask(task: TaskWithExecuting): string {
     {
       id: task.id,
       repositoryId: task.repositoryId,
+      epicId: task.epicId,
       title: task.title,
       description: task.description,
       status: task.status,
@@ -259,6 +260,11 @@ async function handleJsonRpcRequest(
                     description:
                       "Base branch (defaults to repository's default branch)",
                   },
+                  epicId: {
+                    type: "string",
+                    description:
+                      "UUID of the parent epic (if created from an epic)",
+                  },
                 },
                 required: ["repositoryId", "title", "executor", "branchName"],
               },
@@ -371,6 +377,7 @@ async function executeToolCall(
       const executor = args.executor as string;
       const branchName = args.branchName as string;
       const baseBranch = args.baseBranch as string | undefined;
+      const epicId = args.epicId as string | undefined;
 
       // Validate executor
       const validExecutors = ["ClaudeCode", "Codex", "Copilot", "Gemini"];
@@ -415,6 +422,7 @@ async function executeToolCall(
       const newTask = {
         id: randomUUID(),
         repositoryId,
+        epicId: epicId || null,
         title,
         description: description || null,
         status: "TODO" as const,

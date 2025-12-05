@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   GitBranch,
   GitFork,
+  Layers,
   Loader2,
   Pencil,
   Plus,
@@ -10,8 +11,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import type { Executor } from "shared";
 import {
   associateRepositoryWithProject,
+  createEpic,
   deleteProject,
   disassociateRepositoryFromProject,
   updateProject,
@@ -27,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -54,7 +58,12 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { useProject, useProjectRepositories, useRepositories } from "../hooks";
+import {
+  useProject,
+  useProjectEpics,
+  useProjectRepositories,
+  useRepositories,
+} from "../hooks";
 
 export function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -75,6 +84,7 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
   const { repositories: projectRepositories, mutate: mutateRepositories } =
     useProjectRepositories(projectId);
   const { repositories: allRepositories } = useRepositories();
+  const { epics, mutate: mutateEpics } = useProjectEpics(projectId);
   const navigate = useNavigate();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -96,6 +106,14 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
 
   // Remove repository state
   const [removingRepoId, setRemovingRepoId] = useState<string | null>(null);
+
+  // Create epic state
+  const [createEpicOpen, setCreateEpicOpen] = useState(false);
+  const [epicTitle, setEpicTitle] = useState("");
+  const [epicDescription, setEpicDescription] = useState("");
+  const [epicExecutor, setEpicExecutor] = useState<Executor>("ClaudeCode");
+  const [createEpicLoading, setCreateEpicLoading] = useState(false);
+  const [createEpicError, setCreateEpicError] = useState<string | null>(null);
 
   // Filter out repositories that are already associated with this project
   const projectRepoIds = new Set(projectRepositories.map((r) => r.id));
@@ -181,6 +199,40 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
   const resetAddRepoForm = () => {
     setSelectedRepoId("");
     setAddRepoError(null);
+  };
+
+  const handleCreateEpic = async () => {
+    if (!epicTitle.trim()) {
+      return;
+    }
+
+    try {
+      setCreateEpicLoading(true);
+      setCreateEpicError(null);
+      await createEpic(projectId, {
+        title: epicTitle.trim(),
+        description: epicDescription.trim() || undefined,
+        executor: epicExecutor,
+      });
+      mutateEpics();
+      setCreateEpicOpen(false);
+      setEpicTitle("");
+      setEpicDescription("");
+      setEpicExecutor("ClaudeCode");
+    } catch (e) {
+      setCreateEpicError(
+        e instanceof Error ? e.message : "Failed to create epic",
+      );
+    } finally {
+      setCreateEpicLoading(false);
+    }
+  };
+
+  const resetCreateEpicForm = () => {
+    setEpicTitle("");
+    setEpicDescription("");
+    setEpicExecutor("ClaudeCode");
+    setCreateEpicError(null);
   };
 
   return (
@@ -443,6 +495,142 @@ function ProjectDetailContent({ projectId }: { projectId: string }) {
                     <X className="h-4 w-4" />
                   )}
                 </Button>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Epics Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Layers className="h-5 w-5" />
+            Epics
+          </h2>
+          <Dialog
+            open={createEpicOpen}
+            onOpenChange={(open) => {
+              setCreateEpicOpen(open);
+              if (open) {
+                resetCreateEpicForm();
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Epic
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Epic</DialogTitle>
+                <DialogDescription>
+                  Create a new epic to orchestrate tasks across repositories.
+                </DialogDescription>
+              </DialogHeader>
+              {createEpicError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                  {createEpicError}
+                </div>
+              )}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="epic-title">Title</Label>
+                  <Input
+                    id="epic-title"
+                    value={epicTitle}
+                    onChange={(e) => setEpicTitle(e.target.value)}
+                    placeholder="Epic title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="epic-description">Description</Label>
+                  <Textarea
+                    id="epic-description"
+                    value={epicDescription}
+                    onChange={(e) => setEpicDescription(e.target.value)}
+                    placeholder="Describe the epic goal and requirements..."
+                    rows={5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="epic-executor">Executor</Label>
+                  <Select
+                    value={epicExecutor}
+                    onValueChange={(v) => setEpicExecutor(v as Executor)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ClaudeCode">Claude Code</SelectItem>
+                      <SelectItem value="Codex">Codex</SelectItem>
+                      <SelectItem value="Copilot">Copilot</SelectItem>
+                      <SelectItem value="Gemini">Gemini</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreateEpicOpen(false)}
+                  disabled={createEpicLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateEpic}
+                  disabled={createEpicLoading || !epicTitle.trim()}
+                >
+                  {createEpicLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Create Epic
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {epics.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-10">
+              <Layers className="h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-gray-500">No epics created yet.</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Create an epic to orchestrate tasks across repositories.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {epics.map((epic) => (
+              <Card
+                key={epic.id}
+                className="hover:bg-gray-50 transition-colors h-full"
+              >
+                <Link to={`/epics/${epic.id}`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Layers className="h-4 w-4" />
+                        {epic.title}
+                      </CardTitle>
+                      <Badge variant="outline">{epic.executor}</Badge>
+                    </div>
+                    {epic.description && (
+                      <CardDescription className="line-clamp-2">
+                        {epic.description}
+                      </CardDescription>
+                    )}
+                    <CardDescription className="text-xs">
+                      Created {epic.createdAt.toLocaleDateString()}
+                    </CardDescription>
+                  </CardHeader>
+                </Link>
               </Card>
             ))}
           </div>

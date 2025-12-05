@@ -147,6 +147,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
 
   // Edit repository state
   const [editOpen, setEditOpen] = useState(false);
+  const [editDescription, setEditDescription] = useState(
+    repository.description || "",
+  );
   const [editDefaultBranch, setEditDefaultBranch] = useState(
     repository.defaultBranch,
   );
@@ -243,6 +246,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       setEditLoading(true);
       setEditError(null);
       await updateRepository(repositoryId, {
+        description: editDescription.trim() || undefined,
         defaultBranch: editDefaultBranch.trim(),
       });
       mutateRepository();
@@ -283,6 +287,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   };
 
   const resetEditForm = () => {
+    setEditDescription(repository.description || "");
     setEditDefaultBranch(repository.defaultBranch);
     setEditError(null);
     setBranches([]);
@@ -303,6 +308,9 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
               {repository.name}
             </h1>
+            {repository.description && (
+              <p className="mt-1 text-gray-600">{repository.description}</p>
+            )}
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-sm text-gray-500">
               <span className="font-mono break-all">{repository.path}</span>
               <span className="flex items-center gap-1">
@@ -340,30 +348,42 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                     {editError}
                   </div>
                 )}
-                <div className="space-y-2">
-                  <Label htmlFor="edit-repo-branch">Default Branch</Label>
-                  {branchesLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading branches...
-                    </div>
-                  ) : (
-                    <Select
-                      value={editDefaultBranch}
-                      onValueChange={setEditDefaultBranch}
-                    >
-                      <SelectTrigger id="edit-repo-branch">
-                        <SelectValue placeholder="Select a branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((branch) => (
-                          <SelectItem key={branch} value={branch}>
-                            {branch}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-repo-description">Description</Label>
+                    <Textarea
+                      id="edit-repo-description"
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Describe the role of this repository"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-repo-branch">Default Branch</Label>
+                    {branchesLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading branches...
+                      </div>
+                    ) : (
+                      <Select
+                        value={editDefaultBranch}
+                        onValueChange={setEditDefaultBranch}
+                      >
+                        <SelectTrigger id="edit-repo-branch">
+                          <SelectValue placeholder="Select a branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map((branch) => (
+                            <SelectItem key={branch} value={branch}>
+                              {branch}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button

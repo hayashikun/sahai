@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ErrorBoundary, Layout } from "./components";
 import {
+  EpicDetail,
   ProjectDetail,
   ProjectList,
   RepositoryDetail,
@@ -71,6 +72,16 @@ export function App() {
               <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                   <TaskDetail />
+                </Suspense>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="epics/:epicId"
+            element={
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <EpicDetail />
                 </Suspense>
               </ErrorBoundary>
             }

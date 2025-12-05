@@ -1,3 +1,4 @@
+export * from "./EpicDetail";
 export * from "./ProjectDetail";
 export * from "./ProjectList";
 export * from "./RepositoryDetail";
