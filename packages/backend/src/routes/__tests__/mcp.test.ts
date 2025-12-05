@@ -9,7 +9,7 @@ import {
 import { unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import { db, runMigrations } from "../../db/client";
-import { repositories, tasks } from "../../db/schema";
+import { executionLogs, repositories, tasks } from "../../db/schema";
 import mcp from "../mcp";
 
 const TEST_DB_PATH = resolve(import.meta.dirname, "../../../data/mcp-test.db");
@@ -20,6 +20,7 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  await db.delete(executionLogs);
   await db.delete(tasks);
   await db.delete(repositories);
 });
@@ -66,6 +67,22 @@ async function createTask(
     updatedAt: now,
     startedAt: status !== "TODO" ? now : null,
     completedAt: status === "Done" ? now : null,
+  });
+}
+
+async function createExecutionLog(
+  id: string,
+  taskId: string,
+  content: string,
+  logType: "stdout" | "stderr" | "system" = "stdout",
+  createdAt?: string,
+) {
+  await db.insert(executionLogs).values({
+    id,
+    taskId,
+    content,
+    logType,
+    createdAt: createdAt ?? new Date().toISOString(),
   });
 }
 
@@ -233,13 +250,15 @@ describe("MCP POST / (JSON-RPC)", () => {
         tools: Array<{ name: string; description: string }>;
       };
       expect(result.tools).toBeArray();
-      expect(result.tools).toHaveLength(4);
+      expect(result.tools).toHaveLength(6);
 
       const toolNames = result.tools.map((t) => t.name);
       expect(toolNames).toContain("create_task");
       expect(toolNames).toContain("start_task");
       expect(toolNames).toContain("resume_task");
       expect(toolNames).toContain("get_task");
+      expect(toolNames).toContain("get_task_logs");
+      expect(toolNames).toContain("list_repositories");
     });
   });
 
@@ -640,6 +659,281 @@ describe("MCP POST / (JSON-RPC)", () => {
         isError?: boolean;
       };
       expect(result.isError).toBe(true);
+    });
+  });
+
+  describe("tools/call - get_task_logs", () => {
+    test("returns logs for a task", async () => {
+      await createRepository("repo-1", "Test Repository");
+      await createTask("task-1", "repo-1", "Test Task");
+      await createExecutionLog(
+        "log-1",
+        "task-1",
+        "First log message",
+        "stdout",
+        "2024-01-01T00:00:00.000Z",
+      );
+      await createExecutionLog(
+        "log-2",
+        "task-1",
+        "Second log message",
+        "stderr",
+        "2024-01-01T00:00:01.000Z",
+      );
+      await createExecutionLog(
+        "log-3",
+        "task-1",
+        "Third log message",
+        "system",
+        "2024-01-01T00:00:02.000Z",
+      );
+      const sessionId = await initializeSession();
+
+      const res = await mcp.request("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "mcp-session-id": sessionId,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "get_task_logs",
+            arguments: {
+              taskId: "task-1",
+            },
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as JsonRpcResponse;
+      const result = data.result as {
+        content: Array<{ type: string; text: string }>;
+        isError?: boolean;
+      };
+      expect(result.isError).toBeUndefined();
+
+      const logsData = JSON.parse(result.content[0].text);
+      expect(logsData.taskId).toBe("task-1");
+      expect(logsData.logs).toHaveLength(3);
+      // Logs should be in descending order (newest first)
+      expect(logsData.logs[0].content).toBe("Third log message");
+      expect(logsData.logs[0].logType).toBe("system");
+      expect(logsData.logs[1].content).toBe("Second log message");
+      expect(logsData.logs[2].content).toBe("First log message");
+      expect(logsData.pagination.limit).toBe(100);
+      expect(logsData.pagination.offset).toBe(0);
+      expect(logsData.pagination.count).toBe(3);
+    });
+
+    test("returns empty logs array for task without logs", async () => {
+      await createRepository("repo-1", "Test Repository");
+      await createTask("task-1", "repo-1", "Test Task");
+      const sessionId = await initializeSession();
+
+      const res = await mcp.request("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "mcp-session-id": sessionId,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "get_task_logs",
+            arguments: {
+              taskId: "task-1",
+            },
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as JsonRpcResponse;
+      const result = data.result as {
+        content: Array<{ type: string; text: string }>;
+        isError?: boolean;
+      };
+      expect(result.isError).toBeUndefined();
+
+      const logsData = JSON.parse(result.content[0].text);
+      expect(logsData.taskId).toBe("task-1");
+      expect(logsData.logs).toHaveLength(0);
+    });
+
+    test("respects limit and offset parameters", async () => {
+      await createRepository("repo-1", "Test Repository");
+      await createTask("task-1", "repo-1", "Test Task");
+      // Create 5 logs
+      for (let i = 0; i < 5; i++) {
+        await createExecutionLog(
+          `log-${i}`,
+          "task-1",
+          `Log message ${i}`,
+          "stdout",
+          `2024-01-01T00:00:0${i}.000Z`,
+        );
+      }
+      const sessionId = await initializeSession();
+
+      const res = await mcp.request("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "mcp-session-id": sessionId,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "get_task_logs",
+            arguments: {
+              taskId: "task-1",
+              limit: 2,
+              offset: 1,
+            },
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as JsonRpcResponse;
+      const result = data.result as {
+        content: Array<{ type: string; text: string }>;
+      };
+      const logsData = JSON.parse(result.content[0].text);
+      expect(logsData.logs).toHaveLength(2);
+      expect(logsData.pagination.limit).toBe(2);
+      expect(logsData.pagination.offset).toBe(1);
+      expect(logsData.pagination.count).toBe(2);
+      // Should skip the newest (index 4) and return 3 and 2
+      expect(logsData.logs[0].content).toBe("Log message 3");
+      expect(logsData.logs[1].content).toBe("Log message 2");
+    });
+
+    test("returns error for non-existent task", async () => {
+      const sessionId = await initializeSession();
+
+      const res = await mcp.request("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "mcp-session-id": sessionId,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "get_task_logs",
+            arguments: {
+              taskId: "non-existent",
+            },
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as JsonRpcResponse;
+      const result = data.result as {
+        content: Array<{ type: string; text: string }>;
+        isError?: boolean;
+      };
+      expect(result.isError).toBe(true);
+      const errorData = JSON.parse(result.content[0].text);
+      expect(errorData.error).toBe("NOT_FOUND");
+      expect(errorData.message).toBe("Task not found");
+    });
+  });
+
+  describe("tools/call - list_repositories", () => {
+    test("returns list of repositories", async () => {
+      await createRepository("repo-1", "First Repository");
+      await createRepository("repo-2", "Second Repository");
+      const sessionId = await initializeSession();
+
+      const res = await mcp.request("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "mcp-session-id": sessionId,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "list_repositories",
+            arguments: {},
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as JsonRpcResponse;
+      const result = data.result as {
+        content: Array<{ type: string; text: string }>;
+        isError?: boolean;
+      };
+      expect(result.isError).toBeUndefined();
+
+      const repoData = JSON.parse(result.content[0].text);
+      expect(repoData.count).toBe(2);
+      expect(repoData.repositories).toHaveLength(2);
+
+      const repoNames = repoData.repositories.map(
+        (r: { name: string }) => r.name,
+      );
+      expect(repoNames).toContain("First Repository");
+      expect(repoNames).toContain("Second Repository");
+
+      // Verify repository structure
+      const repo = repoData.repositories[0];
+      expect(repo.id).toBeDefined();
+      expect(repo.name).toBeDefined();
+      expect(repo.path).toBeDefined();
+      expect(repo.defaultBranch).toBeDefined();
+      expect(repo.createdAt).toBeDefined();
+      expect(repo.updatedAt).toBeDefined();
+    });
+
+    test("returns empty list when no repositories exist", async () => {
+      const sessionId = await initializeSession();
+
+      const res = await mcp.request("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "mcp-session-id": sessionId,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "list_repositories",
+            arguments: {},
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as JsonRpcResponse;
+      const result = data.result as {
+        content: Array<{ type: string; text: string }>;
+        isError?: boolean;
+      };
+      expect(result.isError).toBeUndefined();
+
+      const repoData = JSON.parse(result.content[0].text);
+      expect(repoData.count).toBe(0);
+      expect(repoData.repositories).toHaveLength(0);
     });
   });
 
