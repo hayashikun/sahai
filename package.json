@@ -1,6 +1,6 @@
 {
   "name": "sahai",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "AI Coding Agent orchestration tool with Kanban interface",
   "type": "module",
   "bin": {
