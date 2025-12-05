@@ -77,3 +77,27 @@ export async function updateTaskStatus(
   const data = await apiPut(`/tasks/${taskId}`, { status });
   return Task.parse(data);
 }
+
+// Quick actions
+
+export async function getRepositoryGitHubUrl(
+  repositoryId: string,
+): Promise<string | null> {
+  const data = await fetcher(`/repositories/${repositoryId}/github-url`);
+  if (typeof data === "object" && data !== null && "url" in data) {
+    return data.url as string | null;
+  }
+  return null;
+}
+
+export async function openRepositoryInFinder(
+  repositoryId: string,
+): Promise<void> {
+  await apiPost(`/repositories/${repositoryId}/open-finder`, {});
+}
+
+export async function openRepositoryInTerminal(
+  repositoryId: string,
+): Promise<void> {
+  await apiPost(`/repositories/${repositoryId}/open-terminal`, {});
+}
