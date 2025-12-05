@@ -7,7 +7,7 @@ import {
   Loader2,
   Pencil,
   Plus,
-  TerminalSquare,
+  Terminal,
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -342,14 +342,30 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
             {repository.description && (
               <p className="mt-1 text-gray-600">{repository.description}</p>
             )}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-sm text-gray-500">
-              <span className="font-mono break-all">{repository.path}</span>
-              <span className="flex items-center gap-1">
-                <GitBranch className="h-4 w-4" />
-                {repository.defaultBranch}
-              </span>
+            <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
+              <GitBranch className="h-4 w-4" />
+              {repository.defaultBranch}
             </div>
-            <div className="flex flex-wrap items-center gap-2 mt-3">
+            <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-500">
+              <span className="font-mono break-all">{repository.path}</span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenFinder}
+                  title="Open in Finder"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenTerminal}
+                  title="Open in Terminal"
+                >
+                  <Terminal className="h-4 w-4" />
+                </Button>
+              </div>
               {githubUrl && (
                 <Button variant="outline" size="sm" asChild>
                   <a href={githubUrl} target="_blank" rel="noopener noreferrer">
@@ -358,14 +374,6 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                   </a>
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handleOpenFinder}>
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Finder
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleOpenTerminal}>
-                <TerminalSquare className="mr-2 h-4 w-4" />
-                Terminal
-              </Button>
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
