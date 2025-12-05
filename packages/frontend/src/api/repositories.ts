@@ -35,7 +35,12 @@ export async function createRepository(
 
 export async function updateRepository(
   repositoryId: string,
-  updates: { name?: string; path?: string; defaultBranch?: string },
+  updates: {
+    name?: string;
+    description?: string;
+    path?: string;
+    defaultBranch?: string;
+  },
 ): Promise<RepositoryType> {
   const data = await apiPut(`/repositories/${repositoryId}`, updates);
   return Repository.parse(data);

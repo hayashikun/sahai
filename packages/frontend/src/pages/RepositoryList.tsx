@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 import { useRepositories } from "../hooks";
 import { cn } from "../lib/utils";
 
@@ -46,6 +47,7 @@ export function RepositoryList() {
   const { repositories, mutate } = useRepositories();
   const [open, setOpen] = useState(false);
   const [selectedPath, setSelectedPath] = useState("");
+  const [description, setDescription] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("");
   const [branches, setBranches] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
@@ -115,6 +117,7 @@ export function RepositoryList() {
       setError(null);
       await createRepository({
         name,
+        description: description.trim() || undefined,
         path: selectedPath.trim(),
         defaultBranch: defaultBranch.trim() || "main",
       });
@@ -130,6 +133,7 @@ export function RepositoryList() {
   const resetAndClose = () => {
     setOpen(false);
     setSelectedPath("");
+    setDescription("");
     setDefaultBranch("");
     setBranches([]);
     setBrowseResult(null);
@@ -283,6 +287,16 @@ export function RepositoryList() {
                   <div className="font-mono text-sm">{selectedPath}</div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="repo-description">Description</Label>
+                  <Textarea
+                    id="repo-description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe the role of this repository (used in Epic prompts)"
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="repo-branch">Default Branch</Label>
                   <Select
                     key={selectedPath}
@@ -345,6 +359,11 @@ export function RepositoryList() {
                       {repo.name}
                     </CardTitle>
                     <CardDescription className="space-y-1">
+                      {repo.description && (
+                        <div className="text-sm text-gray-600 line-clamp-2">
+                          {repo.description}
+                        </div>
+                      )}
                       <div className="font-mono text-xs truncate">
                         {repo.path}
                       </div>

@@ -30,6 +30,7 @@ export const epics = sqliteTable(
 export const repositories = sqliteTable("repositories", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  description: text("description"),
   path: text("path").notNull(),
   defaultBranch: text("default_branch").notNull(),
   createdAt: text("created_at").notNull(),

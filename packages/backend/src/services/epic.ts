@@ -12,16 +12,17 @@ function generateEpicPrompt(
   repos: Array<{
     id: string;
     name: string;
+    description: string | null;
     path: string;
     defaultBranch: string;
   }>,
 ): string {
   const repoList = repos
-    .map(
-      (r) =>
-        `  - ${r.name} (ID: ${r.id}, path: ${r.path}, default branch: ${r.defaultBranch})`,
-    )
-    .join("\n");
+    .map((r) => {
+      const desc = r.description ? `\n    Description: ${r.description}` : "";
+      return `  - ${r.name} (ID: ${r.id})${desc}\n    Path: ${r.path}, Default branch: ${r.defaultBranch}`;
+    })
+    .join("\n\n");
 
   return `You are an orchestration agent managing tasks across multiple repositories in a project.
 
@@ -78,6 +79,7 @@ export async function startEpicExecution(
     .select({
       id: repositories.id,
       name: repositories.name,
+      description: repositories.description,
       path: repositories.path,
       defaultBranch: repositories.defaultBranch,
     })

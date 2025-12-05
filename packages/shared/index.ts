@@ -59,6 +59,12 @@ export type Epic = z.infer<typeof Epic>;
 export const Repository = z.object({
   id: z.string(),
   name: z.string(),
+  description: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
   path: z.string(),
   defaultBranch: z.string(),
   createdAt: z.coerce.date(),
@@ -245,6 +251,7 @@ export type PlaySoundResponse = z.infer<typeof PlaySoundResponseSchema>;
 // Repository creation input
 export const CreateRepositoryInputSchema = z.object({
   name: z.string(),
+  description: z.string().optional(),
   path: z.string(),
   defaultBranch: z.string().optional(),
 });
