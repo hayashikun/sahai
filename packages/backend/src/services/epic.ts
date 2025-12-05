@@ -39,19 +39,19 @@ export function withEpicExecutingStatus<T extends { id: string }>(
 
 // Generate the initial prompt for an epic executor
 function generateEpicPrompt(
+  epicId: string,
   description: string,
   repos: Array<{
     id: string;
     name: string;
     description: string | null;
-    path: string;
     defaultBranch: string;
   }>,
 ): string {
   const repoList = repos
     .map((r) => {
       const desc = r.description ? `\n    Description: ${r.description}` : "";
-      return `  - ${r.name} (ID: ${r.id})${desc}\n    Path: ${r.path}, Default branch: ${r.defaultBranch}`;
+      return `  - ${r.name} (ID: ${r.id})${desc}\n    Default branch: ${r.defaultBranch}`;
     })
     .join("\n\n");
 
@@ -62,19 +62,22 @@ Your goal is to achieve the following epic:
 ${description}
 ---
 
+Epic ID: ${epicId}
+
 Available repositories in this project:
 ${repoList}
 
 Instructions:
 1. Analyze the epic requirements and break them down into individual tasks
-2. Create tasks in the appropriate repositories using the MCP tools
+2. Create tasks in the appropriate repositories using the MCP tools (use the Epic ID above when creating tasks)
 3. Start tasks and monitor their progress
 4. Coordinate dependencies between tasks as needed
 
 MCP Tools available:
-- create_task: Create a new task in a repository
+- create_task: Create a new task in a repository (requires epicId: "${epicId}")
 - start_task: Start a TODO task
 - get_task: Get task status and details
+- get_task_logs: Get logs for a task
 - resume_task: Resume a paused task with additional context
 
 When all tasks are complete and the epic goal is achieved, report completion.`;
@@ -128,7 +131,6 @@ export async function startEpicExecution(
       id: repositories.id,
       name: repositories.name,
       description: repositories.description,
-      path: repositories.path,
       defaultBranch: repositories.defaultBranch,
     })
     .from(projectRepositories)
@@ -163,6 +165,7 @@ export async function startEpicExecution(
 
   // Generate the initial prompt
   const prompt = generateEpicPrompt(
+    epicId,
     epic.description || epic.title,
     projectRepos,
   );
