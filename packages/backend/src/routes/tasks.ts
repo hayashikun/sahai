@@ -509,6 +509,31 @@ taskById.put("/:id", async (c) => {
       isExecuting: isExecutorActive(id),
       updatedAt: now,
     });
+
+    // Run complete script when transitioning from InProgress to InReview
+    if (oldStatus === "InProgress" && newStatus === "InReview") {
+      const repoResult = await db
+        .select()
+        .from(repositories)
+        .where(eq(repositories.id, existing[0].repositoryId));
+
+      if (repoResult.length > 0) {
+        const repo = repoResult[0];
+        if (repo.completeScript && existing[0].worktreePath) {
+          console.log(`[tasks] Running complete script for task ${id} (async)`);
+          runLifecycleScript(repo.completeScript, existing[0].worktreePath)
+            .then(() =>
+              console.log(`[tasks] Complete script completed for task ${id}`),
+            )
+            .catch((e) =>
+              console.error(
+                `[tasks] Complete script failed for task ${id}:`,
+                e instanceof Error ? e.message : e,
+              ),
+            );
+        }
+      }
+    }
   }
 
   return c.json(withExecutingStatus({ ...existing[0], ...updated }));
