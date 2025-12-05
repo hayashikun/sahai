@@ -10,6 +10,7 @@ import {
   startTaskExecution,
   withExecutingStatus,
 } from "../services/task";
+import { handleExecutorExit } from "./tasks";
 
 // Session storage for MCP
 interface McpSession {
@@ -446,7 +447,9 @@ async function executeToolCall(
 
     case "start_task": {
       const taskId = args.taskId as string;
-      const { task, error } = await startTaskExecution(taskId);
+      const { task, error } = await startTaskExecution(taskId, {
+        onExecutorExit: handleExecutorExit,
+      });
       if (error) {
         return {
           content: [
@@ -466,7 +469,9 @@ async function executeToolCall(
     case "resume_task": {
       const taskId = args.taskId as string;
       const message = args.message as string | undefined;
-      const { task, error } = await resumeTaskExecution(taskId, message);
+      const { task, error } = await resumeTaskExecution(taskId, message, {
+        onExecutorExit: handleExecutorExit,
+      });
       if (error) {
         return {
           content: [
