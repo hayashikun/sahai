@@ -221,9 +221,7 @@ export function parseDiff(diff: string): FileDiff[] {
   let hunkIndex = 0;
   let lineIndex = 0;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
+  for (const line of lines) {
     // Start of a new file diff
     if (line.startsWith("diff --git")) {
       if (currentFile) {
@@ -240,7 +238,9 @@ export function parseDiff(diff: string): FileDiff[] {
       continue;
     }
 
-    if (!currentFile) continue;
+    if (!currentFile) {
+      continue;
+    }
 
     // Old file path
     if (line.startsWith("--- ")) {
@@ -278,7 +278,9 @@ export function parseDiff(diff: string): FileDiff[] {
       continue;
     }
 
-    if (!currentHunk) continue;
+    if (!currentHunk) {
+      continue;
+    }
 
     lineIndex++;
 

@@ -69,8 +69,11 @@ export async function playSound(soundName: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const proc = spawn("afplay", [sound.path]);
       proc.on("close", (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`afplay exited with code ${code}`));
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`afplay exited with code ${code}`));
+        }
       });
       proc.on("error", reject);
     });
@@ -81,15 +84,21 @@ export async function playSound(soundName: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const proc = spawn("paplay", [sound.path]);
       proc.on("close", (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`paplay exited with code ${code}`));
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`paplay exited with code ${code}`));
+        }
       });
       proc.on("error", (_err) => {
         // paplayが失敗した場合、aplayを試す
         const aplayProc = spawn("aplay", [sound.path]);
         aplayProc.on("close", (aplayCode) => {
-          if (aplayCode === 0) resolve();
-          else reject(new Error(`aplay exited with code ${aplayCode}`));
+          if (aplayCode === 0) {
+            resolve();
+          } else {
+            reject(new Error(`aplay exited with code ${aplayCode}`));
+          }
         });
         aplayProc.on("error", reject);
       });

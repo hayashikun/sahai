@@ -77,7 +77,7 @@ export class CodexExecutor implements Executor {
     });
   }
 
-  async stop(): Promise<void> {
+  stop(): void {
     if (this.process) {
       this.process.kill();
       this.emitOutput({
@@ -116,7 +116,9 @@ export class CodexExecutor implements Executor {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 

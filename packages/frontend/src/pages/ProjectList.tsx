@@ -38,7 +38,9 @@ export function ProjectList() {
   };
 
   const handleCreateProject = async () => {
-    if (!newProjectName.trim()) return;
+    if (!newProjectName.trim()) {
+      return;
+    }
 
     try {
       setCreating(true);
@@ -69,7 +71,9 @@ export function ProjectList() {
           open={createOpen}
           onOpenChange={(open) => {
             setCreateOpen(open);
-            if (open) resetForm();
+            if (open) {
+              resetForm();
+            }
           }}
         >
           <DialogTrigger asChild>

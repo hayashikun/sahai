@@ -22,9 +22,9 @@ const { CodexExecutor } = await import("../codex");
 describe("CodexExecutor", () => {
   let executor: CodexExecutor;
 
-  afterEach(async () => {
+  afterEach(() => {
     if (executor) {
-      await executor.stop().catch(() => {});
+      executor.stop();
     }
   });
 
@@ -455,7 +455,10 @@ describe("CodexExecutor", () => {
           .find((m) => m && m.method === "codex/event/agentMessage");
 
         expect(eventLog).toBeDefined();
-        expect((eventLog as any).params.msg.message).toBe("Hello from Codex!");
+        const eventLogTyped = eventLog as {
+          params: { msg: { message: string } };
+        };
+        expect(eventLogTyped.params.msg.message).toBe("Hello from Codex!");
       } finally {
         Bun.spawn = originalSpawn;
       }

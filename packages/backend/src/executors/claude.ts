@@ -92,7 +92,7 @@ export class ClaudeCodeExecutor implements Executor {
     this.process.stdin.flush();
   }
 
-  async stop(): Promise<void> {
+  stop(): void {
     if (this.process) {
       this.process.kill();
       this.emitOutput({
@@ -131,7 +131,9 @@ export class ClaudeCodeExecutor implements Executor {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 

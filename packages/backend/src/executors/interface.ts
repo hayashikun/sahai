@@ -26,7 +26,7 @@ export interface Executor {
   /**
    * Stop the agent
    */
-  stop(): Promise<void>;
+  stop(): void;
 
   /**
    * Register a callback for agent output

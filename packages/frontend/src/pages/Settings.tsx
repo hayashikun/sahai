@@ -65,7 +65,9 @@ export function Settings() {
 
   const handleUpdate = useCallback(
     async (update: SettingsUpdate) => {
-      if (!settings) return;
+      if (!settings) {
+        return;
+      }
       setSaving(true);
       try {
         const updated = await updateSettings(update);
@@ -132,7 +134,9 @@ export function Settings() {
     );
   }
 
-  if (!settings) return null;
+  if (!settings) {
+    return null;
+  }
 
   const sidebarItems = [
     { id: "general" as const, label: "General", icon: Settings2 },
@@ -223,7 +227,9 @@ function GeneralSection({
   const [testingSound, setTestingSound] = useState(false);
 
   const handleTestSound = async () => {
-    if (!settings["notification.sound"]) return;
+    if (!settings["notification.sound"]) {
+      return;
+    }
     setTestingSound(true);
     try {
       await onTestSound(settings["notification.sound"]);
@@ -380,9 +386,10 @@ function GeneralSection({
                 size="icon"
                 onClick={handleTestSound}
                 disabled={
-                  !settings["notification.sound"] ||
-                  !settings["notification.enabled"] ||
-                  testingSound
+                  !(
+                    settings["notification.sound"] &&
+                    settings["notification.enabled"]
+                  ) || testingSound
                 }
                 title="Test sound"
               >

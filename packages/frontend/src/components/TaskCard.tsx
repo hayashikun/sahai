@@ -175,7 +175,9 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
 function MessageQueueIndicator({ taskId }: { taskId: string }) {
   const { count } = usePendingMessageCount(taskId);
 
-  if (count === 0) return null;
+  if (count === 0) {
+    return null;
+  }
 
   return (
     <span

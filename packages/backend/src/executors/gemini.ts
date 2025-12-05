@@ -79,7 +79,7 @@ export class GeminiExecutor implements Executor {
     });
   }
 
-  async stop(): Promise<void> {
+  stop(): void {
     if (this.process) {
       this.process.kill();
       this.emitOutput({
@@ -118,7 +118,9 @@ export class GeminiExecutor implements Executor {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -159,21 +161,18 @@ export class GeminiExecutor implements Executor {
 
     // Try to parse Gemini JSONL output for stdout
     try {
-      const msg = JSON.parse(line) as Record<string, unknown>;
-
-      // Detect session id from init message
+      // biome-ignore lint/style/useNamingConvention: external API uses snake_case
+      const msg = JSON.parse(line) as { session_id?: unknown; type?: unknown };
+      const sessionId = msg.session_id;
       if (
         !this.sessionIdExtracted &&
         msg.type === "init" &&
-        typeof (msg as any).session_id === "string" &&
-        (msg as any).session_id
+        typeof sessionId === "string" &&
+        sessionId
       ) {
         this.sessionIdExtracted = true;
-        console.log(
-          "[GeminiExecutor] Detected session_id:",
-          (msg as any).session_id,
-        );
-        this.sessionIdCallback?.((msg as any).session_id as string);
+        console.log("[GeminiExecutor] Detected session_id:", sessionId);
+        this.sessionIdCallback?.(sessionId);
       }
 
       // Detect completion on result message
