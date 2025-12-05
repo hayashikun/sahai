@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { Task } from "shared";
 import { db } from "../db/client";
-import { repositories, tasks } from "../db/schema";
+import { executionLogs, repositories, tasks } from "../db/schema";
 import {
   resumeTaskExecution,
   startTaskExecution,
@@ -319,6 +319,38 @@ async function handleJsonRpcRequest(
                 required: ["taskId"],
               },
             },
+            {
+              name: "get_task_logs",
+              description:
+                "Get execution logs for a specific task. Returns logs in descending order (newest first).",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  taskId: {
+                    type: "string",
+                    description: "UUID of the task to retrieve logs for",
+                  },
+                  limit: {
+                    type: "number",
+                    description:
+                      "Maximum number of logs to return (default: 100)",
+                  },
+                  offset: {
+                    type: "number",
+                    description: "Number of logs to skip (default: 0)",
+                  },
+                },
+                required: ["taskId"],
+              },
+            },
+            {
+              name: "list_repositories",
+              description: "List all registered repositories.",
+              inputSchema: {
+                type: "object",
+                properties: {},
+              },
+            },
           ],
         },
       };
@@ -509,6 +541,95 @@ async function executeToolCall(
       const task = Task.parse(withExecutingStatus(result[0]));
       return {
         content: [{ type: "text", text: formatTask(task) }],
+      };
+    }
+
+    case "get_task_logs": {
+      const taskId = args.taskId as string;
+      const limit = (args.limit as number | undefined) ?? 100;
+      const offset = (args.offset as number | undefined) ?? 0;
+
+      // Check if task exists
+      const taskResult = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.id, taskId));
+      if (taskResult.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "NOT_FOUND",
+                message: "Task not found",
+              }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Get logs ordered by createdAt descending (newest first)
+      const logs = await db
+        .select()
+        .from(executionLogs)
+        .where(eq(executionLogs.taskId, taskId))
+        .orderBy(desc(executionLogs.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                taskId,
+                logs: logs.map((log) => ({
+                  id: log.id,
+                  content: log.content,
+                  logType: log.logType,
+                  createdAt: log.createdAt,
+                })),
+                pagination: {
+                  limit,
+                  offset,
+                  count: logs.length,
+                },
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
+
+    case "list_repositories": {
+      const allRepositories = await db.select().from(repositories);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                repositories: allRepositories.map((repo) => ({
+                  id: repo.id,
+                  name: repo.name,
+                  description: repo.description,
+                  path: repo.path,
+                  defaultBranch: repo.defaultBranch,
+                  createdAt: repo.createdAt,
+                  updatedAt: repo.updatedAt,
+                })),
+                count: allRepositories.length,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
