@@ -5,6 +5,7 @@ import {
   GitFork,
   Home,
   Loader2,
+  Package,
   Plus,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -87,7 +88,7 @@ export function RepositoryList() {
       return;
     }
 
-    // Select git repository
+    // Select git repository and load git info
     setSelectedPath(entry.path);
     try {
       const gitInfo = await getGitInfo(entry.path);
@@ -102,6 +103,11 @@ export function RepositoryList() {
     } catch {
       setBranches(["main"]);
       setDefaultBranch("main");
+    }
+
+    // If git repo has submodules, also navigate into it to show submodules
+    if (entry.hasSubmodules) {
+      loadDirectory(entry.path);
     }
   };
 
@@ -238,37 +244,47 @@ export function RepositoryList() {
                           No directories found
                         </div>
                       ) : (
-                        browseResult.entries.map((entry) => (
-                          <button
-                            key={entry.path}
-                            type="button"
-                            className={cn(
-                              "w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left",
-                              entry.isGitRepo &&
-                                "bg-green-50 hover:bg-green-100",
-                              selectedPath === entry.path &&
-                                "bg-blue-100 hover:bg-blue-100",
-                            )}
-                            onClick={() => selectRepository(entry)}
-                          >
-                            {entry.isGitRepo ? (
-                              <GitFork className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Folder className="h-4 w-4 text-gray-400" />
-                            )}
-                            <span
+                        browseResult.entries.map((entry) => {
+                          // Determine icon and style based on entry type
+                          const isSubmodule = entry.isSubmodule;
+                          const canNavigate =
+                            !entry.isGitRepo || entry.hasSubmodules;
+
+                          return (
+                            <button
+                              key={entry.path}
+                              type="button"
                               className={cn(
-                                "flex-1 truncate",
-                                entry.isGitRepo && "font-medium text-green-800",
+                                "w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left",
+                                entry.isGitRepo &&
+                                  "bg-green-50 hover:bg-green-100",
+                                selectedPath === entry.path &&
+                                  "bg-blue-100 hover:bg-blue-100",
                               )}
+                              onClick={() => selectRepository(entry)}
                             >
-                              {entry.name}
-                            </span>
-                            {!entry.isGitRepo && (
-                              <ChevronRight className="h-4 w-4 text-gray-400" />
-                            )}
-                          </button>
-                        ))
+                              {isSubmodule ? (
+                                <Package className="h-4 w-4 text-green-600" />
+                              ) : entry.isGitRepo ? (
+                                <GitFork className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <Folder className="h-4 w-4 text-gray-400" />
+                              )}
+                              <span
+                                className={cn(
+                                  "flex-1 truncate",
+                                  entry.isGitRepo &&
+                                    "font-medium text-green-800",
+                                )}
+                              >
+                                {entry.name}
+                              </span>
+                              {canNavigate && (
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                              )}
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   ) : null}
