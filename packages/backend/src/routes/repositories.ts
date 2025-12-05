@@ -34,7 +34,7 @@ app.post("/", async (c) => {
     // Lifecycle scripts
     setupScript: body.setupScript ?? null,
     startScript: body.startScript ?? null,
-    stopScript: body.stopScript ?? null,
+    completeScript: body.completeScript ?? null,
     cleanupScript: body.cleanupScript ?? null,
     copyFiles: body.copyFiles ?? null,
     createdAt: now,
@@ -120,8 +120,10 @@ app.put("/:id", async (c) => {
       body.startScript !== undefined
         ? body.startScript
         : existing[0].startScript,
-    stopScript:
-      body.stopScript !== undefined ? body.stopScript : existing[0].stopScript,
+    completeScript:
+      body.completeScript !== undefined
+        ? body.completeScript
+        : existing[0].completeScript,
     cleanupScript:
       body.cleanupScript !== undefined
         ? body.cleanupScript

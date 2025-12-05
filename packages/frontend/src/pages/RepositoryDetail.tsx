@@ -165,8 +165,8 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [editStartScript, setEditStartScript] = useState(
     repository.startScript || "",
   );
-  const [editStopScript, setEditStopScript] = useState(
-    repository.stopScript || "",
+  const [editCompleteScript, setEditCompleteScript] = useState(
+    repository.completeScript || "",
   );
   const [editCleanupScript, setEditCleanupScript] = useState(
     repository.cleanupScript || "",
@@ -297,7 +297,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
         // Lifecycle scripts - send null if empty to clear
         setupScript: editSetupScript.trim() || null,
         startScript: editStartScript.trim() || null,
-        stopScript: editStopScript.trim() || null,
+        completeScript: editCompleteScript.trim() || null,
         cleanupScript: editCleanupScript.trim() || null,
         copyFiles: editCopyFiles.trim() || null,
       });
@@ -343,7 +343,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     setEditDefaultBranch(repository.defaultBranch);
     setEditSetupScript(repository.setupScript || "");
     setEditStartScript(repository.startScript || "");
-    setEditStopScript(repository.stopScript || "");
+    setEditCompleteScript(repository.completeScript || "");
     setEditCleanupScript(repository.cleanupScript || "");
     setEditCopyFiles(repository.copyFiles || "");
     setEditError(null);
@@ -357,7 +357,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       editDefaultBranch !== repository.defaultBranch ||
       editSetupScript !== (repository.setupScript || "") ||
       editStartScript !== (repository.startScript || "") ||
-      editStopScript !== (repository.stopScript || "") ||
+      editCompleteScript !== (repository.completeScript || "") ||
       editCleanupScript !== (repository.cleanupScript || "") ||
       editCopyFiles !== (repository.copyFiles || "")
     );
@@ -535,16 +535,18 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="edit-repo-stop-script">
-                          Stop Script
+                        <Label htmlFor="edit-repo-complete-script">
+                          Complete Script
                         </Label>
                         <p className="text-xs text-gray-500">
                           Runs when task completes and moves to "In Review"
                         </p>
                         <Textarea
-                          id="edit-repo-stop-script"
-                          value={editStopScript}
-                          onChange={(e) => setEditStopScript(e.target.value)}
+                          id="edit-repo-complete-script"
+                          value={editCompleteScript}
+                          onChange={(e) =>
+                            setEditCompleteScript(e.target.value)
+                          }
                           placeholder="#!/bin/bash&#10;# Commands to run on completion..."
                           rows={3}
                           className="font-mono text-sm"

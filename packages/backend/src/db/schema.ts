@@ -36,7 +36,7 @@ export const repositories = sqliteTable("repositories", {
   // Lifecycle scripts
   setupScript: text("setup_script"), // Runs only on first task start
   startScript: text("start_script"), // Runs on every task start/resume
-  stopScript: text("stop_script"), // Runs when task moves to InReview
+  completeScript: text("complete_script"), // Runs when task moves to InReview
   cleanupScript: text("cleanup_script"), // Runs when task is finished
   copyFiles: text("copy_files"), // Newline-separated list of files to copy
   createdAt: text("created_at").notNull(),

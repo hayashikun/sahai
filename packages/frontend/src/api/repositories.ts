@@ -43,7 +43,7 @@ export async function updateRepository(
     // Lifecycle scripts
     setupScript?: string | null;
     startScript?: string | null;
-    stopScript?: string | null;
+    completeScript?: string | null;
     cleanupScript?: string | null;
     copyFiles?: string | null;
   },

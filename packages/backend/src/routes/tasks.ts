@@ -886,14 +886,16 @@ taskById.post("/:id/complete", async (c) => {
 
   if (repoResult.length > 0) {
     const repo = repoResult[0];
-    // Run stop script asynchronously
-    if (repo.stopScript && task.worktreePath) {
-      console.log(`[tasks] Running stop script for task ${id} (async)`);
-      runLifecycleScript(repo.stopScript, task.worktreePath)
-        .then(() => console.log(`[tasks] Stop script completed for task ${id}`))
+    // Run complete script asynchronously
+    if (repo.completeScript && task.worktreePath) {
+      console.log(`[tasks] Running complete script for task ${id} (async)`);
+      runLifecycleScript(repo.completeScript, task.worktreePath)
+        .then(() =>
+          console.log(`[tasks] Complete script completed for task ${id}`),
+        )
         .catch((e) =>
           console.error(
-            `[tasks] Stop script failed for task ${id}:`,
+            `[tasks] Complete script failed for task ${id}:`,
             e instanceof Error ? e.message : e,
           ),
         );

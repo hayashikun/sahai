@@ -93,7 +93,7 @@ export const Repository = z.object({
     .optional()
     .transform(nullToUndefined)
     .pipe(z.string().optional()),
-  stopScript: z
+  completeScript: z
     .string()
     .nullable()
     .optional()
@@ -301,7 +301,7 @@ export const CreateRepositoryInputSchema = z.object({
   // Lifecycle scripts
   setupScript: z.string().optional(),
   startScript: z.string().optional(),
-  stopScript: z.string().optional(),
+  completeScript: z.string().optional(),
   cleanupScript: z.string().optional(),
   copyFiles: z.string().optional(),
 });
@@ -314,7 +314,7 @@ export const UpdateRepositoryInputSchema = z.object({
   // Lifecycle scripts
   setupScript: z.string().nullable().optional(),
   startScript: z.string().nullable().optional(),
-  stopScript: z.string().nullable().optional(),
+  completeScript: z.string().nullable().optional(),
   cleanupScript: z.string().nullable().optional(),
   copyFiles: z.string().nullable().optional(),
 });
