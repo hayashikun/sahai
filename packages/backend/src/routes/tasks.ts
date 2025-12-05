@@ -724,34 +724,34 @@ taskById.post("/:id/start", async (c) => {
       }
     }
 
-    // Run setup script (only runs on first start, startedAt is null here)
+    // Run setup script asynchronously (only runs on first start, startedAt is null here)
     if (repo.setupScript) {
-      console.log(`[tasks] Running setup script for task ${id}`);
-      try {
-        await runLifecycleScript(repo.setupScript, worktreePath);
-        console.log(`[tasks] Setup script completed for task ${id}`);
-      } catch (e) {
-        console.error(
-          `[tasks] Setup script failed for task ${id}:`,
-          e instanceof Error ? e.message : e,
+      console.log(`[tasks] Running setup script for task ${id} (async)`);
+      runLifecycleScript(repo.setupScript, worktreePath)
+        .then(() =>
+          console.log(`[tasks] Setup script completed for task ${id}`),
+        )
+        .catch((e) =>
+          console.error(
+            `[tasks] Setup script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
         );
-        // Continue even if setup script fails - log the error but don't block
-      }
     }
 
-    // Run start script
+    // Run start script asynchronously
     if (repo.startScript) {
-      console.log(`[tasks] Running start script for task ${id}`);
-      try {
-        await runLifecycleScript(repo.startScript, worktreePath);
-        console.log(`[tasks] Start script completed for task ${id}`);
-      } catch (e) {
-        console.error(
-          `[tasks] Start script failed for task ${id}:`,
-          e instanceof Error ? e.message : e,
+      console.log(`[tasks] Running start script for task ${id} (async)`);
+      runLifecycleScript(repo.startScript, worktreePath)
+        .then(() =>
+          console.log(`[tasks] Start script completed for task ${id}`),
+        )
+        .catch((e) =>
+          console.error(
+            `[tasks] Start script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
         );
-        // Continue even if start script fails
-      }
     }
 
     // Update task status
@@ -886,19 +886,17 @@ taskById.post("/:id/complete", async (c) => {
 
   if (repoResult.length > 0) {
     const repo = repoResult[0];
-    // Run stop script
+    // Run stop script asynchronously
     if (repo.stopScript && task.worktreePath) {
-      console.log(`[tasks] Running stop script for task ${id}`);
-      try {
-        await runLifecycleScript(repo.stopScript, task.worktreePath);
-        console.log(`[tasks] Stop script completed for task ${id}`);
-      } catch (e) {
-        console.error(
-          `[tasks] Stop script failed for task ${id}:`,
-          e instanceof Error ? e.message : e,
+      console.log(`[tasks] Running stop script for task ${id} (async)`);
+      runLifecycleScript(repo.stopScript, task.worktreePath)
+        .then(() => console.log(`[tasks] Stop script completed for task ${id}`))
+        .catch((e) =>
+          console.error(
+            `[tasks] Stop script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
         );
-        // Continue even if stop script fails
-      }
     }
   }
 
@@ -976,19 +974,21 @@ taskById.post("/:id/resume", async (c) => {
   const repo = repoResult[0];
 
   try {
-    // Run start script before resuming
+    // Run start script asynchronously before resuming
     if (repo.startScript && task.worktreePath) {
-      console.log(`[tasks] Running start script for task ${id} (resume)`);
-      try {
-        await runLifecycleScript(repo.startScript, task.worktreePath);
-        console.log(`[tasks] Start script completed for task ${id}`);
-      } catch (e) {
-        console.error(
-          `[tasks] Start script failed for task ${id}:`,
-          e instanceof Error ? e.message : e,
+      console.log(
+        `[tasks] Running start script for task ${id} (resume, async)`,
+      );
+      runLifecycleScript(repo.startScript, task.worktreePath)
+        .then(() =>
+          console.log(`[tasks] Start script completed for task ${id}`),
+        )
+        .catch((e) =>
+          console.error(
+            `[tasks] Start script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
         );
-        // Continue even if start script fails
-      }
     }
 
     // Create and start executor
@@ -1093,56 +1093,63 @@ taskById.post("/:id/finish", async (c) => {
 
   const repo = repoResult[0];
 
-  try {
-    // Run cleanup script before deleting worktree
-    if (repo.cleanupScript && task.worktreePath) {
-      console.log(`[tasks] Running cleanup script for task ${id}`);
-      try {
-        await runLifecycleScript(repo.cleanupScript, task.worktreePath);
-        console.log(`[tasks] Cleanup script completed for task ${id}`);
-      } catch (e) {
-        console.error(
-          `[tasks] Cleanup script failed for task ${id}:`,
-          e instanceof Error ? e.message : e,
-        );
-        // Continue even if cleanup script fails
-      }
-    }
-
-    // Delete worktree if exists
-    if (task.worktreePath) {
-      await deleteWorktree(repo.path, task.worktreePath, true);
-    }
-
-    // Delete branch
-    await deleteBranch(repo.path, task.branchName, true);
-
-    // Update task status
-    await db
-      .update(tasks)
-      .set({
-        status: "Done",
-        worktreePath: null,
-        completedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(tasks.id, id));
-
-    // Broadcast task status changed event
-    broadcastTaskEvent(task.repositoryId, {
-      type: "task-status-changed",
-      taskId: id,
-      oldStatus: "InReview",
-      newStatus: "Done",
-      isExecuting: false,
+  // Update task status immediately
+  await db
+    .update(tasks)
+    .set({
+      status: "Done",
+      worktreePath: null,
+      completedAt: now,
       updatedAt: now,
-    });
+    })
+    .where(eq(tasks.id, id));
 
-    const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-    return c.json(withExecutingStatus(updatedTask[0]));
-  } catch (error) {
-    return internalError(c, `Failed to finish task: ${error}`);
-  }
+  // Broadcast task status changed event
+  broadcastTaskEvent(task.repositoryId, {
+    type: "task-status-changed",
+    taskId: id,
+    oldStatus: "InReview",
+    newStatus: "Done",
+    isExecuting: false,
+    updatedAt: now,
+  });
+
+  // Run cleanup asynchronously (cleanup script must complete before worktree deletion)
+  const cleanupAsync = async () => {
+    try {
+      // Run cleanup script before deleting worktree
+      if (repo.cleanupScript && task.worktreePath) {
+        console.log(`[tasks] Running cleanup script for task ${id} (async)`);
+        try {
+          await runLifecycleScript(repo.cleanupScript, task.worktreePath);
+          console.log(`[tasks] Cleanup script completed for task ${id}`);
+        } catch (e) {
+          console.error(
+            `[tasks] Cleanup script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          );
+        }
+      }
+
+      // Delete worktree if exists
+      if (task.worktreePath) {
+        await deleteWorktree(repo.path, task.worktreePath, true);
+        console.log(`[tasks] Worktree deleted for task ${id}`);
+      }
+
+      // Delete branch
+      await deleteBranch(repo.path, task.branchName, true);
+      console.log(`[tasks] Branch deleted for task ${id}`);
+    } catch (error) {
+      console.error(`[tasks] Cleanup failed for task ${id}:`, error);
+    }
+  };
+
+  // Start cleanup in background
+  cleanupAsync();
+
+  const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
+  return c.json(withExecutingStatus(updatedTask[0]));
 });
 
 // POST /v1/tasks/:id/recreate - Create new task from existing one
