@@ -1,7 +1,19 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { glob } from "glob";
+
+/**
+ * Check if a path is a regular file (not a directory, socket, symlink, etc.)
+ */
+async function isRegularFile(filePath: string): Promise<boolean> {
+  try {
+    const stats = await stat(filePath);
+    return stats.isFile();
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Run a lifecycle script in the specified working directory
@@ -85,6 +97,11 @@ export async function copyFilesToWorktree(
         const destPath = join(worktreePath, pattern);
 
         try {
+          // Skip non-regular files (sockets, symlinks, directories, etc.)
+          if (!(await isRegularFile(sourcePath))) {
+            errors.push(`${pattern}: not a regular file, skipped`);
+            continue;
+          }
           // Ensure destination directory exists
           await mkdir(dirname(destPath), { recursive: true });
           await copyFile(sourcePath, destPath);
@@ -101,6 +118,10 @@ export async function copyFilesToWorktree(
           const destPath = join(worktreePath, match);
 
           try {
+            // Skip non-regular files (sockets, symlinks, directories, etc.)
+            if (!(await isRegularFile(sourcePath))) {
+              continue; // Silently skip non-regular files in glob matches
+            }
             // Ensure destination directory exists
             await mkdir(dirname(destPath), { recursive: true });
             await copyFile(sourcePath, destPath);
