@@ -3,25 +3,15 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { Hono } from "hono";
 import { badRequest } from "../lib/errors";
+import {
+  type DirectoryEntry,
+  findParentGitRepo,
+  getGitSubmodules,
+  hasSubmodules,
+  isGitRepository,
+} from "../lib/filesystem";
 
 const app = new Hono();
-
-interface DirectoryEntry {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  isGitRepo: boolean;
-}
-
-async function isGitRepository(dirPath: string): Promise<boolean> {
-  try {
-    const gitDir = join(dirPath, ".git");
-    const stats = await stat(gitDir);
-    return stats.isDirectory();
-  } catch {
-    return false;
-  }
-}
 
 // GET /v1/filesystem/browse - List directory contents
 app.get("/browse", async (c) => {
@@ -34,11 +24,32 @@ app.get("/browse", async (c) => {
       return badRequest(c, "Path is not a directory");
     }
 
+    // Check if the target path itself is a git repository
+    const isTargetGitRepo = await isGitRepository(targetPath);
+
+    // If target is a git repo, only show submodules (not regular directories)
+    if (isTargetGitRepo) {
+      const submodules = await getGitSubmodules(targetPath);
+
+      // Determine parent path:
+      // - If this is a submodule, parent should be the superproject
+      // - Otherwise, parent is the normal parent directory
+      const parentRepo = await findParentGitRepo(targetPath);
+      const parentPath = parentRepo || resolve(targetPath, "..");
+
+      return c.json({
+        currentPath: targetPath,
+        parentPath,
+        entries: submodules,
+      });
+    }
+
+    // Normal directory browsing
     const entries = await readdir(targetPath, { withFileTypes: true });
     const directories: DirectoryEntry[] = [];
 
     for (const entry of entries) {
-      // Skip hidden files/directories except .git check
+      // Skip hidden files/directories
       if (entry.name.startsWith(".")) {
         continue;
       }
@@ -46,12 +57,19 @@ app.get("/browse", async (c) => {
       if (entry.isDirectory()) {
         const fullPath = join(targetPath, entry.name);
         const isGitRepo = await isGitRepository(fullPath);
-        directories.push({
+        const directoryEntry: DirectoryEntry = {
           name: entry.name,
           path: fullPath,
           isDirectory: true,
           isGitRepo,
-        });
+        };
+
+        // If it's a git repository, check for submodules
+        if (isGitRepo) {
+          directoryEntry.hasSubmodules = await hasSubmodules(fullPath);
+        }
+
+        directories.push(directoryEntry);
       }
     }
 

@@ -5,6 +5,8 @@ export interface DirectoryEntry {
   path: string;
   isDirectory: boolean;
   isGitRepo: boolean;
+  isSubmodule?: boolean;
+  hasSubmodules?: boolean;
 }
 
 export interface BrowseResult {
