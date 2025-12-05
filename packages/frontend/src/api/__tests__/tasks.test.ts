@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
-  completeTask,
   finishTask,
   getTask,
   getTaskLogs,
@@ -9,7 +8,6 @@ import {
   openWorktreeInTerminal,
   parseLogEvent,
   pauseTask,
-  recreateTask,
   resumeTask,
   startTask,
 } from "../tasks";
@@ -234,45 +232,6 @@ describe("tasks API", () => {
     });
   });
 
-  describe("completeTask", () => {
-    test("sends POST request to complete task", async () => {
-      const mockTask = {
-        id: "task-1",
-        repositoryId: "repo-1",
-        title: "Test Task",
-        description: null,
-        status: "InReview",
-        executor: "Gemini",
-        branchName: "feature-branch",
-        baseBranch: "main",
-        worktreePath: "/path/to/worktree",
-        createdAt: "2024-01-01T00:00:00.000Z",
-        updatedAt: "2024-01-01T00:00:00.000Z",
-        startedAt: "2024-01-01T00:01:00.000Z",
-        completedAt: null,
-      };
-
-      globalThis.fetch = mock(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockTask),
-        } as Response),
-      );
-
-      const task = await completeTask("task-1");
-
-      expect(task.status).toBe("InReview");
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:49382/v1/tasks/task-1/complete",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        },
-      );
-    });
-  });
-
   describe("resumeTask", () => {
     test("sends POST request with optional message", async () => {
       const mockTask = {
@@ -381,51 +340,6 @@ describe("tasks API", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
-        },
-      );
-    });
-  });
-
-  describe("recreateTask", () => {
-    test("sends POST request with options", async () => {
-      const mockTask = {
-        id: "task-2",
-        repositoryId: "repo-1",
-        title: "New Title",
-        description: null,
-        status: "TODO",
-        executor: "Gemini",
-        branchName: "feature-branch-retry",
-        baseBranch: "main",
-        worktreePath: null,
-        createdAt: "2024-01-01T00:00:00.000Z",
-        updatedAt: "2024-01-01T00:00:00.000Z",
-        startedAt: null,
-        completedAt: null,
-      };
-
-      globalThis.fetch = mock(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockTask),
-        } as Response),
-      );
-
-      const task = await recreateTask("task-1", {
-        title: "New Title",
-        branchName: "feature-branch-retry",
-      });
-
-      expect(task.title).toBe("New Title");
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:49382/v1/tasks/task-1/recreate",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: "New Title",
-            branchName: "feature-branch-retry",
-          }),
         },
       );
     });

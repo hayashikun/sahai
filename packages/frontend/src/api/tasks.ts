@@ -13,7 +13,6 @@ import {
   type ExecutionLog as ExecutionLogType,
   Task,
   TaskMessage,
-  TaskMessageArray,
   type TaskMessage as TaskMessageType,
   type Task as TaskType,
 } from "shared";
@@ -49,11 +48,6 @@ export async function pauseTask(taskId: string): Promise<TaskType> {
   return Task.parse(data);
 }
 
-export async function completeTask(taskId: string): Promise<TaskType> {
-  const data = await apiPost(`/tasks/${taskId}/complete`, {});
-  return Task.parse(data);
-}
-
 export async function resumeTask(
   taskId: string,
   message?: string,
@@ -64,18 +58,6 @@ export async function resumeTask(
 
 export async function finishTask(taskId: string): Promise<TaskType> {
   const data = await apiPost(`/tasks/${taskId}/finish`, {});
-  return Task.parse(data);
-}
-
-export async function recreateTask(
-  taskId: string,
-  options?: {
-    title?: string;
-    description?: string;
-    branchName?: string;
-  },
-): Promise<TaskType> {
-  const data = await apiPost(`/tasks/${taskId}/recreate`, options ?? {});
   return Task.parse(data);
 }
 
@@ -134,13 +116,6 @@ export function parseTaskEvent(data: string): TaskEvent | null {
 }
 
 // Message Queue API functions
-export async function getTaskMessages(
-  taskId: string,
-): Promise<TaskMessageType[]> {
-  const data = await fetcher(`/tasks/${taskId}/messages`);
-  return TaskMessageArray.parse(data);
-}
-
 export async function queueMessage(
   taskId: string,
   content: string,
@@ -154,13 +129,6 @@ export async function deleteQueuedMessage(
   messageId: string,
 ): Promise<void> {
   await apiDelete(`/tasks/${taskId}/messages/${messageId}`);
-}
-
-export async function getPendingMessageCount(
-  taskId: string,
-): Promise<{ count: number }> {
-  const data = await fetcher(`/tasks/${taskId}/messages/pending/count`);
-  return data as { count: number };
 }
 
 // SSE stream URL for message events

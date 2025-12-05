@@ -2,14 +2,7 @@ import { tmpdir } from "node:os";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client";
-import {
-  epicLogs,
-  epics,
-  projectRepositories,
-  projects,
-  repositories,
-  tasks,
-} from "../db/schema";
+import { epicLogs, epics, projects, tasks } from "../db/schema";
 import { badRequest, internalError, notFound } from "../lib/errors";
 import { createEventBus, createSimpleSSEStream } from "../lib/sse";
 import {
@@ -173,34 +166,6 @@ epicById.get("/:id/tasks", async (c) => {
   const result = await db.select().from(tasks).where(eq(tasks.epicId, id));
 
   return c.json(result.map(withExecutingStatus));
-});
-
-// GET /v1/epics/:id/repositories - Get repositories available for the epic's project
-epicById.get("/:id/repositories", async (c) => {
-  const id = c.req.param("id");
-
-  // Check if epic exists and get project ID
-  const epicResult = await db.select().from(epics).where(eq(epics.id, id));
-
-  if (epicResult.length === 0) {
-    return notFound(c, "Epic");
-  }
-
-  const projectId = epicResult[0].projectId;
-
-  // Get repositories associated with this project
-  const projectRepos = await db
-    .select({
-      repository: repositories,
-    })
-    .from(projectRepositories)
-    .innerJoin(
-      repositories,
-      eq(projectRepositories.repositoryId, repositories.id),
-    )
-    .where(eq(projectRepositories.projectId, projectId));
-
-  return c.json(projectRepos.map((pr) => pr.repository));
 });
 
 // GET /v1/epics/:id/logs - Get execution logs for an epic
