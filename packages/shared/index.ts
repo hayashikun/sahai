@@ -34,6 +34,27 @@ export const Project = z.object({
 });
 export type Project = z.infer<typeof Project>;
 
+// Epic schema
+export const Epic = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  title: z.string(),
+  description: z
+    .string()
+    .nullable()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
+  executor: Executor,
+  directoryPath: z
+    .string()
+    .nullable()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type Epic = z.infer<typeof Epic>;
+
 // Repository schema
 export const Repository = z.object({
   id: z.string(),
@@ -57,6 +78,11 @@ export type ProjectRepository = z.infer<typeof ProjectRepository>;
 export const Task = z.object({
   id: z.string(),
   repositoryId: z.string(),
+  epicId: z
+    .string()
+    .nullable()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
   title: z.string(),
   description: z
     .string()
@@ -115,6 +141,7 @@ export type TaskMessage = z.infer<typeof TaskMessage>;
 
 // Array schemas for parsing lists
 export const ProjectArray = z.array(Project);
+export const EpicArray = z.array(Epic);
 export const RepositoryArray = z.array(Repository);
 export const TaskArray = z.array(Task);
 export const ExecutionLogArray = z.array(ExecutionLog);
@@ -229,8 +256,17 @@ export const CreateTaskInputSchema = z.object({
   executor: Executor,
   branchName: z.string(),
   baseBranch: z.string().optional(),
+  epicId: z.string().optional(),
 });
 export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>;
+
+// Epic creation input
+export const CreateEpicInputSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  executor: Executor,
+});
+export type CreateEpicInput = z.infer<typeof CreateEpicInputSchema>;
 
 // Message creation input
 export const CreateMessageInputSchema = z.object({

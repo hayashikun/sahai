@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { runMigrations } from "./db/client";
+import { epicById, projectEpics } from "./routes/epics";
 import filesystem from "./routes/filesystem";
 import mcp from "./routes/mcp";
 import projectRepositories from "./routes/project-repositories";
@@ -35,9 +36,11 @@ app.get("/v1/health", (c) => {
 
 app.route("/v1/projects", projects);
 app.route("/v1/projects", projectRepositories);
+app.route("/v1/projects", projectEpics);
 app.route("/v1/repositories", repositories);
 app.route("/v1/repositories", repositoryTasks);
 app.route("/v1/tasks", taskById);
+app.route("/v1/epics", epicById);
 app.route("/v1/filesystem", filesystem);
 app.route("/v1/settings", settings);
 app.route("/v1/sounds", sounds);

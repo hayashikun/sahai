@@ -3,6 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   CheckCircle,
   GitBranch,
+  Layers,
   Loader2,
   MessageSquare,
   MoreVertical,
@@ -155,7 +156,7 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
             {task.description}
           </p>
         )}
-        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 flex-wrap">
           <span className="bg-gray-100 px-1.5 py-0.5 rounded">
             {task.executor}
           </span>
@@ -163,6 +164,17 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
             <GitBranch className="h-3 w-3" />
             {task.branchName}
           </span>
+          {task.epicId && (
+            <Link
+              to={`/epics/${task.epicId}`}
+              className="flex items-center gap-1 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded hover:bg-purple-200"
+              onClick={(e) => e.stopPropagation()}
+              title="Part of an epic"
+            >
+              <Layers className="h-3 w-3" />
+              Epic
+            </Link>
+          )}
           {(task.status === "InProgress" || task.status === "InReview") && (
             <MessageQueueIndicator taskId={task.id} />
           )}

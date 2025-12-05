@@ -8,6 +8,25 @@ export const projects = sqliteTable("projects", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const epics = sqliteTable(
+  "epics",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    executor: text("executor", {
+      enum: ["ClaudeCode", "Codex", "Copilot", "Gemini"],
+    }).notNull(),
+    directoryPath: text("directory_path"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_epics_project_id").on(table.projectId)],
+);
+
 export const repositories = sqliteTable("repositories", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -42,6 +61,9 @@ export const tasks = sqliteTable(
     repositoryId: text("repository_id")
       .notNull()
       .references(() => repositories.id, { onDelete: "cascade" }),
+    epicId: text("epic_id").references(() => epics.id, {
+      onDelete: "set null",
+    }),
     title: text("title").notNull(),
     description: text("description"),
     status: text("status", {
@@ -62,6 +84,7 @@ export const tasks = sqliteTable(
   (table) => [
     index("idx_tasks_repository_id").on(table.repositoryId),
     index("idx_tasks_status").on(table.status),
+    index("idx_tasks_epic_id").on(table.epicId),
   ],
 );
 
