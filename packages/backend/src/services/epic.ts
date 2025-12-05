@@ -3,8 +3,39 @@ import { tmpdir } from "node:os";
 import { eq } from "drizzle-orm";
 import { isExecutorEnabled } from "../config/agent";
 import { db } from "../db/client";
-import { epics, projectRepositories, repositories } from "../db/schema";
+import {
+  epicLogs,
+  epics,
+  projectRepositories,
+  repositories,
+} from "../db/schema";
+import type { Executor } from "../executors/interface";
 import { createExecutor } from "./task";
+
+// In-memory store for active epic executors
+const activeEpicExecutors = new Map<string, Executor>();
+
+export function isEpicExecutorActive(epicId: string): boolean {
+  return activeEpicExecutors.has(epicId);
+}
+
+export function getEpicExecutor(epicId: string): Executor | undefined {
+  return activeEpicExecutors.get(epicId);
+}
+
+export function removeEpicExecutor(epicId: string): void {
+  activeEpicExecutors.delete(epicId);
+}
+
+// Add isExecuting field to epic based on activeEpicExecutors
+export function withEpicExecutingStatus<T extends { id: string }>(
+  epic: T,
+): T & { isExecuting: boolean } {
+  return {
+    ...epic,
+    isExecuting: activeEpicExecutors.has(epic.id),
+  };
+}
 
 // Generate the initial prompt for an epic executor
 function generateEpicPrompt(
@@ -54,9 +85,26 @@ export interface EpicExecutionResult {
   error?: string;
 }
 
+export interface EpicEventHandler {
+  onLog?: (log: {
+    id: string;
+    epicId: string;
+    content: string;
+    logType: string;
+    createdAt: string;
+  }) => void;
+  onExecutorExit?: (epicId: string) => void;
+}
+
 export async function startEpicExecution(
   epicId: string,
+  eventHandler?: EpicEventHandler,
 ): Promise<EpicExecutionResult> {
+  // Check if already executing
+  if (activeEpicExecutors.has(epicId)) {
+    return { success: false, error: "Epic is already executing" };
+  }
+
   // Get epic details
   const epicResult = await db.select().from(epics).where(eq(epics.id, epicId));
   if (epicResult.length === 0) {
@@ -122,13 +170,22 @@ export async function startEpicExecution(
   // Create and start the executor
   const executor = createExecutor(epic.executor);
 
-  executor.onOutput((output) => {
-    // Log epic executor output
-    console.log(`[epic:${epicId}] ${output.logType}: ${output.content}`);
+  executor.onOutput(async (output) => {
+    const log = {
+      id: crypto.randomUUID(),
+      epicId,
+      content: output.content,
+      logType: output.logType,
+      createdAt: new Date().toISOString(),
+    };
+    await db.insert(epicLogs).values(log);
+    eventHandler?.onLog?.(log);
   });
 
   executor.onExit(() => {
     console.log(`[epic:${epicId}] Executor completed`);
+    activeEpicExecutors.delete(epicId);
+    eventHandler?.onExecutorExit?.(epicId);
   });
 
   try {
@@ -138,9 +195,30 @@ export async function startEpicExecution(
       prompt,
     });
 
+    activeEpicExecutors.set(epicId, executor);
+
+    // Log system message for start
+    const startLog = {
+      id: crypto.randomUUID(),
+      epicId,
+      content: "Epic execution started",
+      logType: "system",
+      createdAt: new Date().toISOString(),
+    };
+    await db.insert(epicLogs).values(startLog);
+    eventHandler?.onLog?.(startLog);
+
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { success: false, error: `Failed to start executor: ${message}` };
+  }
+}
+
+export async function stopEpicExecution(epicId: string): Promise<void> {
+  const executor = activeEpicExecutors.get(epicId);
+  if (executor) {
+    await executor.stop();
+    activeEpicExecutors.delete(epicId);
   }
 }

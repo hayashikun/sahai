@@ -105,6 +105,22 @@ export const executionLogs = sqliteTable(
   (table) => [index("idx_execution_logs_task_id").on(table.taskId)],
 );
 
+export const epicLogs = sqliteTable(
+  "epic_logs",
+  {
+    id: text("id").primaryKey(),
+    epicId: text("epic_id")
+      .notNull()
+      .references(() => epics.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    logType: text("log_type", {
+      enum: ["stdout", "stderr", "system"],
+    }).notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("idx_epic_logs_epic_id").on(table.epicId)],
+);
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

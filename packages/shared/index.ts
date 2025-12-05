@@ -50,10 +50,23 @@ export const Epic = z.object({
     .nullable()
     .transform(nullToUndefined)
     .pipe(z.string().optional()),
+  isExecuting: z.boolean().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
 export type Epic = z.infer<typeof Epic>;
+
+// EpicLog schema
+export const EpicLog = z.object({
+  id: z.string(),
+  epicId: z.string(),
+  content: z.string(),
+  logType: LogType,
+  createdAt: z.coerce.date(),
+});
+export type EpicLog = z.infer<typeof EpicLog>;
+
+export const EpicLogArray = z.array(EpicLog);
 
 // Repository schema
 export const Repository = z.object({
