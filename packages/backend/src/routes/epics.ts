@@ -18,7 +18,7 @@ interface EpicLogEvent {
   id: string;
   epicId: string;
   content: string;
-  logType: string;
+  logType: "stdout" | "stderr" | "system";
   createdAt: string;
 }
 
@@ -233,7 +233,7 @@ epicById.post("/:id/start", async (c) => {
         id: crypto.randomUUID(),
         epicId,
         content: "Epic execution completed",
-        logType: "system",
+        logType: "system" as const,
         createdAt: new Date().toISOString(),
       };
       await db.insert(epicLogs).values(exitLog);
@@ -277,7 +277,7 @@ epicById.post("/:id/stop", async (c) => {
     id: crypto.randomUUID(),
     epicId: id,
     content: "Epic execution stopped by user",
-    logType: "system",
+    logType: "system" as const,
     createdAt: new Date().toISOString(),
   };
   await db.insert(epicLogs).values(stopLog);

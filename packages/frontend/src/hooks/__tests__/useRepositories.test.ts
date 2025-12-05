@@ -10,7 +10,7 @@ describe("useRepositories hooks", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -195,7 +195,7 @@ describe("useRepositories hooks", () => {
           ok: true,
           json: () => Promise.resolve(mockRepository),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const { fetcher } = await import("../../api/client");
       const data = await fetcher("/repositories/repo-1");
@@ -229,7 +229,7 @@ describe("useRepositories hooks", () => {
           ok: true,
           json: () => Promise.resolve(mockTasks),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const { fetcher } = await import("../../api/client");
       const data = await fetcher("/repositories/repo-1/tasks");

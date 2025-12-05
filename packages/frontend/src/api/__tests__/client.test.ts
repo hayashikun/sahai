@@ -10,7 +10,7 @@ describe("client API", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -25,7 +25,7 @@ describe("client API", () => {
           ok: true,
           json: () => Promise.resolve(mockData),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const result = await fetcher("/test");
 
@@ -43,7 +43,7 @@ describe("client API", () => {
           statusText: "Internal Server Error",
           json: () => Promise.reject(new Error("No JSON")),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(fetcher("/test")).rejects.toThrow(
         "HTTP 500: Internal Server Error",
@@ -61,7 +61,7 @@ describe("client API", () => {
               error: { code: "NOT_FOUND", message: "Resource not found" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(fetcher("/test")).rejects.toThrow("Resource not found");
     });
@@ -75,7 +75,7 @@ describe("client API", () => {
           ok: true,
           json: () => Promise.resolve(mockResponse),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const result = await apiPost("/items", { name: "New Item" });
 
@@ -101,7 +101,7 @@ describe("client API", () => {
               error: { code: "BAD_REQUEST", message: "Invalid input" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(apiPost("/items", {})).rejects.toThrow("Invalid input");
     });
@@ -115,7 +115,7 @@ describe("client API", () => {
           ok: true,
           json: () => Promise.resolve(mockResponse),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       const result = await apiPut("/items/1", { name: "Updated Item" });
 
@@ -141,7 +141,7 @@ describe("client API", () => {
               error: { code: "NOT_FOUND", message: "Item not found" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(apiPut("/items/999", {})).rejects.toThrow("Item not found");
     });
@@ -153,7 +153,7 @@ describe("client API", () => {
         Promise.resolve({
           ok: true,
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await apiDelete("/items/1");
 
@@ -176,7 +176,7 @@ describe("client API", () => {
               error: { code: "BAD_REQUEST", message: "Permission denied" },
             }),
         } as Response),
-      );
+      ) as unknown as typeof fetch;
 
       await expect(apiDelete("/items/1")).rejects.toThrow("Permission denied");
     });

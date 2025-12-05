@@ -20,7 +20,7 @@ mock.module("../../config/agent", () => ({
 const { ClaudeCodeExecutor } = await import("../claude");
 
 describe("ClaudeCodeExecutor", () => {
-  let executor: ClaudeCodeExecutor;
+  let executor: InstanceType<typeof ClaudeCodeExecutor>;
 
   afterEach(() => {
     // Ensure executor is stopped after each test
@@ -108,7 +108,7 @@ describe("ClaudeCodeExecutor", () => {
       executor = new ClaudeCodeExecutor();
       const outputs: ExecutorOutput[] = [];
 
-      executor.onOutput((output) => {
+      executor.onOutput((output: ExecutorOutput) => {
         outputs.push(output);
       });
 
@@ -280,7 +280,7 @@ describe("ClaudeCodeExecutor", () => {
       executor = new ClaudeCodeExecutor();
       const outputs: ExecutorOutput[] = [];
 
-      executor.onOutput((output) => {
+      executor.onOutput((output: ExecutorOutput) => {
         outputs.push(output);
       });
 
@@ -398,7 +398,7 @@ describe("ClaudeCodeExecutor", () => {
       executor = new ClaudeCodeExecutor();
       const outputs: ExecutorOutput[] = [];
 
-      executor.onOutput((output) => {
+      executor.onOutput((output: ExecutorOutput) => {
         outputs.push(output);
       });
 
@@ -460,7 +460,7 @@ describe("ClaudeCodeExecutor", () => {
       executor = new ClaudeCodeExecutor();
       const outputs: ExecutorOutput[] = [];
 
-      executor.onOutput((output) => {
+      executor.onOutput((output: ExecutorOutput) => {
         outputs.push(output);
       });
 
@@ -519,7 +519,7 @@ describe("ClaudeCodeExecutor", () => {
       executor = new ClaudeCodeExecutor();
       const outputs: ExecutorOutput[] = [];
 
-      executor.onOutput((output) => {
+      executor.onOutput((output: ExecutorOutput) => {
         outputs.push(output);
       });
 

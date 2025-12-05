@@ -7,6 +7,8 @@ import type {
 } from "shared";
 import { apiPost, apiPut, fetcher } from "./client";
 
+export type { SoundsResponse };
+
 export async function getSettings(): Promise<Settings> {
   const response = await fetcher<SettingsResponse>("/settings");
   return response.settings;

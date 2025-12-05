@@ -68,7 +68,7 @@ describe("useTasks hooks", () => {
         ok: true,
         json: () => Promise.resolve({}),
       } as Response),
-    );
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -87,7 +87,7 @@ describe("useTasks hooks", () => {
 
       es.simulateEvent("message", "test data");
 
-      expect(receivedData).toBe("test data");
+      expect(receivedData === "test data").toBe(true);
     });
 
     test("EventSource mock can simulate connected event", () => {
@@ -120,7 +120,7 @@ describe("useTasks hooks", () => {
       };
       es.simulateEvent("log", JSON.stringify(mockLog));
 
-      expect(logData).toBe(JSON.stringify(mockLog));
+      expect(logData === JSON.stringify(mockLog)).toBe(true);
     });
 
     test("EventSource mock can be closed", () => {

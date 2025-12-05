@@ -24,7 +24,7 @@ export interface LogEvent {
   id: string;
   taskId: string;
   content: string;
-  logType: string;
+  logType: "stdout" | "stderr" | "system";
   createdAt: string;
 }
 

@@ -214,7 +214,7 @@ export const ApiError = z.object({
   error: z.object({
     code: ErrorCode,
     message: z.string(),
-    details: z.record(z.unknown()).optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
 export type ApiError = z.infer<typeof ApiError>;

@@ -23,10 +23,13 @@
     "build": "bun run build:frontend",
     "build:frontend": "bun run --filter frontend build",
     "start": "bun run bin/sahai.ts",
-    "lint": "biome lint .",
+    "typecheck": "bun run typecheck:backend && bun run typecheck:frontend",
+    "typecheck:backend": "bunx tsc --noEmit -p packages/backend",
+    "typecheck:frontend": "bunx tsc --noEmit -p packages/frontend",
+    "lint": "biome lint . && bun run typecheck",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "ci": "biome ci .",
+    "ci": "biome ci . && bun run typecheck",
     "prepublishOnly": "bun run build"
   },
   "keywords": [
