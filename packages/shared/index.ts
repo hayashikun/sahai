@@ -80,6 +80,37 @@ export const Repository = z.object({
     .pipe(z.string().optional()),
   path: z.string(),
   defaultBranch: z.string(),
+  // Lifecycle scripts
+  setupScript: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
+  startScript: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
+  completeScript: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
+  cleanupScript: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
+  copyFiles: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -267,8 +298,27 @@ export const CreateRepositoryInputSchema = z.object({
   description: z.string().optional(),
   path: z.string(),
   defaultBranch: z.string().optional(),
+  // Lifecycle scripts
+  setupScript: z.string().optional(),
+  startScript: z.string().optional(),
+  completeScript: z.string().optional(),
+  cleanupScript: z.string().optional(),
+  copyFiles: z.string().optional(),
 });
 export type CreateRepositoryInput = z.infer<typeof CreateRepositoryInputSchema>;
+
+// Repository update input
+export const UpdateRepositoryInputSchema = z.object({
+  description: z.string().optional(),
+  defaultBranch: z.string().optional(),
+  // Lifecycle scripts
+  setupScript: z.string().nullable().optional(),
+  startScript: z.string().nullable().optional(),
+  completeScript: z.string().nullable().optional(),
+  cleanupScript: z.string().nullable().optional(),
+  copyFiles: z.string().nullable().optional(),
+});
+export type UpdateRepositoryInput = z.infer<typeof UpdateRepositoryInputSchema>;
 
 // Task creation input
 export const CreateTaskInputSchema = z.object({

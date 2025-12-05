@@ -20,6 +20,7 @@ import {
   createSSEStream,
 } from "../lib/sse";
 import { createBranch, deleteBranch, getDiff } from "../services/git";
+import { copyFilesToWorktree, runLifecycleScript } from "../services/lifecycle";
 import {
   createExecutor,
   getExecutor,
@@ -136,6 +137,38 @@ async function transitionToInReview(
   console.log(
     `[transitionToInReview] Transitioning task ${taskId} to InReview`,
   );
+
+  // Get task to find worktreePath
+  const taskResult = await db.select().from(tasks).where(eq(tasks.id, taskId));
+  const task = taskResult[0];
+
+  // Run complete script if configured
+  const repoResult = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, repositoryId));
+
+  if (repoResult.length > 0) {
+    const repo = repoResult[0];
+    if (repo.completeScript && task?.worktreePath) {
+      console.log(
+        `[transitionToInReview] Running complete script for task ${taskId}`,
+      );
+      runLifecycleScript(repo.completeScript, task.worktreePath)
+        .then(() =>
+          console.log(
+            `[transitionToInReview] Complete script completed for task ${taskId}`,
+          ),
+        )
+        .catch((e) =>
+          console.error(
+            `[transitionToInReview] Complete script failed for task ${taskId}:`,
+            e instanceof Error ? e.message : e,
+          ),
+        );
+    }
+  }
+
   await db
     .update(tasks)
     .set({
@@ -707,6 +740,52 @@ taskById.post("/:id/start", async (c) => {
     // Create worktree
     await createWorktree(repo.path, worktreePath, task.branchName);
 
+    // Copy files from repository to worktree if configured
+    if (repo.copyFiles) {
+      console.log(`[tasks] Copying files to worktree for task ${id}`);
+      const { copied, errors } = await copyFilesToWorktree(
+        repo.copyFiles,
+        repo.path,
+        worktreePath,
+      );
+      if (copied.length > 0) {
+        console.log(`[tasks] Copied files: ${copied.join(", ")}`);
+      }
+      if (errors.length > 0) {
+        console.warn(`[tasks] Copy errors: ${errors.join("; ")}`);
+      }
+    }
+
+    // Run setup script asynchronously (only runs on first start, startedAt is null here)
+    if (repo.setupScript) {
+      console.log(`[tasks] Running setup script for task ${id} (async)`);
+      runLifecycleScript(repo.setupScript, worktreePath)
+        .then(() =>
+          console.log(`[tasks] Setup script completed for task ${id}`),
+        )
+        .catch((e) =>
+          console.error(
+            `[tasks] Setup script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
+        );
+    }
+
+    // Run start script asynchronously
+    if (repo.startScript) {
+      console.log(`[tasks] Running start script for task ${id} (async)`);
+      runLifecycleScript(repo.startScript, worktreePath)
+        .then(() =>
+          console.log(`[tasks] Start script completed for task ${id}`),
+        )
+        .catch((e) =>
+          console.error(
+            `[tasks] Start script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
+        );
+    }
+
     // Update task status
     await db
       .update(tasks)
@@ -831,6 +910,30 @@ taskById.post("/:id/complete", async (c) => {
     removeExecutor(id);
   }
 
+  // Get repository info for lifecycle scripts
+  const repoResult = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, task.repositoryId));
+
+  if (repoResult.length > 0) {
+    const repo = repoResult[0];
+    // Run complete script asynchronously
+    if (repo.completeScript && task.worktreePath) {
+      console.log(`[tasks] Running complete script for task ${id} (async)`);
+      runLifecycleScript(repo.completeScript, task.worktreePath)
+        .then(() =>
+          console.log(`[tasks] Complete script completed for task ${id}`),
+        )
+        .catch((e) =>
+          console.error(
+            `[tasks] Complete script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
+        );
+    }
+  }
+
   await db
     .update(tasks)
     .set({
@@ -892,7 +995,36 @@ taskById.post("/:id/resume", async (c) => {
     removeExecutor(id);
   }
 
+  // Get repository info for lifecycle scripts
+  const repoResult = await db
+    .select()
+    .from(repositories)
+    .where(eq(repositories.id, task.repositoryId));
+
+  if (repoResult.length === 0) {
+    return notFound(c, "Repository");
+  }
+
+  const repo = repoResult[0];
+
   try {
+    // Run start script asynchronously before resuming
+    if (repo.startScript && task.worktreePath) {
+      console.log(
+        `[tasks] Running start script for task ${id} (resume, async)`,
+      );
+      runLifecycleScript(repo.startScript, task.worktreePath)
+        .then(() =>
+          console.log(`[tasks] Start script completed for task ${id}`),
+        )
+        .catch((e) =>
+          console.error(
+            `[tasks] Start script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          ),
+        );
+    }
+
     // Create and start executor
     let executor: Executor;
     try {
@@ -995,41 +1127,63 @@ taskById.post("/:id/finish", async (c) => {
 
   const repo = repoResult[0];
 
-  try {
-    // Delete worktree if exists
-    if (task.worktreePath) {
-      await deleteWorktree(repo.path, task.worktreePath, true);
-    }
-
-    // Delete branch
-    await deleteBranch(repo.path, task.branchName, true);
-
-    // Update task status
-    await db
-      .update(tasks)
-      .set({
-        status: "Done",
-        worktreePath: null,
-        completedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(tasks.id, id));
-
-    // Broadcast task status changed event
-    broadcastTaskEvent(task.repositoryId, {
-      type: "task-status-changed",
-      taskId: id,
-      oldStatus: "InReview",
-      newStatus: "Done",
-      isExecuting: false,
+  // Update task status immediately
+  await db
+    .update(tasks)
+    .set({
+      status: "Done",
+      worktreePath: null,
+      completedAt: now,
       updatedAt: now,
-    });
+    })
+    .where(eq(tasks.id, id));
 
-    const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
-    return c.json(withExecutingStatus(updatedTask[0]));
-  } catch (error) {
-    return internalError(c, `Failed to finish task: ${error}`);
-  }
+  // Broadcast task status changed event
+  broadcastTaskEvent(task.repositoryId, {
+    type: "task-status-changed",
+    taskId: id,
+    oldStatus: "InReview",
+    newStatus: "Done",
+    isExecuting: false,
+    updatedAt: now,
+  });
+
+  // Run cleanup asynchronously (cleanup script must complete before worktree deletion)
+  const cleanupAsync = async () => {
+    try {
+      // Run cleanup script before deleting worktree
+      if (repo.cleanupScript && task.worktreePath) {
+        console.log(`[tasks] Running cleanup script for task ${id} (async)`);
+        try {
+          await runLifecycleScript(repo.cleanupScript, task.worktreePath);
+          console.log(`[tasks] Cleanup script completed for task ${id}`);
+        } catch (e) {
+          console.error(
+            `[tasks] Cleanup script failed for task ${id}:`,
+            e instanceof Error ? e.message : e,
+          );
+        }
+      }
+
+      // Delete worktree if exists
+      if (task.worktreePath) {
+        await deleteWorktree(repo.path, task.worktreePath, true);
+        console.log(`[tasks] Worktree deleted for task ${id}`);
+      }
+
+      // Delete branch
+      await deleteBranch(repo.path, task.branchName, true);
+      console.log(`[tasks] Branch deleted for task ${id}`);
+    } catch (error) {
+      console.error(`[tasks] Cleanup failed for task ${id}:`, error);
+    }
+  };
+
+  // Start cleanup in background
+  cleanupAsync();
+
+  const updatedTask = await db.select().from(tasks).where(eq(tasks.id, id));
+  return c.json(withExecutingStatus(updatedTask[0]));
 });
 
 // POST /v1/tasks/:id/recreate - Create new task from existing one

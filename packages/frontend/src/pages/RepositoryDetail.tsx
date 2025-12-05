@@ -159,6 +159,21 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const [editDefaultBranch, setEditDefaultBranch] = useState(
     repository.defaultBranch,
   );
+  const [editSetupScript, setEditSetupScript] = useState(
+    repository.setupScript || "",
+  );
+  const [editStartScript, setEditStartScript] = useState(
+    repository.startScript || "",
+  );
+  const [editCompleteScript, setEditCompleteScript] = useState(
+    repository.completeScript || "",
+  );
+  const [editCleanupScript, setEditCleanupScript] = useState(
+    repository.cleanupScript || "",
+  );
+  const [editCopyFiles, setEditCopyFiles] = useState(
+    repository.copyFiles || "",
+  );
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
@@ -279,6 +294,12 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
       await updateRepository(repositoryId, {
         description: editDescription.trim() || undefined,
         defaultBranch: editDefaultBranch.trim(),
+        // Lifecycle scripts - send null if empty to clear
+        setupScript: editSetupScript.trim() || null,
+        startScript: editStartScript.trim() || null,
+        completeScript: editCompleteScript.trim() || null,
+        cleanupScript: editCleanupScript.trim() || null,
+        copyFiles: editCopyFiles.trim() || null,
       });
       mutateRepository();
       setEditOpen(false);
@@ -320,8 +341,47 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
   const resetEditForm = () => {
     setEditDescription(repository.description || "");
     setEditDefaultBranch(repository.defaultBranch);
+    setEditSetupScript(repository.setupScript || "");
+    setEditStartScript(repository.startScript || "");
+    setEditCompleteScript(repository.completeScript || "");
+    setEditCleanupScript(repository.cleanupScript || "");
+    setEditCopyFiles(repository.copyFiles || "");
     setEditError(null);
     setBranches([]);
+  };
+
+  // Check if edit form has unsaved changes
+  const hasUnsavedChanges = () => {
+    return (
+      editDescription !== (repository.description || "") ||
+      editDefaultBranch !== repository.defaultBranch ||
+      editSetupScript !== (repository.setupScript || "") ||
+      editStartScript !== (repository.startScript || "") ||
+      editCompleteScript !== (repository.completeScript || "") ||
+      editCleanupScript !== (repository.cleanupScript || "") ||
+      editCopyFiles !== (repository.copyFiles || "")
+    );
+  };
+
+  // Close confirmation state
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+  const handleEditDialogClose = (open: boolean) => {
+    if (open) {
+      setEditOpen(true);
+      resetEditForm();
+      loadBranches();
+    } else if (hasUnsavedChanges()) {
+      // Closing the dialog with unsaved changes
+      setShowCloseConfirm(true);
+    } else {
+      setEditOpen(false);
+    }
+  };
+
+  const confirmCloseEditDialog = () => {
+    setShowCloseConfirm(false);
+    setEditOpen(false);
   };
 
   return (
@@ -377,27 +437,18 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Dialog
-              open={editOpen}
-              onOpenChange={(open) => {
-                setEditOpen(open);
-                if (open) {
-                  resetEditForm();
-                  loadBranches();
-                }
-              }}
-            >
+            <Dialog open={editOpen} onOpenChange={handleEditDialogClose}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Edit Repository</DialogTitle>
                   <DialogDescription>
-                    Update the repository details.
+                    Update the repository details and lifecycle configuration.
                   </DialogDescription>
                 </DialogHeader>
                 {editError && (
@@ -441,11 +492,104 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                       </Select>
                     )}
                   </div>
+
+                  {/* Setup & Cleanup Configuration */}
+                  <details className="group">
+                    <summary className="cursor-pointer font-medium text-sm text-gray-700 hover:text-gray-900 py-2 border-t pt-4 list-none flex items-center gap-2">
+                      <span className="text-xs transition-transform group-open:rotate-90">
+                        ▶
+                      </span>
+                      Setup & Cleanup Configuration
+                    </summary>
+                    <div className="space-y-4 mt-4 pl-4 border-l-2 border-gray-100">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-repo-setup-script">
+                          Setup Script
+                        </Label>
+                        <p className="text-xs text-gray-500">
+                          Runs only on the first task start (initial setup)
+                        </p>
+                        <Textarea
+                          id="edit-repo-setup-script"
+                          value={editSetupScript}
+                          onChange={(e) => setEditSetupScript(e.target.value)}
+                          placeholder="#!/bin/bash&#10;# Initial setup commands..."
+                          rows={3}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-repo-start-script">
+                          Start Script
+                        </Label>
+                        <p className="text-xs text-gray-500">
+                          Runs on every task start and resume
+                        </p>
+                        <Textarea
+                          id="edit-repo-start-script"
+                          value={editStartScript}
+                          onChange={(e) => setEditStartScript(e.target.value)}
+                          placeholder="#!/bin/bash&#10;# Commands to run on start/resume..."
+                          rows={3}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-repo-complete-script">
+                          Complete Script
+                        </Label>
+                        <p className="text-xs text-gray-500">
+                          Runs when task completes and moves to "In Review"
+                        </p>
+                        <Textarea
+                          id="edit-repo-complete-script"
+                          value={editCompleteScript}
+                          onChange={(e) =>
+                            setEditCompleteScript(e.target.value)
+                          }
+                          placeholder="#!/bin/bash&#10;# Commands to run on completion..."
+                          rows={3}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-repo-cleanup-script">
+                          Cleanup Script
+                        </Label>
+                        <p className="text-xs text-gray-500">
+                          Runs when task is finished (deleted)
+                        </p>
+                        <Textarea
+                          id="edit-repo-cleanup-script"
+                          value={editCleanupScript}
+                          onChange={(e) => setEditCleanupScript(e.target.value)}
+                          placeholder="#!/bin/bash&#10;# Cleanup commands..."
+                          rows={3}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-repo-copy-files">Copy Files</Label>
+                        <p className="text-xs text-gray-500">
+                          Files to copy from the original repository to the
+                          worktree (one path per line, supports glob patterns)
+                        </p>
+                        <Textarea
+                          id="edit-repo-copy-files"
+                          value={editCopyFiles}
+                          onChange={(e) => setEditCopyFiles(e.target.value)}
+                          placeholder=".env&#10;config/local.json&#10;secrets/*.key"
+                          rows={3}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                  </details>
                 </div>
                 <DialogFooter>
                   <Button
                     variant="outline"
-                    onClick={() => setEditOpen(false)}
+                    onClick={() => handleEditDialogClose(false)}
                     disabled={editLoading}
                   >
                     Cancel
@@ -459,6 +603,28 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* Close confirmation dialog */}
+            <AlertDialog
+              open={showCloseConfirm}
+              onOpenChange={setShowCloseConfirm}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You have unsaved changes. Are you sure you want to discard
+                    them?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmCloseEditDialog}>
+                    Discard Changes
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
