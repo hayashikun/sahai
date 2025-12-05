@@ -350,6 +350,40 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
     setBranches([]);
   };
 
+  // Check if edit form has unsaved changes
+  const hasUnsavedChanges = () => {
+    return (
+      editDescription !== (repository.description || "") ||
+      editDefaultBranch !== repository.defaultBranch ||
+      editSetupScript !== (repository.setupScript || "") ||
+      editStartScript !== (repository.startScript || "") ||
+      editStopScript !== (repository.stopScript || "") ||
+      editCleanupScript !== (repository.cleanupScript || "") ||
+      editCopyFiles !== (repository.copyFiles || "")
+    );
+  };
+
+  // Close confirmation state
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+  const handleEditDialogClose = (open: boolean) => {
+    if (open) {
+      setEditOpen(true);
+      resetEditForm();
+      loadBranches();
+    } else if (hasUnsavedChanges()) {
+      // Closing the dialog with unsaved changes
+      setShowCloseConfirm(true);
+    } else {
+      setEditOpen(false);
+    }
+  };
+
+  const confirmCloseEditDialog = () => {
+    setShowCloseConfirm(false);
+    setEditOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -403,16 +437,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Dialog
-              open={editOpen}
-              onOpenChange={(open) => {
-                setEditOpen(open);
-                if (open) {
-                  resetEditForm();
-                  loadBranches();
-                }
-              }}
-            >
+            <Dialog open={editOpen} onOpenChange={handleEditDialogClose}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Pencil className="mr-2 h-4 w-4" />
@@ -562,7 +587,7 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                 <DialogFooter>
                   <Button
                     variant="outline"
-                    onClick={() => setEditOpen(false)}
+                    onClick={() => handleEditDialogClose(false)}
                     disabled={editLoading}
                   >
                     Cancel
@@ -576,6 +601,28 @@ function RepositoryDetailContent({ repositoryId }: { repositoryId: string }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* Close confirmation dialog */}
+            <AlertDialog
+              open={showCloseConfirm}
+              onOpenChange={setShowCloseConfirm}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You have unsaved changes. Are you sure you want to discard
+                    them?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmCloseEditDialog}>
+                    Discard Changes
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
