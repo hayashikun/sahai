@@ -40,6 +40,12 @@ export async function updateRepository(
     description?: string;
     path?: string;
     defaultBranch?: string;
+    // Lifecycle scripts
+    setupScript?: string | null;
+    startScript?: string | null;
+    stopScript?: string | null;
+    cleanupScript?: string | null;
+    copyFiles?: string | null;
   },
 ): Promise<RepositoryType> {
   const data = await apiPut(`/repositories/${repositoryId}`, updates);

@@ -31,6 +31,12 @@ app.post("/", async (c) => {
     description: body.description ?? null,
     path: body.path,
     defaultBranch: body.defaultBranch ?? "main",
+    // Lifecycle scripts
+    setupScript: body.setupScript ?? null,
+    startScript: body.startScript ?? null,
+    stopScript: body.stopScript ?? null,
+    cleanupScript: body.cleanupScript ?? null,
+    copyFiles: body.copyFiles ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -105,6 +111,23 @@ app.put("/:id", async (c) => {
         : existing[0].description,
     path: body.path ?? existing[0].path,
     defaultBranch: body.defaultBranch ?? existing[0].defaultBranch,
+    // Lifecycle scripts - allow null to clear values
+    setupScript:
+      body.setupScript !== undefined
+        ? body.setupScript
+        : existing[0].setupScript,
+    startScript:
+      body.startScript !== undefined
+        ? body.startScript
+        : existing[0].startScript,
+    stopScript:
+      body.stopScript !== undefined ? body.stopScript : existing[0].stopScript,
+    cleanupScript:
+      body.cleanupScript !== undefined
+        ? body.cleanupScript
+        : existing[0].cleanupScript,
+    copyFiles:
+      body.copyFiles !== undefined ? body.copyFiles : existing[0].copyFiles,
     updatedAt: now,
   };
 

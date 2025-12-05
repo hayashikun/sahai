@@ -13,6 +13,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "drizzle-orm": "^0.44.7",
+    "glob": "^13.0.0",
     "hono": "^4.6.0",
     "shared": "workspace:*"
   },
