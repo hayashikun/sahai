@@ -4,13 +4,14 @@ An AI Coding Agent orchestration tool that manages multiple AI coding agents (Cl
 
 ## Features
 
-- **Kanban Board**: Visual task management with drag-and-drop (TODO → In Progress → In Review → Done)
+- **Kanban Board**: Visual task management (TODO → In Progress → In Review → Done)
+- **Project & Epic**: Projects group repositories, and Epics enable AI agents to orchestrate tasks across multiple repositories
 - **Multi-Agent Support**: Run tasks with Claude Code, GitHub Copilot CLI, Google Gemini, or OpenAI Codex
 - **Git Worktree Isolation**: Each task gets its own isolated worktree and branch
 - **Real-time Streaming**: Live execution logs via Server-Sent Events (SSE)
-- **Session Resume**: Continue interrupted agent sessions
 - **Diff Viewer**: Review code changes before merging
 - **Quick Access**: Open worktrees directly in file explorer or terminal
+- **Responsive Design**: Mobile-friendly interface with adaptive navigation
 
 ## Supported AI Coding Agents
 
@@ -32,9 +33,11 @@ Open `http://localhost:49831` in your browser.
 ### CLI Options
 
 ```bash
-npx sahai@latest --port 8080   # Custom port
-npx sahai@latest --help        # Show help
-npx sahai@latest --version     # Show version
+npx sahai@latest --port 8080             # Custom port
+npx sahai@latest --host 0.0.0.0          # Bind to all interfaces
+npx sahai@latest -H 0.0.0.0 -p 8080      # Short options
+npx sahai@latest --help                  # Show help
+npx sahai@latest --version               # Show version
 ```
 
 ## MCP Server Integration
@@ -64,36 +67,15 @@ Add to your Claude Code MCP settings (`~/.claude/settings.json`):
 | `start_task` | Start a task (creates worktree and spawns executor) |
 | `resume_task` | Resume a paused task with optional message |
 | `get_task` | Get details of a specific task |
+| `get_task_logs` | Get execution logs for a specific task |
+| `list_repositories` | List all registered repositories |
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `49831` | Server port |
-
-## How It Works
-
-1. **Create a Project**: Group related repositories together
-2. **Register Repositories**: Add Git repositories to your project
-3. **Create Tasks**: Define tasks with a title, description, and select an AI agent executor
-4. **Start Task**: Sahai creates an isolated worktree and branch, then launches the AI agent
-5. **Monitor Progress**: Watch real-time logs as the agent works
-6. **Review Changes**: View diffs, open the worktree in your editor, or resume the agent for refinements
-7. **Finish Task**: Clean up the worktree and branch when done
-
-## Task Workflow
-
-```
-TODO ──────> In Progress ──────> In Review ──────> Done
-     start()              auto/complete()    finish()
-              <────────
-               resume()
-```
-
-- **TODO**: Task created, waiting to start
-- **In Progress**: Agent is running (or paused)
-- **In Review**: Agent completed, awaiting human review
-- **Done**: Task finished, worktree and branch cleaned up
+| `HOST` | `localhost` | Server host |
 
 ## Development
 
