@@ -36,14 +36,6 @@ export function badRequest(
   return c.json(createErrorResponse("BAD_REQUEST", message, details), 400);
 }
 
-export function validationError(
-  c: Context,
-  message: string,
-  details?: Record<string, unknown>,
-) {
-  return c.json(createErrorResponse("VALIDATION_ERROR", message, details), 400);
-}
-
 export function conflict(c: Context, message: string) {
   return c.json(createErrorResponse("CONFLICT", message), 409);
 }

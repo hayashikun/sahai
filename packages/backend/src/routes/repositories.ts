@@ -3,12 +3,11 @@ import { Hono } from "hono";
 import { db } from "../db/client";
 import { repositories } from "../db/schema";
 import { notFound } from "../lib/errors";
+import { openInFileExplorer, openInTerminal } from "../lib/shell";
 import {
   convertToGitHubUrl,
   getRemoteUrl,
   listBranches,
-  openInFinder,
-  openInTerminal,
 } from "../services/git";
 
 const app = new Hono();
@@ -194,7 +193,7 @@ app.post("/:id/open-finder", async (c) => {
   const repository = result[0];
 
   try {
-    await openInFinder(repository.path);
+    await openInFileExplorer(repository.path);
     return c.json({ success: true });
   } catch (error) {
     return c.json(

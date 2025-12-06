@@ -2,7 +2,6 @@ import {
   type CreateRepositoryInput,
   type CreateTaskInput,
   Repository,
-  RepositoryArray,
   type Repository as RepositoryType,
   type Status,
   Task,
@@ -13,18 +12,6 @@ import { apiDelete, apiPost, apiPut, fetcher } from "./client";
 export type { CreateRepositoryInput, CreateTaskInput };
 
 // Repository CRUD operations
-
-export async function getRepositories(): Promise<RepositoryType[]> {
-  const data = await fetcher("/repositories");
-  return RepositoryArray.parse(data);
-}
-
-export async function getRepository(
-  repositoryId: string,
-): Promise<RepositoryType> {
-  const data = await fetcher(`/repositories/${repositoryId}`);
-  return Repository.parse(data);
-}
 
 export async function createRepository(
   input: CreateRepositoryInput,

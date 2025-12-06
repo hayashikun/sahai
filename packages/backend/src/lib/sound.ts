@@ -44,10 +44,3 @@ export async function playNotificationSound(
 export function playSuccessSound(): void {
   playNotificationSound("completed");
 }
-
-/**
- * Play error sound
- */
-export function playErrorSound(): void {
-  playNotificationSound("failed");
-}

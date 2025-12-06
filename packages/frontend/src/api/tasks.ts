@@ -15,8 +15,6 @@ import {
   TaskMessage,
   type TaskMessage as TaskMessageType,
   type Task as TaskType,
-  TaskWithRepositoryArray,
-  type TaskWithRepository as TaskWithRepositoryType,
 } from "shared";
 import { API_BASE_URL, apiDelete, apiPost, apiPut, fetcher } from "./client";
 
@@ -33,11 +31,6 @@ export type {
 export async function getTask(taskId: string): Promise<TaskType> {
   const data = await fetcher(`/tasks/${taskId}`);
   return Task.parse(data);
-}
-
-export async function getAllTasks(): Promise<TaskWithRepositoryType[]> {
-  const data = await fetcher("/tasks");
-  return TaskWithRepositoryArray.parse(data);
 }
 
 export async function getTaskLogs(taskId: string): Promise<ExecutionLogType[]> {

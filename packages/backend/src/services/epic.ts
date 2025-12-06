@@ -19,14 +19,6 @@ export function isEpicExecutorActive(epicId: string): boolean {
   return activeEpicExecutors.has(epicId);
 }
 
-export function getEpicExecutor(epicId: string): Executor | undefined {
-  return activeEpicExecutors.get(epicId);
-}
-
-export function removeEpicExecutor(epicId: string): void {
-  activeEpicExecutors.delete(epicId);
-}
-
 // Add isExecuting field to epic based on activeEpicExecutors
 export function withEpicExecutingStatus<T extends { id: string }>(
   epic: T,
