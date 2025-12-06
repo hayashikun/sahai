@@ -23,6 +23,7 @@ import {
   deleteMessage,
   deleteTask,
   finishTask,
+  getAllTasks,
   getMessages,
   getPendingMessageCount,
   getTaskById,
@@ -277,10 +278,21 @@ repositoryTasks.get("/:repositoryId/tasks/stream", async (c) => {
 });
 
 // ============================================================================
-// Routes for /v1/tasks/:id
+// Routes for /v1/tasks
 // ============================================================================
 
 export const taskById = new Hono();
+
+// GET /v1/tasks - Get all tasks across all repositories
+taskById.get("/", async (c) => {
+  const result = await getAllTasks();
+
+  if (result.error) {
+    return handleServiceError(c, result.error);
+  }
+
+  return c.json(result.data);
+});
 
 // GET /v1/tasks/:id - Get a task by ID
 taskById.get("/:id", async (c) => {

@@ -134,6 +134,12 @@ export const Task = z.object({
     .optional()
     .transform(nullToUndefined)
     .pipe(z.string().optional()),
+  epicTitle: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(nullToUndefined)
+    .pipe(z.string().optional()),
   title: z.string(),
   description: z
     .string()
@@ -190,11 +196,18 @@ export const TaskMessage = z.object({
 });
 export type TaskMessage = z.infer<typeof TaskMessage>;
 
+// Task with repository info (for all tasks view)
+export const TaskWithRepository = Task.extend({
+  repositoryName: z.string(),
+});
+export type TaskWithRepository = z.infer<typeof TaskWithRepository>;
+
 // Array schemas for parsing lists
 export const ProjectArray = z.array(Project);
 export const EpicArray = z.array(Epic);
 export const RepositoryArray = z.array(Repository);
 export const TaskArray = z.array(Task);
+export const TaskWithRepositoryArray = z.array(TaskWithRepository);
 export const ExecutionLogArray = z.array(ExecutionLog);
 export const TaskMessageArray = z.array(TaskMessage);
 

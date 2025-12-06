@@ -2,7 +2,13 @@ import { tmpdir } from "node:os";
 import { asc, eq } from "drizzle-orm";
 import { isExecutorEnabled } from "../config/agent";
 import { db } from "../db/client";
-import { executionLogs, repositories, taskMessages, tasks } from "../db/schema";
+import {
+  epics,
+  executionLogs,
+  repositories,
+  taskMessages,
+  tasks,
+} from "../db/schema";
 import { ClaudeCodeExecutor } from "../executors/claude";
 import { CodexExecutor } from "../executors/codex";
 import { CopilotExecutor } from "../executors/copilot";
@@ -477,12 +483,16 @@ export async function getTaskById(
   return { data: withExecutingStatus(result[0]) as TaskWithExecutingStatus };
 }
 
+export type TaskWithEpicTitle = TaskWithExecutingStatus & {
+  epicTitle: string | null;
+};
+
 /**
  * Get tasks by repository ID
  */
 export async function getTasksByRepositoryId(
   repositoryId: string,
-): Promise<ServiceResult<TaskWithExecutingStatus[]>> {
+): Promise<ServiceResult<TaskWithEpicTitle[]>> {
   const repoResult = await db
     .select()
     .from(repositories)
@@ -493,11 +503,77 @@ export async function getTasksByRepositoryId(
   }
 
   const result = await db
-    .select()
+    .select({
+      id: tasks.id,
+      repositoryId: tasks.repositoryId,
+      epicId: tasks.epicId,
+      title: tasks.title,
+      description: tasks.description,
+      status: tasks.status,
+      executor: tasks.executor,
+      branchName: tasks.branchName,
+      baseBranch: tasks.baseBranch,
+      worktreePath: tasks.worktreePath,
+      sessionId: tasks.sessionId,
+      createdAt: tasks.createdAt,
+      updatedAt: tasks.updatedAt,
+      startedAt: tasks.startedAt,
+      completedAt: tasks.completedAt,
+      epicTitle: epics.title,
+    })
     .from(tasks)
+    .leftJoin(epics, eq(tasks.epicId, epics.id))
     .where(eq(tasks.repositoryId, repositoryId));
 
-  return { data: result.map(withExecutingStatus) as TaskWithExecutingStatus[] };
+  const tasksWithStatus = result.map((task) => ({
+    ...task,
+    isExecuting: activeExecutors.has(task.id),
+  }));
+
+  return { data: tasksWithStatus as TaskWithEpicTitle[] };
+}
+
+export type TaskWithRepository = TaskWithExecutingStatus & {
+  repositoryName: string;
+  epicTitle: string | null;
+};
+
+/**
+ * Get all tasks across all repositories
+ */
+export async function getAllTasks(): Promise<
+  ServiceResult<TaskWithRepository[]>
+> {
+  const result = await db
+    .select({
+      id: tasks.id,
+      repositoryId: tasks.repositoryId,
+      epicId: tasks.epicId,
+      title: tasks.title,
+      description: tasks.description,
+      status: tasks.status,
+      executor: tasks.executor,
+      branchName: tasks.branchName,
+      baseBranch: tasks.baseBranch,
+      worktreePath: tasks.worktreePath,
+      sessionId: tasks.sessionId,
+      createdAt: tasks.createdAt,
+      updatedAt: tasks.updatedAt,
+      startedAt: tasks.startedAt,
+      completedAt: tasks.completedAt,
+      repositoryName: repositories.name,
+      epicTitle: epics.title,
+    })
+    .from(tasks)
+    .innerJoin(repositories, eq(tasks.repositoryId, repositories.id))
+    .leftJoin(epics, eq(tasks.epicId, epics.id));
+
+  const tasksWithStatus = result.map((task) => ({
+    ...task,
+    isExecuting: activeExecutors.has(task.id),
+  }));
+
+  return { data: tasksWithStatus as TaskWithRepository[] };
 }
 
 /**
