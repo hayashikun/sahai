@@ -2,12 +2,9 @@ import {
   type CreateEpicInput,
   Epic,
   type EpicLog,
-  EpicLogArray,
   type Epic as EpicType,
-  TaskArray,
-  type Task as TaskType,
 } from "shared";
-import { API_BASE_URL, apiDelete, apiPost, apiPut, fetcher } from "./client";
+import { API_BASE_URL, apiDelete, apiPost, apiPut } from "./client";
 
 export async function createEpic(
   projectId: string,
@@ -41,16 +38,6 @@ export async function stopEpic(
 ): Promise<{ message: string; isExecuting: boolean }> {
   const data = await apiPost(`/epics/${epicId}/stop`, {});
   return data as { message: string; isExecuting: boolean };
-}
-
-export async function getEpicTasks(epicId: string): Promise<TaskType[]> {
-  const data = await fetcher(`/epics/${epicId}/tasks`);
-  return TaskArray.parse(data);
-}
-
-export async function getEpicLogs(epicId: string): Promise<EpicLog[]> {
-  const data = await fetcher(`/epics/${epicId}/logs`);
-  return EpicLogArray.parse(data);
 }
 
 export function getEpicLogsStreamUrl(epicId: string): string {

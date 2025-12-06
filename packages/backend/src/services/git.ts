@@ -169,25 +169,3 @@ export function convertToGitHubUrl(remoteUrl: string): string | null {
 
   return null;
 }
-
-export async function openInFinder(path: string): Promise<void> {
-  const result = await $`open ${path}`.nothrow().quiet();
-
-  if (result.exitCode !== 0) {
-    throw new GitError(
-      `Failed to open Finder at '${path}'`,
-      result.stderr.toString(),
-    );
-  }
-}
-
-export async function openInTerminal(path: string): Promise<void> {
-  const result = await $`open -a Terminal ${path}`.nothrow().quiet();
-
-  if (result.exitCode !== 0) {
-    throw new GitError(
-      `Failed to open Terminal at '${path}'`,
-      result.stderr.toString(),
-    );
-  }
-}

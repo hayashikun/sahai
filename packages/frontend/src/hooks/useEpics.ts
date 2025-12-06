@@ -14,7 +14,7 @@ export function useProjectEpics(projectId: string) {
   };
 }
 
-export function useEpic(epicId: string) {
+function useEpic(epicId: string) {
   const { data, mutate } = useSWR(`/epics/${epicId}`, fetcher, {
     suspense: true,
   });
@@ -34,7 +34,7 @@ export function useEpicTasks(epicId: string) {
   };
 }
 
-export function useEpicLogs(epicId: string) {
+function useEpicLogs(epicId: string) {
   const { data, mutate } = useSWR(`/epics/${epicId}/logs`, fetcher, {
     suspense: true,
   });

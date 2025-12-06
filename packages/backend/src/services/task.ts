@@ -138,23 +138,11 @@ export interface ServiceResult<T> {
 
 const activeExecutors = new Map<string, Executor>();
 
-export function getActiveExecutors(): Map<string, Executor> {
-  return activeExecutors;
-}
-
 export function isExecutorActive(taskId: string): boolean {
   return activeExecutors.has(taskId);
 }
 
-export function getExecutor(taskId: string): Executor | undefined {
-  return activeExecutors.get(taskId);
-}
-
-export function setExecutor(taskId: string, executor: Executor): void {
-  activeExecutors.set(taskId, executor);
-}
-
-export function removeExecutor(taskId: string): void {
+function removeExecutor(taskId: string): void {
   activeExecutors.delete(taskId);
 }
 
@@ -1352,18 +1340,4 @@ export async function getPendingMessageCount(
   const pendingCount = messages.filter((m) => m.status === "pending").length;
 
   return { data: { count: pendingCount } };
-}
-
-// ============================================================================
-// Exported for routes/tasks.ts handleExecutorExit compatibility
-// ============================================================================
-
-let globalEventHandler: TaskEventHandler | undefined;
-
-export function setGlobalEventHandler(handler: TaskEventHandler): void {
-  globalEventHandler = handler;
-}
-
-export async function handleExecutorExit(taskId: string): Promise<void> {
-  await handleExecutorExitInternal(taskId, globalEventHandler);
 }
