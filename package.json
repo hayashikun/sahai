@@ -52,8 +52,11 @@
     "url": "https://github.com/hayashikun/sahai/issues"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "drizzle-orm": "^0.44.7",
-    "hono": "^4.6.0"
+    "glob": "^13.0.0",
+    "hono": "^4.6.0",
+    "zod": "^4.1.13"
   },
   "engines": {
     "bun": ">=1.0.0"

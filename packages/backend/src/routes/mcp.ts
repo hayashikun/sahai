@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { Task } from "shared";
+import { Task } from "../../../shared/index.js";
 import { db } from "../db/client";
 import { executionLogs, repositories, tasks } from "../db/schema";
 import { resumeTask, startTask, withExecutingStatus } from "../services/task";

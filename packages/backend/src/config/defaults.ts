@@ -1,4 +1,4 @@
-import type { Settings } from "shared";
+import type { Settings } from "../../../shared/index.js";
 
 // General > Terminal
 export const TERMINAL_DEFAULTS = {
