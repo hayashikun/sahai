@@ -1,6 +1,6 @@
 import { access, constants } from "node:fs/promises";
 import { Hono } from "hono";
-import type { Settings, SettingsUpdate } from "shared";
+import type { Settings, SettingsUpdate } from "../../../shared/index.js";
 import { SETTING_KEYS, SETTINGS_DEFAULTS } from "../config/defaults";
 import { db } from "../db/client";
 import { settings } from "../db/schema";

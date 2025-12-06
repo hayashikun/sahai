@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import type { AgentConfig, AgentType } from "shared";
-import { executorToAgentKey } from "shared";
+import type { AgentConfig, AgentType } from "../../../shared/index.js";
+import { executorToAgentKey } from "../../../shared/index.js";
 import { db } from "../db/client";
 import { settings } from "../db/schema";
 import { AGENT_DEFAULTS } from "./defaults";

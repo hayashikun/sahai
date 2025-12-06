@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import type { ErrorCode } from "shared";
+import type { ErrorCode } from "../../../shared/index.js";
 
 export interface ErrorResponse {
   error: {

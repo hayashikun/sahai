@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { NotificationTrigger } from "shared";
+import type { NotificationTrigger } from "../../../shared/index.js";
 import { db } from "../db/client";
 import { settings } from "../db/schema";
 import { NOTIFICATION_DEFAULTS } from "./defaults";
