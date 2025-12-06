@@ -1,8 +1,18 @@
-import { useDraggable } from "@dnd-kit/core";
+import {
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+  PointerSensor,
+  useDraggable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
   CheckCircle,
   GitBranch,
+  GitFork,
   Layers,
   Loader2,
   MessageSquare,
@@ -13,27 +23,46 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { Task } from "shared";
-import { deleteTask, finishTask, pauseTask, startTask } from "../api";
-import { usePendingMessageCount } from "../hooks";
-import { cn } from "../lib/utils";
-import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import type { Status, TaskWithRepository } from "shared";
+import {
+  deleteTask,
+  finishTask,
+  pauseTask,
+  startTask,
+  updateTaskStatus,
+} from "../api";
+import { DroppableColumn } from "../components/DroppableColumn";
+import { canTransition } from "../components/KanbanBoard";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+} from "../components/ui/dropdown-menu";
+import { useAllTasks, usePendingMessageCount } from "../hooks";
+import { cn } from "../lib/utils";
 
-interface TaskCardProps {
-  task: Task;
+const COLUMNS: { status: Status; label: string }[] = [
+  { status: "TODO", label: "TODO" },
+  { status: "InProgress", label: "In Progress" },
+  { status: "InReview", label: "In Review" },
+  { status: "Done", label: "Done" },
+];
+
+interface TaskCardWithRepoProps {
+  task: TaskWithRepository;
   isDragging?: boolean;
   onTaskUpdate?: () => void;
 }
 
-export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
+function TaskCardWithRepo({
+  task,
+  isDragging,
+  onTaskUpdate,
+}: TaskCardWithRepoProps) {
   const [loading, setLoading] = useState(false);
 
   const handleAction = async (
@@ -141,10 +170,23 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
           </p>
         )}
         <div className="mt-2 text-xs text-gray-500 space-y-1">
-          {/* Row 1: Branch */}
-          <div className="flex items-center gap-1">
-            <GitBranch className="h-3 w-3" />
-            <span className="truncate">{task.branchName}</span>
+          {/* Row 1: Repository, Branch */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              to={`/repositories/${task.repositoryId}`}
+              className="flex items-center gap-1 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded hover:bg-blue-200"
+              onClick={(e) => e.stopPropagation()}
+              title="Repository"
+            >
+              <GitFork className="h-3 w-3 shrink-0" />
+              <span className="truncate max-w-[80px]">
+                {task.repositoryName}
+              </span>
+            </Link>
+            <span className="flex items-center gap-1">
+              <GitBranch className="h-3 w-3 shrink-0" />
+              <span className="truncate">{task.branchName}</span>
+            </span>
           </div>
           {/* Row 2: Executor, QueueCount */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -193,15 +235,15 @@ function MessageQueueIndicator({ taskId }: { taskId: string }) {
   );
 }
 
-interface DraggableTaskCardProps {
-  task: Task;
+interface DraggableTaskCardWithRepoProps {
+  task: TaskWithRepository;
   onTaskUpdate?: () => void;
 }
 
-export function DraggableTaskCard({
+function DraggableTaskCardWithRepo({
   task,
   onTaskUpdate,
-}: DraggableTaskCardProps) {
+}: DraggableTaskCardWithRepoProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: task.id,
@@ -218,7 +260,107 @@ export function DraggableTaskCard({
       {...listeners}
       {...attributes}
     >
-      <TaskCard task={task} onTaskUpdate={onTaskUpdate} />
+      <TaskCardWithRepo task={task} onTaskUpdate={onTaskUpdate} />
+    </div>
+  );
+}
+
+export function AllTaskBoard() {
+  const { tasks, mutate: mutateTasks } = useAllTasks();
+  const [activeTask, setActiveTask] = useState<TaskWithRepository | null>(null);
+  const [updating, setUpdating] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+  );
+
+  const tasksByStatus = (status: Status) =>
+    tasks.filter((task) => task.status === status);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    if (task) {
+      setActiveTask(task);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over || updating) {
+      return;
+    }
+
+    const taskId = active.id as string;
+    const newStatus = over.id as Status;
+    const task = tasks.find((t) => t.id === taskId);
+
+    if (!task || task.status === newStatus) {
+      return;
+    }
+    if (!canTransition(task.status, newStatus)) {
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      await updateTaskStatus(taskId, newStatus);
+      mutateTasks();
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">All Tasks</h1>
+        <p className="text-gray-500 mt-1">
+          View and manage tasks across all repositories
+        </p>
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {COLUMNS.map((column) => (
+            <DroppableColumn
+              key={column.status}
+              status={column.status}
+              label={column.label}
+              isValidDrop={
+                activeTask
+                  ? canTransition(activeTask.status, column.status)
+                  : false
+              }
+              isActive={!!activeTask}
+            >
+              {tasksByStatus(column.status).map((task) => (
+                <DraggableTaskCardWithRepo
+                  key={task.id}
+                  task={task}
+                  onTaskUpdate={mutateTasks}
+                />
+              ))}
+            </DroppableColumn>
+          ))}
+        </div>
+        <DragOverlay>
+          {activeTask ? (
+            <TaskCardWithRepo task={activeTask} isDragging />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }

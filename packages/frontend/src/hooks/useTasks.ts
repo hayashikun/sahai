@@ -5,6 +5,7 @@ import {
   Task,
   type TaskMessage,
   TaskMessageArray,
+  TaskWithRepositoryArray,
 } from "shared";
 import useSWR from "swr";
 import {
@@ -287,5 +288,15 @@ export function useTaskMessagesWithStream(taskId: string) {
     mutateMessages,
     connected,
     error,
+  };
+}
+
+export function useAllTasks() {
+  const { data, mutate } = useSWR("/tasks", fetcher, {
+    suspense: true,
+  });
+  return {
+    tasks: TaskWithRepositoryArray.parse(data),
+    mutate,
   };
 }

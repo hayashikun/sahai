@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ErrorBoundary, Layout } from "./components";
 import {
+  AllTaskBoard,
   EpicDetail,
   ProjectDetail,
   ProjectList,
@@ -25,7 +26,17 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/projects" replace />} />
+          <Route index element={<Navigate to="/tasks" replace />} />
+          <Route
+            path="tasks"
+            element={
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <AllTaskBoard />
+                </Suspense>
+              </ErrorBoundary>
+            }
+          />
           <Route
             path="projects"
             element={
