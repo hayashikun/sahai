@@ -14,11 +14,9 @@ export type Executor = z.infer<typeof Executor>;
 
 // LogType enum
 export const LogType = z.enum(["stdout", "stderr", "system"]);
-export type LogType = z.infer<typeof LogType>;
 
 // MessageStatus enum
 export const MessageStatus = z.enum(["pending", "delivered", "failed"]);
-export type MessageStatus = z.infer<typeof MessageStatus>;
 
 // Project schema - parses API response and transforms dates
 export const Project = z.object({
@@ -230,7 +228,6 @@ export const ApiError = z.object({
     details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
-export type ApiError = z.infer<typeof ApiError>;
 
 // Notification trigger enum
 export const NotificationTrigger = z.enum(["completed", "failed", "all"]);
@@ -270,7 +267,6 @@ export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>;
 export const ValidatePathRequestSchema = z.object({
   path: z.string(),
 });
-export type ValidatePathRequest = z.infer<typeof ValidatePathRequestSchema>;
 
 export const ValidatePathResponseSchema = z.object({
   valid: z.boolean(),
@@ -285,7 +281,6 @@ export const SoundSchema = z.object({
   name: z.string(),
   path: z.string(),
 });
-export type Sound = z.infer<typeof SoundSchema>;
 
 export const SoundsResponseSchema = z.object({
   sounds: z.array(SoundSchema),
@@ -296,12 +291,10 @@ export type SoundsResponse = z.infer<typeof SoundsResponseSchema>;
 export const PlaySoundRequestSchema = z.object({
   sound: z.string(),
 });
-export type PlaySoundRequest = z.infer<typeof PlaySoundRequestSchema>;
 
 export const PlaySoundResponseSchema = z.object({
   success: z.boolean(),
 });
-export type PlaySoundResponse = z.infer<typeof PlaySoundResponseSchema>;
 
 // API Request/Input schemas
 
@@ -331,7 +324,6 @@ export const UpdateRepositoryInputSchema = z.object({
   cleanupScript: z.string().nullable().optional(),
   copyFiles: z.string().nullable().optional(),
 });
-export type UpdateRepositoryInput = z.infer<typeof UpdateRepositoryInputSchema>;
 
 // Task creation input
 export const CreateTaskInputSchema = z.object({
@@ -356,7 +348,6 @@ export type CreateEpicInput = z.infer<typeof CreateEpicInputSchema>;
 export const CreateMessageInputSchema = z.object({
   content: z.string().min(1),
 });
-export type CreateMessageInput = z.infer<typeof CreateMessageInputSchema>;
 
 // Agent configuration types
 export const AgentType = z.enum(["claudeCode", "codex", "copilot", "gemini"]);
@@ -382,7 +373,6 @@ export const TaskEventType = z.enum([
   "task-created",
   "task-deleted",
 ]);
-export type TaskEventType = z.infer<typeof TaskEventType>;
 
 // Task event schemas
 export const TaskStatusChangedEventSchema = z.object({

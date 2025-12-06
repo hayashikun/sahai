@@ -4,7 +4,6 @@ import {
   ExecutionLogArray,
   Task,
   type TaskMessage,
-  TaskMessageArray,
   TaskWithRepositoryArray,
 } from "shared";
 import useSWR from "swr";
@@ -21,7 +20,7 @@ import {
 } from "../api";
 import { type EventHandler, useEventSource } from "./useEventSource";
 
-export function useTask(taskId: string) {
+function useTask(taskId: string) {
   const { data, mutate } = useSWR(`/tasks/${taskId}`, fetcher, {
     suspense: true,
   });
@@ -31,7 +30,7 @@ export function useTask(taskId: string) {
   };
 }
 
-export function useTaskLogs(taskId: string) {
+function useTaskLogs(taskId: string) {
   const { data, mutate } = useSWR(`/tasks/${taskId}/logs`, fetcher, {
     suspense: true,
   });
@@ -167,17 +166,6 @@ export function useRepositoryTasksStream(
   };
 }
 
-// Message queue hooks
-export function useTaskMessages(taskId: string) {
-  const { data, mutate } = useSWR(`/tasks/${taskId}/messages`, fetcher, {
-    suspense: true,
-  });
-  return {
-    messages: TaskMessageArray.parse(data),
-    mutate,
-  };
-}
-
 export function usePendingMessageCount(taskId: string) {
   const { data, mutate } = useSWR(
     `/tasks/${taskId}/messages/pending/count`,
@@ -252,42 +240,6 @@ export function useTaskMessagesStream(
     error,
     clearMessages,
     reconnect,
-  };
-}
-
-export function useTaskMessagesWithStream(taskId: string) {
-  const { messages: initialMessages, mutate: mutateMessages } =
-    useTaskMessages(taskId);
-  const {
-    messages: streamMessages,
-    connected,
-    error,
-  } = useTaskMessagesStream(taskId);
-
-  // Merge initial messages with stream messages, removing duplicates
-  const allMessages = [...initialMessages];
-  for (const msg of streamMessages) {
-    if (allMessages.some((m) => m.id === msg.id)) {
-      // Update existing message with stream data (e.g., status change)
-      const index = allMessages.findIndex((m) => m.id === msg.id);
-      if (index !== -1) {
-        allMessages[index] = msg;
-      }
-    } else {
-      allMessages.push(msg);
-    }
-  }
-
-  // Sort by createdAt ascending (oldest first)
-  allMessages.sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
-
-  return {
-    messages: allMessages,
-    mutateMessages,
-    connected,
-    error,
   };
 }
 
