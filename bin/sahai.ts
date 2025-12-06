@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
@@ -14,6 +15,7 @@ const { values } = parseArgs({
     host: { type: "string", short: "H", default: defaultHost },
     help: { type: "boolean", short: "h", default: false },
     version: { type: "boolean", short: "v", default: false },
+    "no-open": { type: "boolean", default: false },
   },
   strict: true,
 });
@@ -28,6 +30,7 @@ Usage:
 Options:
   -p, --port <port>  Port to run the server on (default: 49831, or PORT env)
   -H, --host <host>  Host to bind the server to (default: localhost, or HOST env)
+  --no-open          Don't open browser automatically
   -h, --help         Show this help message
   -v, --version      Show version number
 
@@ -36,6 +39,7 @@ Examples:
   sahai -p 8080               Start the server on port 8080
   sahai -H 0.0.0.0            Bind to all interfaces
   sahai -H 0.0.0.0 -p 8080    Bind to all interfaces on port 8080
+  sahai --no-open             Start without opening browser
 `);
   process.exit(0);
 }
@@ -81,3 +85,18 @@ console.log(`
   │                                         │
   ╰─────────────────────────────────────────╯
 `);
+
+// Open browser unless --no-open is specified
+if (!values["no-open"]) {
+  const openCommand =
+    process.platform === "darwin"
+      ? "open"
+      : process.platform === "win32"
+        ? "start"
+        : "xdg-open";
+
+  spawn(openCommand, [url], {
+    stdio: "ignore",
+    detached: true,
+  }).unref();
+}
