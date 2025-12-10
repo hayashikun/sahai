@@ -142,9 +142,11 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
         )}
         <div className="mt-2 text-xs text-gray-500 space-y-1">
           {/* Row 1: Branch */}
-          <div className="flex items-center gap-1">
-            <GitBranch className="h-3 w-3" />
-            <span className="truncate">{task.branchName}</span>
+          <div className="flex items-center gap-1 min-w-0">
+            <GitBranch className="h-3 w-3 shrink-0" />
+            <span className="truncate" title={task.branchName}>
+              {task.branchName}
+            </span>
           </div>
           {/* Row 2: Executor, QueueCount */}
           <div className="flex items-center gap-2 flex-wrap">
