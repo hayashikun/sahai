@@ -35,3 +35,105 @@
     color: var(--color-foreground);
   }
 }
+
+/* Loading Animations */
+@layer utilities {
+  /* Dots blinking animation */
+  @keyframes dots-blink {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .animate-dots-blink {
+    animation: dots-blink 1.4s ease-in-out infinite;
+  }
+
+  .animation-delay-0 {
+    animation-delay: 0s;
+  }
+
+  .animation-delay-150 {
+    animation-delay: 0.15s;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 0.2s;
+  }
+
+  .animation-delay-300 {
+    animation-delay: 0.3s;
+  }
+
+  .animation-delay-400 {
+    animation-delay: 0.4s;
+  }
+
+  /* Running cat animation */
+  @keyframes cat-walk {
+    0% {
+      transform: translateX(0) scaleX(-1);
+    }
+    49% {
+      transform: translateX(400px) scaleX(-1);
+    }
+    50% {
+      transform: translateX(400px) scaleX(1);
+    }
+    100% {
+      transform: translateX(0) scaleX(1);
+    }
+  }
+
+  @keyframes cat-hop {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .animate-cat-walk {
+    animation: cat-walk 10s ease-in-out infinite;
+  }
+
+  .animate-cat-hop {
+    animation: cat-hop 0.3s ease-in-out infinite;
+  }
+
+  /* Typing bounce animation */
+  @keyframes typing-bounce {
+    0%,
+    80%,
+    100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-6px);
+    }
+  }
+
+  .animate-typing-bounce {
+    animation: typing-bounce 1s ease-in-out infinite;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-dots-blink,
+  .animate-cat-walk,
+  .animate-cat-hop,
+  .animate-typing-bounce,
+  .animate-spin {
+    animation: none;
+  }
+
+  .animate-dots-blink {
+    opacity: 1;
+  }
+}

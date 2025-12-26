@@ -17,7 +17,13 @@ import {
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { ExecutionLog, Status, Task, TaskMessage } from "shared";
+import type {
+  ExecutionLog,
+  LoadingAnimationType,
+  Status,
+  Task,
+  TaskMessage,
+} from "shared";
 import {
   deleteQueuedMessage,
   deleteTask,
@@ -31,7 +37,9 @@ import {
   startTask,
   updateTask,
 } from "../api";
+import { getSettings } from "../api/settings";
 import { DiffView } from "../components";
+import { LoadingAnimation } from "../components/loading-animations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -360,7 +368,12 @@ function TaskDetailContent({ taskId }: { taskId: string }) {
           <TabsTrigger value="diff">Diff View</TabsTrigger>
         </TabsList>
         <TabsContent value="logs">
-          <ExecutionLogs logs={logs} connected={connected} error={error} />
+          <ExecutionLogs
+            logs={logs}
+            connected={connected}
+            error={error}
+            isExecuting={task.isExecuting}
+          />
         </TabsContent>
         <TabsContent value="diff">
           <DiffSection
@@ -710,13 +723,32 @@ interface ExecutionLogsProps {
   logs: ExecutionLog[];
   connected: boolean;
   error: string | null;
+  isExecuting?: boolean;
 }
 
-function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
+function ExecutionLogs({
+  logs,
+  connected,
+  error,
+  isExecuting,
+}: ExecutionLogsProps) {
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const prevLogsLengthRef = useRef(0);
   const userScrolledUpRef = useRef(false);
   const hasInitialScrolledRef = useRef(false);
+  const [animationType, setAnimationType] =
+    useState<LoadingAnimationType>("dots");
+
+  // Load animation setting
+  useEffect(() => {
+    getSettings()
+      .then((settings) => {
+        setAnimationType(settings["ui.loadingAnimation"] ?? "dots");
+      })
+      .catch(() => {
+        // Use default if failed
+      });
+  }, []);
 
   // Handle scroll events to detect if user scrolled up
   const handleScroll = useCallback(() => {
@@ -792,29 +824,43 @@ function ExecutionLogs({ logs, connected, error }: ExecutionLogsProps) {
         >
           {logs.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
-              No logs yet. Start the task to see execution logs.
+              {isExecuting && animationType !== "none" ? (
+                <div className="flex flex-col items-center gap-2">
+                  <LoadingAnimation type={animationType} />
+                  <span className="text-xs">Waiting for logs...</span>
+                </div>
+              ) : (
+                "No logs yet. Start the task to see execution logs."
+              )}
             </div>
           ) : (
-            logs.map((log) => (
-              <div
-                key={log.id}
-                className={cn(
-                  "px-3 py-2 border-b border-gray-100 last:border-b-0 font-mono text-xs",
-                  log.logType === "stdout" && "bg-white",
-                  log.logType === "stderr" && "bg-red-50",
-                  log.logType === "system" && "bg-gray-50",
-                )}
-              >
-                <div className="flex justify-end mb-1">
-                  <span className="text-gray-400 text-[10px]">
-                    {formatTime(log.createdAt)}
-                  </span>
+            <>
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  className={cn(
+                    "px-3 py-2 border-b border-gray-100 last:border-b-0 font-mono text-xs",
+                    log.logType === "stdout" && "bg-white",
+                    log.logType === "stderr" && "bg-red-50",
+                    log.logType === "system" && "bg-gray-50",
+                  )}
+                >
+                  <div className="flex justify-end mb-1">
+                    <span className="text-gray-400 text-[10px]">
+                      {formatTime(log.createdAt)}
+                    </span>
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {parseLogContent(log.content, log.logType)}
+                  </pre>
                 </div>
-                <pre className="whitespace-pre-wrap break-words">
-                  {parseLogContent(log.content, log.logType)}
-                </pre>
-              </div>
-            ))
+              ))}
+              {isExecuting && animationType !== "none" && (
+                <div className="px-3 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center gap-2">
+                  <LoadingAnimation type={animationType} />
+                </div>
+              )}
+            </>
           )}
         </div>
       </CardContent>
