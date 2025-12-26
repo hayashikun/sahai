@@ -39,11 +39,21 @@ function DotsAnimation({ className }: { className?: string }) {
 
 function RunningCatAnimation({ className }: { className?: string }) {
   return (
-    <div className={cn("overflow-hidden", className)}>
-      <div className="inline-block animate-cat-run-move font-mono text-xs text-gray-400 leading-tight whitespace-pre">
+    <div
+      className={cn(
+        "relative font-mono text-xs text-gray-400 leading-tight whitespace-pre h-[3em]",
+        className,
+      )}
+    >
+      <div className="absolute inset-0 animate-cat-frame-1">
         <div> /\_/\</div>
         <div>( o.o )</div>
-        <div> &gt; ^ &lt;</div>
+        <div> &gt; ^ &lt;~</div>
+      </div>
+      <div className="absolute inset-0 animate-cat-frame-2">
+        <div> /\_/\</div>
+        <div>( o.o )</div>
+        <div>~ &gt; ^ &lt;</div>
       </div>
     </div>
   );
