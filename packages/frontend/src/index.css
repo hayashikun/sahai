@@ -74,34 +74,18 @@
   }
 
   /* Running cat animation */
-  @keyframes cat-frame-1 {
+  @keyframes cat-bounce {
     0%,
-    49% {
-      opacity: 1;
-    }
-    50%,
     100% {
-      opacity: 0;
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(8px);
     }
   }
 
-  @keyframes cat-frame-2 {
-    0%,
-    49% {
-      opacity: 0;
-    }
-    50%,
-    100% {
-      opacity: 1;
-    }
-  }
-
-  .animate-cat-frame-1 {
-    animation: cat-frame-1 0.4s steps(1) infinite;
-  }
-
-  .animate-cat-frame-2 {
-    animation: cat-frame-2 0.4s steps(1) infinite;
+  .animate-cat-bounce {
+    animation: cat-bounce 0.6s ease-in-out infinite;
   }
 
   /* Typing bounce animation */
@@ -124,8 +108,7 @@
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .animate-dots-blink,
-  .animate-cat-frame-1,
-  .animate-cat-frame-2,
+  .animate-cat-bounce,
   .animate-typing-bounce,
   .animate-spin {
     animation: none;
@@ -133,13 +116,5 @@
 
   .animate-dots-blink {
     opacity: 1;
-  }
-
-  .animate-cat-frame-1 {
-    opacity: 1;
-  }
-
-  .animate-cat-frame-2 {
-    opacity: 0;
   }
 }

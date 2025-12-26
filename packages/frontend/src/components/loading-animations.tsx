@@ -40,12 +40,7 @@ function DotsAnimation({ className }: { className?: string }) {
 function RunningCatAnimation({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center", className)}>
-      <img
-        src="/walking-cat.gif"
-        alt="Walking cat"
-        className="h-5 w-auto"
-        style={{ imageRendering: "pixelated" }}
-      />
+      <span className="inline-block animate-cat-bounce text-base">🐈‍⬛</span>
     </div>
   );
 }
