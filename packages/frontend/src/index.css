@@ -75,17 +75,22 @@
 
   /* Running cat animation */
   @keyframes cat-bounce {
-    0%,
-    100% {
-      transform: translateX(0);
+    0% {
+      transform: translateX(0) scaleX(1);
+    }
+    49% {
+      transform: translateX(20px) scaleX(1);
     }
     50% {
-      transform: translateX(8px);
+      transform: translateX(20px) scaleX(-1);
+    }
+    100% {
+      transform: translateX(0) scaleX(-1);
     }
   }
 
   .animate-cat-bounce {
-    animation: cat-bounce 0.6s ease-in-out infinite;
+    animation: cat-bounce 1s ease-in-out infinite;
   }
 
   /* Typing bounce animation */
