@@ -3,6 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   CheckCircle,
   GitBranch,
+  GitFork,
   Layers,
   Loader2,
   MessageSquare,
@@ -10,7 +11,6 @@ import {
   Pause,
   Play,
   Trash2,
-  GitFork,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -166,9 +166,7 @@ export function TaskCard({
                 title="Repository"
               >
                 <GitFork className="h-3 w-3 shrink-0" />
-                <span className="truncate max-w-[120px]">
-                  {repositoryName}
-                </span>
+                <span className="truncate max-w-[120px]">{repositoryName}</span>
               </Link>
             ) : null}
             <span
