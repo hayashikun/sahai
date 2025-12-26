@@ -10,10 +10,11 @@ import {
   Pause,
   Play,
   Trash2,
+  GitFork,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { Task } from "shared";
+import type { Task, TaskWithRepository } from "shared";
 import { deleteTask, finishTask, pauseTask, startTask } from "../api";
 import { usePendingMessageCount } from "../hooks";
 import { cn } from "../lib/utils";
@@ -28,13 +29,22 @@ import {
 } from "./ui/dropdown-menu";
 
 interface TaskCardProps {
-  task: Task;
+  task: Task | TaskWithRepository;
   isDragging?: boolean;
   onTaskUpdate?: () => void;
+  showRepository?: boolean;
 }
 
-export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
+export function TaskCard({
+  task,
+  isDragging,
+  onTaskUpdate,
+  showRepository,
+}: TaskCardProps) {
   const [loading, setLoading] = useState(false);
+  const repositoryName =
+    "repositoryName" in task ? task.repositoryName : undefined;
+  const showRepositoryInfo = Boolean(showRepository && repositoryName);
 
   const handleAction = async (
     action: () => Promise<unknown>,
@@ -141,11 +151,36 @@ export function TaskCard({ task, isDragging, onTaskUpdate }: TaskCardProps) {
           </p>
         )}
         <div className="mt-2 text-xs text-gray-500 space-y-1">
-          {/* Row 1: Branch */}
-          <div className="flex items-center gap-1 min-w-0">
-            <GitBranch className="h-3 w-3 shrink-0" />
-            <span className="truncate" title={task.branchName}>
-              {task.branchName}
+          {/* Row 1: Repository (optional) + Branch */}
+          <div
+            className={cn(
+              "flex items-center min-w-0",
+              showRepositoryInfo ? "gap-2 flex-wrap" : "gap-1",
+            )}
+          >
+            {showRepositoryInfo ? (
+              <Link
+                to={`/repositories/${task.repositoryId}`}
+                className="flex items-center gap-1 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded hover:bg-blue-200"
+                onClick={(e) => e.stopPropagation()}
+                title="Repository"
+              >
+                <GitFork className="h-3 w-3 shrink-0" />
+                <span className="truncate max-w-[120px]">
+                  {repositoryName}
+                </span>
+              </Link>
+            ) : null}
+            <span
+              className={cn(
+                "flex items-center gap-1 min-w-0",
+                showRepositoryInfo && "flex-1",
+              )}
+            >
+              <GitBranch className="h-3 w-3 shrink-0" />
+              <span className="truncate" title={task.branchName}>
+                {task.branchName}
+              </span>
             </span>
           </div>
           {/* Row 2: Executor, QueueCount */}
@@ -196,13 +231,15 @@ function MessageQueueIndicator({ taskId }: { taskId: string }) {
 }
 
 interface DraggableTaskCardProps {
-  task: Task;
+  task: Task | TaskWithRepository;
   onTaskUpdate?: () => void;
+  showRepository?: boolean;
 }
 
 export function DraggableTaskCard({
   task,
   onTaskUpdate,
+  showRepository,
 }: DraggableTaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -220,7 +257,11 @@ export function DraggableTaskCard({
       {...listeners}
       {...attributes}
     >
-      <TaskCard task={task} onTaskUpdate={onTaskUpdate} />
+      <TaskCard
+        task={task}
+        onTaskUpdate={onTaskUpdate}
+        showRepository={showRepository}
+      />
     </div>
   );
 }
