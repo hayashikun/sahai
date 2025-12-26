@@ -46,12 +46,12 @@ function RunningCatAnimation({ className }: { className?: string }) {
       )}
     >
       <div className="absolute inset-0 animate-cat-frame-1">
-        <div>{"♪ ∧_∧"}</div>
-        <div>{" ( ･ω･)つ━☆"}</div>
+        <div>{"  ∧_∧"}</div>
+        <div>{" (･ω･)_🖥️"}</div>
       </div>
       <div className="absolute inset-0 animate-cat-frame-2">
-        <div>{"  ∧_∧ ♪"}</div>
-        <div>{"☆━⊂(･ω･ )"}</div>
+        <div>{"  ∧_∧"}</div>
+        <div>{" (･ω･)っ🖥️"}</div>
       </div>
     </div>
   );
