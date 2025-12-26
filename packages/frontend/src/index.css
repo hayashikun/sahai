@@ -90,7 +90,7 @@
   }
 
   .animate-cat-bounce {
-    animation: cat-bounce 3s ease-in-out infinite;
+    animation: cat-bounce 10s ease-in-out infinite;
   }
 
   /* Typing bounce animation */
