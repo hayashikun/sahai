@@ -40,7 +40,9 @@ function DotsAnimation({ className }: { className?: string }) {
 function RunningCatAnimation({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center", className)}>
-      <span className="inline-block animate-cat-bounce text-base">🐈‍⬛</span>
+      <span className="inline-block animate-cat-walk">
+        <span className="inline-block animate-cat-hop text-base">🐈‍⬛</span>
+      </span>
     </div>
   );
 }

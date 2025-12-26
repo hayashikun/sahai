@@ -74,7 +74,7 @@
   }
 
   /* Running cat animation */
-  @keyframes cat-bounce {
+  @keyframes cat-walk {
     0% {
       transform: translateX(-150px) scaleX(-1);
     }
@@ -89,8 +89,21 @@
     }
   }
 
-  .animate-cat-bounce {
-    animation: cat-bounce 10s ease-in-out infinite;
+  @keyframes cat-hop {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .animate-cat-walk {
+    animation: cat-walk 10s ease-in-out infinite;
+  }
+
+  .animate-cat-hop {
+    animation: cat-hop 0.3s ease-in-out infinite;
   }
 
   /* Typing bounce animation */
@@ -113,7 +126,8 @@
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .animate-dots-blink,
-  .animate-cat-bounce,
+  .animate-cat-walk,
+  .animate-cat-hop,
   .animate-typing-bounce,
   .animate-spin {
     animation: none;
