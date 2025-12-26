@@ -39,8 +39,12 @@ function DotsAnimation({ className }: { className?: string }) {
 
 function RunningCatAnimation({ className }: { className?: string }) {
   return (
-    <div className={cn("text-sm leading-none overflow-hidden", className)}>
-      <span className="inline-block animate-cat-run-move">💨🐈🐾</span>
+    <div className={cn("overflow-hidden", className)}>
+      <div className="inline-block animate-cat-run-move font-mono text-xs text-gray-400 leading-tight whitespace-pre">
+        <div> /\_/\</div>
+        <div>( o.o )</div>
+        <div> &gt; ^ &lt;</div>
+      </div>
     </div>
   );
 }
