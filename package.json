@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "drizzle-orm": "^0.44.7",
+    "drizzle-orm": "^0.45.1",
     "glob": "^13.0.0",
     "hono": "^4.6.0",
     "zod": "^4.1.13"
