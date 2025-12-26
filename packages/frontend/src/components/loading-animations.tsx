@@ -37,28 +37,16 @@ function DotsAnimation({ className }: { className?: string }) {
   );
 }
 
-const CAT_FRAMES = [" /\\_/\\  ", "( o.o ) ", " > ^ <~ "];
-
-const CAT_FRAMES_ALT = [" /\\_/\\  ", "( o.o ) ", " > ^ < ~"];
-
 function RunningCatAnimation({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "font-mono text-xs text-gray-400 leading-tight whitespace-pre animate-cat-run h-[3.5em]",
+        "text-base leading-none whitespace-pre animate-cat-run h-[1.2em]",
         className,
       )}
     >
-      <div className="cat-frame cat-frame-1">
-        <div>{CAT_FRAMES[0]}</div>
-        <div>{CAT_FRAMES[1]}</div>
-        <div>{CAT_FRAMES[2]}</div>
-      </div>
-      <div className="cat-frame cat-frame-2">
-        <div>{CAT_FRAMES_ALT[0]}</div>
-        <div>{CAT_FRAMES_ALT[1]}</div>
-        <div>{CAT_FRAMES_ALT[2]}</div>
-      </div>
+      <span className="cat-frame cat-frame-1">🐈💨</span>
+      <span className="cat-frame cat-frame-2">🐈‍⬛💨</span>
     </div>
   );
 }
