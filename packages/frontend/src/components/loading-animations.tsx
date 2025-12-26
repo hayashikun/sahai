@@ -41,21 +41,17 @@ function RunningCatAnimation({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "relative font-mono text-[10px] text-gray-400 leading-none whitespace-pre h-[4em] w-[12ch]",
+        "relative font-mono text-xs text-gray-400 leading-tight whitespace-pre h-[2.5em]",
         className,
       )}
     >
       <div className="absolute inset-0 animate-cat-frame-1">
-        <div>{"  ∧_∧  bap"}</div>
-        <div>{" ( ･ω･)っ"}</div>
-        <div>{" (っ　 ｜"}</div>
-        <div>{"  しーＪ"}</div>
+        <div>{"♪ ∧_∧"}</div>
+        <div>{" ( ･ω･)つ━☆"}</div>
       </div>
       <div className="absolute inset-0 animate-cat-frame-2">
-        <div>{"  ∧_∧ bap"}</div>
-        <div>{"⊂( ･ω･)"}</div>
-        <div>{" |　  )"}</div>
-        <div>{"  しーＪ"}</div>
+        <div>{"  ∧_∧ ♪"}</div>
+        <div>{"☆━⊂(･ω･ )"}</div>
       </div>
     </div>
   );
