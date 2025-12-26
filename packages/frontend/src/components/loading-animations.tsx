@@ -39,20 +39,13 @@ function DotsAnimation({ className }: { className?: string }) {
 
 function RunningCatAnimation({ className }: { className?: string }) {
   return (
-    <div
-      className={cn(
-        "relative font-mono text-xs text-gray-400 leading-tight whitespace-pre h-[2.5em]",
-        className,
-      )}
-    >
-      <div className="absolute inset-0 animate-cat-frame-1">
-        <div>{"  ∧_∧"}</div>
-        <div>{" (･ω･)_💻"}</div>
-      </div>
-      <div className="absolute inset-0 animate-cat-frame-2">
-        <div>{"  ∧_∧"}</div>
-        <div>{" (･ω･)っ💻"}</div>
-      </div>
+    <div className={cn("flex items-center", className)}>
+      <img
+        src="/walking-cat.gif"
+        alt="Walking cat"
+        className="h-5 w-auto"
+        style={{ imageRendering: "pixelated" }}
+      />
     </div>
   );
 }
