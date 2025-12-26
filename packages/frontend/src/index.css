@@ -76,10 +76,10 @@
   /* Running cat animation */
   @keyframes cat-run-move {
     0% {
-      transform: translateX(-100%);
+      transform: translateX(200%);
     }
     100% {
-      transform: translateX(200%);
+      transform: translateX(-100%);
     }
   }
 
