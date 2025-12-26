@@ -463,7 +463,7 @@ function GeneralSection({
           {/* Preview */}
           <div className="space-y-2">
             <Label>Preview</Label>
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 flex items-center justify-center min-h-[60px]">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex items-center justify-center min-h-[48px]">
               {settings["ui.loadingAnimation"] === "none" ? (
                 <span className="text-xs text-gray-400">No animation</span>
               ) : (

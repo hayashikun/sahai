@@ -45,7 +45,7 @@ function RunningCatAnimation({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "font-mono text-xs text-gray-400 leading-tight whitespace-pre animate-cat-run",
+        "font-mono text-xs text-gray-400 leading-tight whitespace-pre animate-cat-run h-[3.5em]",
         className,
       )}
     >

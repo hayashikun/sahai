@@ -74,8 +74,14 @@
   }
 
   /* Running cat animation */
+  .animate-cat-run {
+    position: relative;
+  }
+
   .animate-cat-run .cat-frame {
-    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
   }
 
   .animate-cat-run .cat-frame-1 {
@@ -89,22 +95,22 @@
   @keyframes cat-frame-1 {
     0%,
     50% {
-      display: block;
+      opacity: 1;
     }
     51%,
     100% {
-      display: none;
+      opacity: 0;
     }
   }
 
   @keyframes cat-frame-2 {
     0%,
     50% {
-      display: none;
+      opacity: 0;
     }
     51%,
     100% {
-      display: block;
+      opacity: 1;
     }
   }
 
