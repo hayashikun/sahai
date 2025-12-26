@@ -412,6 +412,7 @@ describe("CodexExecutor", () => {
         setTimeout(() => {
           const threadStarted = {
             type: "thread.started",
+            // biome-ignore lint/style/useNamingConvention: Codex API uses snake_case
             thread_id: "test-thread-123",
           };
           stdoutController.enqueue(
