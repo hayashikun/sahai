@@ -80,6 +80,74 @@ import { Textarea } from "../components/ui/textarea";
 import { useTaskMessagesStream, useTaskWithRealtimeLogs } from "../hooks";
 import { cn } from "../lib/utils";
 
+// Format tool input for display (extract key info based on tool type)
+function formatToolInput(
+  toolName: string,
+  input: Record<string, unknown>,
+): string {
+  switch (toolName) {
+    case "Read":
+      return (input.file_path as string) || JSON.stringify(input);
+    case "Write":
+      return (input.file_path as string) || JSON.stringify(input);
+    case "Edit":
+      return (input.file_path as string) || JSON.stringify(input);
+    case "Bash":
+      return (input.command as string) || JSON.stringify(input);
+    case "Glob":
+      return `${input.pattern || ""}${input.path ? ` in ${input.path}` : ""}`;
+    case "Grep":
+      return `"${input.pattern || ""}"${input.path ? ` in ${input.path}` : ""}`;
+    case "Task":
+      return (
+        (input.description as string) ||
+        (input.prompt as string) ||
+        JSON.stringify(input)
+      );
+    case "TodoWrite":
+      return "Updating task list";
+    case "WebSearch":
+      return (input.query as string) || JSON.stringify(input);
+    case "WebFetch":
+      return (input.url as string) || JSON.stringify(input);
+    case "LSP":
+      return `${input.operation || ""} at ${input.filePath || ""}:${input.line || ""}`;
+    default: {
+      // For unknown tools, try to show the most relevant field
+      const str = JSON.stringify(input);
+      return str.length > 150 ? `${str.slice(0, 150)}...` : str;
+    }
+  }
+}
+
+// Format tool result content for display
+function formatToolResult(content: unknown): string {
+  if (typeof content === "string") {
+    // Limit to reasonable length for display
+    const lines = content.split("\n");
+    if (lines.length > 20) {
+      return `${lines.slice(0, 20).join("\n")}\n... (${lines.length - 20} more lines)`;
+    }
+    return content.length > 2000 ? `${content.slice(0, 2000)}...` : content;
+  }
+  if (Array.isArray(content)) {
+    // Handle array of content blocks (common in Claude responses)
+    return content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+        if (item.type === "text") {
+          return item.text;
+        }
+        return JSON.stringify(item);
+      })
+      .join("\n");
+  }
+  const str = JSON.stringify(content, null, 2);
+  return str.length > 2000 ? `${str.slice(0, 2000)}...` : str;
+}
+
 // Parse Claude Code stream-json output to human-readable format
 function parseLogContent(content: string, logType: string): string {
   // Return as-is for stderr and system logs
@@ -92,12 +160,19 @@ function parseLogContent(content: string, logType: string): string {
 
     // Handle result type (final result)
     if (parsed.type === "result") {
+      if (parsed.is_error) {
+        return `[error] ${parsed.result || "Task failed"}`;
+      }
       return parsed.result || "Task completed";
     }
 
-    // Handle system init type
-    if (parsed.type === "system" && parsed.subtype === "init") {
-      return `[init] Claude Code v${parsed.claude_code_version} started (model: ${parsed.model})`;
+    // Handle system messages
+    if (parsed.type === "system") {
+      if (parsed.subtype === "init") {
+        return `[init] Claude Code v${parsed.claude_code_version} (model: ${parsed.model})`;
+      }
+      // Handle other system subtypes if any
+      return `[system] ${parsed.subtype || ""}: ${JSON.stringify(parsed)}`;
     }
 
     // Handle assistant messages
@@ -108,14 +183,16 @@ function parseLogContent(content: string, logType: string): string {
       for (const item of contents) {
         if (item.type === "text") {
           parts.push(item.text);
+        } else if (item.type === "thinking") {
+          // Handle thinking/reasoning blocks (usually hidden but can be shown)
+          parts.push(`[thinking] ${item.thinking || ""}`);
         } else if (item.type === "tool_use") {
-          parts.push(
-            `[${item.name}] ${JSON.stringify(item.input).slice(0, 100)}...`,
-          );
+          const formattedInput = formatToolInput(item.name, item.input || {});
+          parts.push(`[${item.name}] ${formattedInput}`);
         }
       }
 
-      return parts.join("\n") || content;
+      return parts.join("\n\n") || content;
     }
 
     // Handle user messages (tool results)
@@ -125,18 +202,34 @@ function parseLogContent(content: string, logType: string): string {
 
       for (const item of contents) {
         if (item.type === "tool_result") {
-          const resultContent =
-            typeof item.content === "string"
-              ? item.content.slice(0, 200)
-              : JSON.stringify(item.content).slice(0, 200);
-          parts.push(`[tool_result] ${resultContent}...`);
+          const formattedResult = formatToolResult(item.content);
+          if (item.is_error) {
+            parts.push(`[error] ${formattedResult}`);
+          } else {
+            parts.push(`[result] ${formattedResult}`);
+          }
+        } else if (item.type === "text") {
+          parts.push(item.text);
         }
       }
 
-      return parts.join("\n") || content;
+      return parts.join("\n\n") || content;
     }
 
-    // Fallback: return stringified JSON
+    // Handle cost/usage information if present at top level
+    if (parsed.usage || parsed.cost_usd) {
+      const usage = parsed.usage || {};
+      const costInfo = parsed.cost_usd ? `$${parsed.cost_usd.toFixed(4)}` : "";
+      const tokenInfo =
+        usage.input_tokens || usage.output_tokens
+          ? `(in: ${usage.input_tokens || 0}, out: ${usage.output_tokens || 0})`
+          : "";
+      if (costInfo || tokenInfo) {
+        return `[usage] ${costInfo} ${tokenInfo}`.trim();
+      }
+    }
+
+    // Fallback: return stringified JSON for unknown types
     return content;
   } catch {
     // Not JSON, return as-is
