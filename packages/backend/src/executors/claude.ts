@@ -144,7 +144,9 @@ export class ClaudeCodeExecutor implements Executor {
         for (const line of lines) {
           if (line.trim()) {
             const output = this.parseOutput(line, logType);
-            this.emitOutput(output);
+            if (output) {
+              this.emitOutput(output);
+            }
           }
         }
       }
@@ -152,7 +154,9 @@ export class ClaudeCodeExecutor implements Executor {
       // Process remaining buffer
       if (buffer.trim()) {
         const output = this.parseOutput(buffer, logType);
-        this.emitOutput(output);
+        if (output) {
+          this.emitOutput(output);
+        }
       }
     } catch (error) {
       this.emitOutput({
@@ -167,7 +171,7 @@ export class ClaudeCodeExecutor implements Executor {
   private parseOutput(
     line: string,
     logType: "stdout" | "stderr",
-  ): ExecutorOutput {
+  ): ExecutorOutput | null {
     if (logType === "stderr") {
       return { content: line, logType: "stderr" };
     }
@@ -197,14 +201,171 @@ export class ClaudeCodeExecutor implements Executor {
         this.handleCompletion();
       }
 
+      // Parse Claude Code output to human-readable format
+      const parsed = this.parseClaudeCodeMessage(msg);
+      if (parsed === null) {
+        return null; // Skip this message
+      }
+
       return {
-        content: JSON.stringify(msg),
+        content: parsed,
         logType: "stdout",
       };
     } catch {
       // Non-JSON output
       return { content: line, logType: "stdout" };
     }
+  }
+
+  private parseClaudeCodeMessage(msg: Record<string, unknown>): string | null {
+    // Handle result type (final result)
+    if (msg.type === "result") {
+      if (msg.is_error) {
+        return `[error] ${msg.result || "Task failed"}`;
+      }
+      return (msg.result as string) || "Task completed";
+    }
+
+    // Handle system messages
+    if (msg.type === "system") {
+      if (msg.subtype === "init") {
+        return `[init] Claude Code v${msg.claude_code_version} (model: ${msg.model})`;
+      }
+      // Handle other system subtypes if any
+      return `[system] ${msg.subtype || ""}: ${JSON.stringify(msg)}`;
+    }
+
+    // Handle assistant messages
+    if (msg.type === "assistant" && msg.message) {
+      const message = msg.message as Record<string, unknown>;
+      const contents = message.content as Record<string, unknown>[];
+      if (!contents) {
+        return null;
+      }
+
+      const parts: string[] = [];
+
+      for (const item of contents) {
+        if (item.type === "text") {
+          parts.push(item.text as string);
+        } else if (item.type === "thinking") {
+          parts.push(`[thinking] ${item.thinking || ""}`);
+        } else if (item.type === "tool_use") {
+          const formattedInput = this.formatToolInput(
+            item.name as string,
+            (item.input as Record<string, unknown>) || {},
+          );
+          parts.push(`[${item.name}] ${formattedInput}`);
+        }
+      }
+
+      return parts.join("\n\n") || null;
+    }
+
+    // Handle user messages (tool results)
+    if (msg.type === "user" && msg.message) {
+      const message = msg.message as Record<string, unknown>;
+      const contents = message.content as Record<string, unknown>[];
+      if (!contents) {
+        return null;
+      }
+
+      const parts: string[] = [];
+
+      for (const item of contents) {
+        if (item.type === "tool_result") {
+          const formattedResult = this.formatToolResult(item.content);
+          if (item.is_error) {
+            parts.push(`[error] ${formattedResult}`);
+          } else {
+            parts.push(`[result] ${formattedResult}`);
+          }
+        } else if (item.type === "text") {
+          parts.push(item.text as string);
+        }
+      }
+
+      return parts.join("\n\n") || null;
+    }
+
+    // Handle cost/usage information if present at top level
+    if (msg.usage || msg.cost_usd) {
+      const usage = (msg.usage as Record<string, number>) || {};
+      const costUsd = msg.cost_usd as number | undefined;
+      const costInfo = costUsd ? `$${costUsd.toFixed(4)}` : "";
+      const tokenInfo =
+        usage.input_tokens || usage.output_tokens
+          ? `(in: ${usage.input_tokens || 0}, out: ${usage.output_tokens || 0})`
+          : "";
+      if (costInfo || tokenInfo) {
+        return `[usage] ${costInfo} ${tokenInfo}`.trim();
+      }
+    }
+
+    return null; // Unknown type
+  }
+
+  private formatToolInput(
+    toolName: string,
+    input: Record<string, unknown>,
+  ): string {
+    switch (toolName) {
+      case "Read":
+        return (input.file_path as string) || JSON.stringify(input);
+      case "Write":
+        return (input.file_path as string) || JSON.stringify(input);
+      case "Edit":
+        return (input.file_path as string) || JSON.stringify(input);
+      case "Bash":
+        return (input.command as string) || JSON.stringify(input);
+      case "Glob":
+        return `${input.pattern || ""}${input.path ? ` in ${input.path}` : ""}`;
+      case "Grep":
+        return `"${input.pattern || ""}"${input.path ? ` in ${input.path}` : ""}`;
+      case "Task":
+        return (
+          (input.description as string) ||
+          (input.prompt as string) ||
+          JSON.stringify(input)
+        );
+      case "TodoWrite":
+        return "Updating task list";
+      case "WebSearch":
+        return (input.query as string) || JSON.stringify(input);
+      case "WebFetch":
+        return (input.url as string) || JSON.stringify(input);
+      case "LSP":
+        return `${input.operation || ""} at ${input.filePath || ""}:${input.line || ""}`;
+      default: {
+        const str = JSON.stringify(input);
+        return str.length > 150 ? `${str.slice(0, 150)}...` : str;
+      }
+    }
+  }
+
+  private formatToolResult(content: unknown): string {
+    if (typeof content === "string") {
+      const lines = content.split("\n");
+      if (lines.length > 20) {
+        return `${lines.slice(0, 20).join("\n")}\n... (${lines.length - 20} more lines)`;
+      }
+      return content.length > 2000 ? `${content.slice(0, 2000)}...` : content;
+    }
+    if (Array.isArray(content)) {
+      return content
+        .map((item) => {
+          if (typeof item === "string") {
+            return item;
+          }
+          if (item.type === "text") {
+            return item.text;
+          }
+          return JSON.stringify(item);
+        })
+        .join("\n");
+    }
+    const str = JSON.stringify(content, null, 2);
+    return str.length > 2000 ? `${str.slice(0, 2000)}...` : str;
   }
 
   private handleCompletion(): void {

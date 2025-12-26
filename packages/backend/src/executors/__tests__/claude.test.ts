@@ -414,13 +414,17 @@ describe("ClaudeCodeExecutor", () => {
         flush: mock(() => {}),
       };
 
-      // Create a stream that emits JSON data
+      // Create a stream that emits JSON data (using actual Claude Code format)
       const mockStdout = new ReadableStream({
         start(controller) {
           const encoder = new TextEncoder();
-          controller.enqueue(
-            encoder.encode('{"type":"message","content":"Hello"}\n'),
-          );
+          const msg = {
+            type: "assistant",
+            message: {
+              content: [{ type: "text", text: "Hello" }],
+            },
+          };
+          controller.enqueue(encoder.encode(`${JSON.stringify(msg)}\n`));
           controller.close();
         },
       });
@@ -446,10 +450,9 @@ describe("ClaudeCodeExecutor", () => {
         // Wait for stream processing
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // Should have stdout output
+        // Should have stdout output (parsed from assistant message)
         const stdoutLog = outputs.find((o) => o.logType === "stdout");
         expect(stdoutLog).toBeDefined();
-        expect(stdoutLog?.content).toContain("message");
         expect(stdoutLog?.content).toContain("Hello");
       } finally {
         Bun.spawn = originalSpawn;

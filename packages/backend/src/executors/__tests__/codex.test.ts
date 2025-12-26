@@ -408,34 +408,30 @@ describe("CodexExecutor", () => {
       // @ts-expect-error - mocking Bun.spawn
       Bun.spawn = mock(() => {
         const encoder = new TextEncoder();
+        // Send thread.started event
         setTimeout(() => {
-          stdoutController.enqueue(encoder.encode('{"id":1,"result":{}}\n'));
-        }, 5);
-        setTimeout(() => {
+          const threadStarted = {
+            type: "thread.started",
+            thread_id: "test-thread-123",
+          };
           stdoutController.enqueue(
-            encoder.encode(
-              '{"id":2,"result":{"conversationId":"test-conv-123"}}\n',
-            ),
+            encoder.encode(`${JSON.stringify(threadStarted)}\n`),
           );
-        }, 10);
-        setTimeout(() => {
-          stdoutController.enqueue(encoder.encode('{"id":3,"result":{}}\n'));
-        }, 15);
-        setTimeout(() => {
-          stdoutController.enqueue(encoder.encode('{"id":4,"result":{}}\n'));
-        }, 20);
-        // Send an agent message event
+        }, 5);
+        // Send an agent_message item.completed event (actual Codex format)
         setTimeout(() => {
           const event = {
-            method: "codex/event/agentMessage",
-            params: {
-              msg: { type: "agentMessage", message: "Hello from Codex!" },
+            type: "item.completed",
+            item: {
+              id: "item_1",
+              type: "agent_message",
+              text: "Hello from Codex!",
             },
           };
           stdoutController.enqueue(
             encoder.encode(`${JSON.stringify(event)}\n`),
           );
-        }, 30);
+        }, 20);
         return mockProcess;
       });
 
@@ -443,22 +439,13 @@ describe("CodexExecutor", () => {
         await executor.start(config);
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        const eventLog = outputs
-          .filter((o) => o.logType === "stdout")
-          .map((o) => {
-            try {
-              return JSON.parse(o.content);
-            } catch {
-              return null;
-            }
-          })
-          .find((m) => m && m.method === "codex/event/agentMessage");
+        // Find the parsed agent_message output
+        const agentMessageLog = outputs.find(
+          (o) => o.logType === "stdout" && o.content === "Hello from Codex!",
+        );
 
-        expect(eventLog).toBeDefined();
-        const eventLogTyped = eventLog as {
-          params: { msg: { message: string } };
-        };
-        expect(eventLogTyped.params.msg.message).toBe("Hello from Codex!");
+        expect(agentMessageLog).toBeDefined();
+        expect(agentMessageLog?.content).toBe("Hello from Codex!");
       } finally {
         Bun.spawn = originalSpawn;
       }
