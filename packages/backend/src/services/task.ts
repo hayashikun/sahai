@@ -14,6 +14,7 @@ import { CodexExecutor } from "../executors/codex";
 import { CopilotExecutor } from "../executors/copilot";
 import { GeminiExecutor } from "../executors/gemini";
 import type { Executor } from "../executors/interface";
+import { showTaskCompletedNotification } from "../lib/notification";
 import { playSuccessSound } from "../lib/sound";
 import { createBranch, deleteBranch } from "./git";
 import { copyFilesToWorktree, runLifecycleScript } from "./lifecycle";
@@ -300,6 +301,7 @@ async function transitionToInReviewInternal(
   });
 
   playSuccessSound();
+  showTaskCompletedNotification(task?.title ?? "Task");
   console.log(`[task-service] Transition to InReview complete`);
 }
 
