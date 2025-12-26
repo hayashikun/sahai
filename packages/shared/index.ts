@@ -233,6 +233,16 @@ export const ApiError = z.object({
 export const NotificationTrigger = z.enum(["completed", "failed", "all"]);
 export type NotificationTrigger = z.infer<typeof NotificationTrigger>;
 
+// Loading animation type enum
+export const LoadingAnimationType = z.enum([
+  "dots",
+  "cat",
+  "spinner",
+  "typing",
+  "none",
+]);
+export type LoadingAnimationType = z.infer<typeof LoadingAnimationType>;
+
 // Settings schema
 export const SettingsSchema = z.object({
   // General > Terminal
@@ -242,6 +252,8 @@ export const SettingsSchema = z.object({
   "notification.enabled": z.boolean(),
   "notification.trigger": NotificationTrigger,
   "notification.sound": z.string().nullable(),
+  // General > UI
+  "ui.loadingAnimation": LoadingAnimationType,
   // Agent
   "agent.claudeCode.enabled": z.boolean(),
   "agent.claudeCode.path": z.string().nullable(),

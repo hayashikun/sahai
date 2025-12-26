@@ -13,6 +13,11 @@ export const NOTIFICATION_DEFAULTS = {
   sound: process.platform === "darwin" ? "Glass" : null,
 } as const;
 
+// General > UI
+export const UI_DEFAULTS = {
+  loadingAnimation: "dots" as const,
+} as const;
+
 // Agent
 export const AGENT_DEFAULTS = {
   claudeCode: { enabled: true, path: "claude" },
@@ -28,6 +33,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   "notification.enabled": NOTIFICATION_DEFAULTS.enabled,
   "notification.trigger": NOTIFICATION_DEFAULTS.trigger,
   "notification.sound": NOTIFICATION_DEFAULTS.sound,
+  "ui.loadingAnimation": UI_DEFAULTS.loadingAnimation,
   "agent.claudeCode.enabled": AGENT_DEFAULTS.claudeCode.enabled,
   "agent.claudeCode.path": AGENT_DEFAULTS.claudeCode.path,
   "agent.codex.enabled": AGENT_DEFAULTS.codex.enabled,

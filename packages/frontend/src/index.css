@@ -35,3 +35,114 @@
     color: var(--color-foreground);
   }
 }
+
+/* Loading Animations */
+@layer utilities {
+  /* Dots blinking animation */
+  @keyframes dots-blink {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .animate-dots-blink {
+    animation: dots-blink 1.4s ease-in-out infinite;
+  }
+
+  .animation-delay-0 {
+    animation-delay: 0s;
+  }
+
+  .animation-delay-150 {
+    animation-delay: 0.15s;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 0.2s;
+  }
+
+  .animation-delay-300 {
+    animation-delay: 0.3s;
+  }
+
+  .animation-delay-400 {
+    animation-delay: 0.4s;
+  }
+
+  /* Running cat animation */
+  .animate-cat-run .cat-frame {
+    display: none;
+  }
+
+  .animate-cat-run .cat-frame-1 {
+    animation: cat-frame-1 0.6s steps(1) infinite;
+  }
+
+  .animate-cat-run .cat-frame-2 {
+    animation: cat-frame-2 0.6s steps(1) infinite;
+  }
+
+  @keyframes cat-frame-1 {
+    0%,
+    50% {
+      display: block;
+    }
+    51%,
+    100% {
+      display: none;
+    }
+  }
+
+  @keyframes cat-frame-2 {
+    0%,
+    50% {
+      display: none;
+    }
+    51%,
+    100% {
+      display: block;
+    }
+  }
+
+  /* Typing bounce animation */
+  @keyframes typing-bounce {
+    0%,
+    80%,
+    100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-6px);
+    }
+  }
+
+  .animate-typing-bounce {
+    animation: typing-bounce 1s ease-in-out infinite;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-dots-blink,
+  .animate-cat-run,
+  .animate-typing-bounce,
+  .animate-spin {
+    animation: none;
+  }
+
+  .animate-dots-blink {
+    opacity: 1;
+  }
+
+  .animate-cat-run .cat-frame-1 {
+    display: block;
+  }
+
+  .animate-cat-run .cat-frame-2 {
+    display: none;
+  }
+}

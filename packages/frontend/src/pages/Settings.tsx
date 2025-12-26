@@ -6,11 +6,16 @@ import {
   Play,
   RefreshCw,
   Settings2,
+  Sparkles,
   Terminal,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { Settings as SettingsData, SettingsUpdate } from "shared";
+import type {
+  LoadingAnimationType,
+  Settings as SettingsData,
+  SettingsUpdate,
+} from "shared";
 import {
   getSettings,
   getSounds,
@@ -19,6 +24,10 @@ import {
   updateSettings,
   validatePath,
 } from "../api/settings";
+import {
+  LOADING_ANIMATION_LABELS,
+  LoadingAnimation,
+} from "../components/loading-animations";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -407,6 +416,60 @@ function GeneralSection({
                   ? "Linux system sounds"
                   : "System sounds"}
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading Animation Settings */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-gray-500" />
+          <h3 className="font-medium text-gray-900">Loading Animation</h3>
+        </div>
+
+        <div className="space-y-4 pl-7">
+          <div className="space-y-2">
+            <Label htmlFor="loading-animation">Animation Style</Label>
+            <Select
+              value={settings["ui.loadingAnimation"]}
+              onValueChange={(value) =>
+                onUpdate({
+                  "ui.loadingAnimation": value as LoadingAnimationType,
+                })
+              }
+              disabled={saving}
+            >
+              <SelectTrigger id="loading-animation">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(
+                  Object.entries(LOADING_ANIMATION_LABELS) as [
+                    LoadingAnimationType,
+                    string,
+                  ][]
+                ).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">
+              Animation shown at the bottom of logs when agent is running
+            </p>
+          </div>
+
+          {/* Preview */}
+          <div className="space-y-2">
+            <Label>Preview</Label>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 flex items-center justify-center min-h-[60px]">
+              {settings["ui.loadingAnimation"] === "none" ? (
+                <span className="text-xs text-gray-400">No animation</span>
+              ) : (
+                <LoadingAnimation type={settings["ui.loadingAnimation"]} />
+              )}
+            </div>
           </div>
         </div>
       </div>
